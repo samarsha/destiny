@@ -17,6 +17,7 @@ type alias Model =
 type alias Entity =
   { id : Uuid              -- The entity ID.
   , aspects : List Aspect  -- The aspects that belong to the entity.
+  , collapsed : Bool       -- True if the entity is collapsed.
   }
 
 {-| An aspect. -}
@@ -29,10 +30,11 @@ type alias Aspect =
 type Message
   = AddEntity
   | AddEntityWithId Uuid
+  | ToggleEntity Entity
   | AddAspect Entity
   | AddAspectWithId Entity Uuid
   | AddDie Aspect
-  | SelectDie Aspect Int Bool
+  | ToggleDie Aspect Int Bool
   | Roll Aspect
   | RollResult Int
 
@@ -55,13 +57,15 @@ update message model =
       (model, Random.generate AddEntityWithId uuidGenerator)
     AddEntityWithId id ->
       (addEntity id model, Cmd.none)
+    ToggleEntity entity ->
+      (updateEntity { entity | collapsed = not entity.collapsed } model, Cmd.none)
     AddAspect parent ->
       (model, Random.generate (AddAspectWithId parent) uuidGenerator)
     AddAspectWithId parent id ->
       (addAspect parent id model, Cmd.none)
     AddDie aspect ->
       (updateAspect { aspect | dice = False :: aspect.dice } model, Cmd.none)
-    SelectDie aspect index selected ->
+    ToggleDie aspect index selected ->
       (updateAspect { aspect | dice = replace index selected aspect.dice } model, Cmd.none)
     Roll aspect ->
       rollAspect aspect model
@@ -73,19 +77,23 @@ replace index item = List.indexedMap (\i x -> if i == index then item else x)
 
 addEntity : Uuid -> Model -> Model
 addEntity id model =
-  let entity = { id = id, aspects = [] }
+  let entity = { id = id, aspects = [], collapsed = False }
   in { model | entities = entity :: model.entities }
 
-addAspect : Entity -> Uuid -> Model -> Model
-addAspect parent id model =
+updateEntity : Entity -> Model -> Model
+updateEntity entity model =
   let
-    aspect = { id = id, text = "Hello, world!", dice = [] }
-    updateEntity entity =
-      if entity.id == parent.id
-      then { entity | aspects = aspect :: entity.aspects }
-      else entity
+    replaceEntity originalEntity =
+      if originalEntity.id == entity.id
+      then entity
+      else originalEntity
   in
-    { model | entities = List.map updateEntity model.entities }
+    { model | entities = List.map replaceEntity model.entities }
+
+addAspect : Entity -> Uuid -> Model -> Model
+addAspect entity id =
+  let aspect = { id = id, text = "Hello, world!", dice = [] }
+  in updateEntity { entity | aspects = aspect :: entity.aspects }
 
 updateAspect : Aspect -> Model -> Model
 updateAspect aspect model =
@@ -94,9 +102,9 @@ updateAspect aspect model =
       if originalAspect.id == aspect.id
       then aspect
       else originalAspect
-    updateEntity entity = { entity | aspects = List.map replaceAspect entity.aspects }
+    updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
   in
-    { model | entities = List.map updateEntity model.entities }
+    { model | entities = List.map updateEntityAspects model.entities }
 
 rollAspect : Aspect -> Model -> (Model, Cmd Message)
 rollAspect aspect model =
@@ -119,9 +127,14 @@ viewEntity : Entity -> Html Message
 viewEntity entity =
   div [] <| List.append
     [ text "Entity"
+    , button [ onClick (ToggleEntity entity) ]
+             [ text (if entity.collapsed then "Show" else "Hide") ]
     , button [ onClick (AddAspect entity) ] [ text "+" ]
     ]
-    (List.map viewAspect entity.aspects)
+    ( if entity.collapsed
+      then []
+      else List.map viewAspect entity.aspects
+    )
 
 viewAspect : Aspect -> Html Message
 viewAspect aspect =
@@ -130,7 +143,7 @@ viewAspect aspect =
       input
         [ type_ "checkbox"
         , checked selected
-        , onCheck (SelectDie aspect index)
+        , onCheck (ToggleDie aspect index)
         ]
         []
   in
