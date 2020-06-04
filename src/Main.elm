@@ -2,8 +2,8 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (checked, type_)
-import Html.Events exposing (onCheck, onClick)
+import Html.Attributes exposing (checked, type_, value)
+import Html.Events exposing (onCheck, onClick, onInput)
 import Random
 import Uuid exposing (Uuid, uuidGenerator)
 
@@ -34,6 +34,7 @@ type Message
   | RemoveEntity Entity
   | AddAspect Entity
   | AddAspectWithId Entity Uuid
+  | EditAspect Aspect
   | RemoveAspect Aspect
   | AddDie Aspect
   | ToggleDie Aspect Int Bool
@@ -68,6 +69,8 @@ update message model =
       (model, Random.generate (AddAspectWithId parent) uuidGenerator)
     AddAspectWithId parent id ->
       (addAspect parent id model, Cmd.none)
+    EditAspect aspect ->
+      (updateAspect aspect model, Cmd.none)
     RemoveAspect aspect ->
       (removeAspect aspect model, Cmd.none)
     AddDie aspect ->
@@ -178,9 +181,10 @@ viewAspect aspect =
         , onCheck (ToggleDie aspect index)
         ]
         []
+    edit text = EditAspect { aspect | text = text }
   in
     div [] <| List.concat
-      [ [ textarea [] [ text aspect.text ]
+      [ [ textarea [ value aspect.text, onInput edit ] []
         , button [ onClick (RemoveAspect aspect) ] [ text "Remove" ]
         , button [ onClick (AddDie aspect) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect) ] [ text "-" ]
