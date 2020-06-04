@@ -31,10 +31,13 @@ type Message
   = AddEntity
   | AddEntityWithId Uuid
   | ToggleEntity Entity
+  | RemoveEntity Entity
   | AddAspect Entity
   | AddAspectWithId Entity Uuid
+  | RemoveAspect Aspect
   | AddDie Aspect
   | ToggleDie Aspect Int Bool
+  | RemoveDie Aspect
   | Roll Aspect
   | RollResult Int
 
@@ -59,14 +62,20 @@ update message model =
       (addEntity id model, Cmd.none)
     ToggleEntity entity ->
       (updateEntity { entity | collapsed = not entity.collapsed } model, Cmd.none)
+    RemoveEntity entity ->
+      (removeEntity entity model, Cmd.none)
     AddAspect parent ->
       (model, Random.generate (AddAspectWithId parent) uuidGenerator)
     AddAspectWithId parent id ->
       (addAspect parent id model, Cmd.none)
+    RemoveAspect aspect ->
+      (removeAspect aspect model, Cmd.none)
     AddDie aspect ->
       (updateAspect { aspect | dice = False :: aspect.dice } model, Cmd.none)
     ToggleDie aspect index selected ->
       (updateAspect { aspect | dice = replace index selected aspect.dice } model, Cmd.none)
+    RemoveDie aspect ->
+      (removeDie aspect model, Cmd.none)
     Roll aspect ->
       rollAspect aspect model
     RollResult roll ->
@@ -90,6 +99,10 @@ updateEntity entity model =
   in
     { model | entities = List.map replaceEntity model.entities }
 
+removeEntity : Entity -> Model -> Model
+removeEntity entity model =
+  { model | entities = List.filter (\e -> e.id /= entity.id) model.entities }
+
 addAspect : Entity -> Uuid -> Model -> Model
 addAspect entity id =
   let aspect = { id = id, text = "Hello, world!", dice = [] }
@@ -106,6 +119,14 @@ updateAspect aspect model =
   in
     { model | entities = List.map updateEntityAspects model.entities }
 
+removeAspect : Aspect -> Model -> Model
+removeAspect aspect model =
+  let
+    updateEntityAspects entity =
+      { entity | aspects = List.filter (\a -> a.id /= aspect.id) entity.aspects }
+  in
+    { model | entities = List.map updateEntityAspects model.entities }
+
 rollAspect : Aspect -> Model -> (Model, Cmd Message)
 rollAspect aspect model =
   let
@@ -114,6 +135,16 @@ rollAspect aspect model =
     command = Random.generate RollResult (Random.int rolled (6 * rolled))
   in
     (newModel, command)
+
+removeDie : Aspect -> Model -> Model
+removeDie aspect =
+  let
+    newDice =
+      case aspect.dice of
+        [] -> []
+        _ :: xs -> xs
+  in
+    updateAspect { aspect | dice = newDice }
 
 view : Model -> Html Message
 view model =
@@ -129,6 +160,7 @@ viewEntity entity =
     [ text "Entity"
     , button [ onClick (ToggleEntity entity) ]
              [ text (if entity.collapsed then "Show" else "Hide") ]
+    , button [ onClick (RemoveEntity entity) ] [ text "Remove" ]
     , button [ onClick (AddAspect entity) ] [ text "+" ]
     ]
     ( if entity.collapsed
@@ -149,7 +181,9 @@ viewAspect aspect =
   in
     div [] <| List.concat
       [ [ textarea [] [ text aspect.text ]
+        , button [ onClick (RemoveAspect aspect) ] [ text "Remove" ]
         , button [ onClick (AddDie aspect) ] [ text "+" ]
+        , button [ onClick (RemoveDie aspect) ] [ text "-" ]
         ]
       , List.indexedMap die aspect.dice
       , [ button [ onClick (Roll aspect) ] [ text "Roll" ] ]
