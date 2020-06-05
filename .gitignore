@@ -1,2 +1,4 @@
-/elm-stuff
-/index.html
+/client/elm-stuff
+/client/index.html
+/server/.stack-work
+/server/*.cabal

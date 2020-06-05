@@ -1,0 +1,19 @@
+name: destiny-server
+version: 0.1.0.0
+github: samarsha/destiny
+author: Sarah Marshall
+maintainer: sarah@sarahmarshall.name
+copyright: 2020 Sarah Marshall
+
+dependencies:
+- base >= 4.7 && < 5
+- safe
+- text
+- websockets
+
+executables:
+  destiny-server:
+    main: Main.hs
+    source-dirs: src
+    ghc-options:
+    - -Wall
