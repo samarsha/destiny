@@ -52,10 +52,10 @@ moduleHeaders :: String -> String
 moduleHeaders name = unlines
     [ moduleHeader Elm0p18 name
     , ""
+    , "import Dict exposing (Dict)"
     , "import Json.Decode"
     , "import Json.Encode exposing (Value)"
     , "import Json.Helpers exposing (..)"
-    , "import Dict exposing (Dict)"
     , "import Set exposing (Set)"
     , ""
     ]

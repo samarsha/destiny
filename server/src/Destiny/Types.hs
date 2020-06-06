@@ -14,11 +14,7 @@ import Elm.Derive
 
 -- | An opaque identifier.
 newtype Id = Id Int
-    deriving (Enum, Eq, Ord)
-
-instance Bounded Id where
-    minBound = Id 0
-    maxBound = Id maxBound
+    deriving (Bounded, Enum, Eq, Ord)
 
 -- | The world.
 data World = World
