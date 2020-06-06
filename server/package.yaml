@@ -21,6 +21,6 @@ library:
 executables:
   destiny-server:
     main: Main.hs
-    source-dirs: app
+    source-dirs: server
     dependencies:
     - destiny-server
