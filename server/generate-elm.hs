@@ -32,21 +32,21 @@ main = do
 
 definitions :: [DefineElm]
 definitions =
-    [ DefineElm (Proxy :: Proxy World)
+    [ DefineElm (Proxy :: Proxy Id)
+    , DefineElm (Proxy :: Proxy World)
     , DefineElm (Proxy :: Proxy Entity)
     , DefineElm (Proxy :: Proxy Aspect)
     , DefineElm (Proxy :: Proxy Request)
     ]
 
 stripFieldPrefixes :: ETypeDef -> ETypeDef
-stripFieldPrefixes = \case
-    ETypeAlias alias ->
-        let prefix = lowerFirst $ et_name $ ea_name alias
-            strip fieldName = maybe fieldName lowerFirst $ stripPrefix prefix fieldName
-        in ETypeAlias $ alias { ea_fields = map (first strip) (ea_fields alias) }
-    typeDef -> typeDef
+stripFieldPrefixes (ETypeAlias alias) =
+    ETypeAlias $ alias { ea_fields = map (first strip) (ea_fields alias) }
   where
+    strip fieldName = maybe fieldName lowerFirst $ stripPrefix prefix fieldName
+    prefix = lowerFirst $ et_name $ ea_name alias
     lowerFirst (x : xs) = toLower x : xs
+stripFieldPrefixes typeDef = typeDef
 
 moduleHeaders :: String -> String
 moduleHeaders name = unlines

@@ -1,7 +1,9 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Types
-    ( World (..)
+    ( Id
+    , World (..)
     , Entity (..)
     , Aspect (..)
     , Request (..)
@@ -9,6 +11,14 @@ module Destiny.Types
 where
 
 import Elm.Derive
+
+-- | An opaque identifier.
+newtype Id = Id Int
+    deriving (Enum, Eq, Ord)
+
+instance Bounded Id where
+    minBound = Id 0
+    maxBound = Id maxBound
 
 -- | The world.
 data World = World
@@ -21,28 +31,22 @@ data World = World
 -- | An entity.
 data Entity = Entity
     { -- | The entity ID.
-      entityId :: EntityId
+      entityId :: Id
       -- | The aspects that belong to the entity.
     , entityAspects :: [Aspect]
       -- | True if the entity is collapsed.
     , entityCollapsed :: Bool
     }
 
--- | An entity ID.
-type EntityId = Int
-
 -- | An aspect.
 data Aspect = Aspect
     { -- | The aspect ID.
-      aspectId :: AspectId
+      aspectId :: Id
       -- | The description of the aspect.
     , aspectText :: String
       -- | A list of the selected status for each free invoke die.
     , aspectDice :: [Bool]
     }
-
--- | An aspect ID.
-type AspectId = Int
 
 data Request
     = AddEntity
@@ -59,4 +63,5 @@ data Request
 deriveBoth defaultOptions ''World
 deriveBoth defaultOptions ''Entity
 deriveBoth defaultOptions ''Aspect
+deriveBoth defaultOptions ''Id
 deriveBoth defaultOptions ''Request

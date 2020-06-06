@@ -6,15 +6,14 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Data.Text (Text)
+import Destiny.Types
 import Network.WebSockets
 import Safe.Foldable
 
 data Client = Client
-    { clientId :: ClientId
+    { clientId :: Id
     , clientConnection :: Connection
     }
-
-type ClientId = Int
 
 main :: IO ()
 main = do
@@ -35,7 +34,7 @@ addClient :: Connection -> [Client] -> ([Client], Client)
 addClient connection clients = (client : clients, client)
   where
     client = Client { clientId = cid, clientConnection = connection }
-    cid = maybe 0 succ $ maximumMay $ map clientId clients
+    cid = maybe minBound succ $ maximumMay $ map clientId clients
 
-removeClient :: ClientId -> [Client] -> [Client]
+removeClient :: Id -> [Client] -> [Client]
 removeClient cid clients = filter ((/=) cid . clientId) clients
