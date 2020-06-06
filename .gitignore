@@ -1,4 +1,5 @@
 /client/elm-stuff
 /client/index.html
+/client/src/Destiny/Generated
 /server/.stack-work
-/server/*.cabal
+/server/destiny-server.cabal
