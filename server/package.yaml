@@ -6,6 +6,7 @@ maintainer: sarah@sarahmarshall.name
 copyright: 2020 Sarah Marshall
 
 dependencies:
+- aeson
 - base >= 4.7 && < 5
 - elm-bridge
 - safe

@@ -32,11 +32,11 @@ main = do
 
 definitions :: [DefineElm]
 definitions =
-    [ DefineElm (Proxy :: Proxy Id)
-    , DefineElm (Proxy :: Proxy World)
+    [ DefineElm (Proxy :: Proxy Aspect)
+    , DefineElm (Proxy :: Proxy ClientRequest)
     , DefineElm (Proxy :: Proxy Entity)
-    , DefineElm (Proxy :: Proxy Aspect)
-    , DefineElm (Proxy :: Proxy Request)
+    , DefineElm (Proxy :: Proxy Id)
+    , DefineElm (Proxy :: Proxy World)
     ]
 
 stripFieldPrefixes :: ETypeDef -> ETypeDef

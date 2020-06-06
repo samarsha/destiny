@@ -2,19 +2,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Types
-    ( Id
-    , World (..)
+    ( Aspect (..)
+    , ClientRequest (..)
     , Entity (..)
-    , Aspect (..)
-    , Request (..)
+    , World (..)
+    , Id
     )
 where
 
 import Elm.Derive
-
--- | An opaque identifier.
-newtype Id = Id Int
-    deriving (Bounded, Enum, Eq, Ord)
 
 -- | The world.
 data World = World
@@ -44,7 +40,11 @@ data Aspect = Aspect
     , aspectDice :: [Bool]
     }
 
-data Request
+-- | An opaque identifier.
+newtype Id = Id Int
+    deriving (Bounded, Enum, Eq, Ord)
+
+data ClientRequest
     = AddEntity
     | ToggleEntity Entity
     | RemoveEntity Entity
@@ -56,8 +56,8 @@ data Request
     | RemoveDie Aspect
     | Roll Aspect
 
-deriveBoth defaultOptions ''World
-deriveBoth defaultOptions ''Entity
 deriveBoth defaultOptions ''Aspect
+deriveBoth defaultOptions ''ClientRequest
+deriveBoth defaultOptions ''Entity
 deriveBoth defaultOptions ''Id
-deriveBoth defaultOptions ''Request
+deriveBoth defaultOptions ''World
