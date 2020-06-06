@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Destiny.Types
+module Destiny.Model
     ( Aspect (..)
     , ClientRequest (..)
     , Entity (..)

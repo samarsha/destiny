@@ -12,7 +12,7 @@ import Control.Arrow
 import Data.Char
 import Data.List
 import Data.Proxy
-import Destiny.Types
+import Destiny.Model
 import Elm.Module
 import Elm.TyRep
 import Elm.Versions
@@ -24,8 +24,8 @@ main :: IO ()
 main = do
     outputDir <- generatedDir <$> takeDirectory <$> getProgPath
     createDirectoryIfMissing True outputDir
-    writeFile (outputDir </> "Types.elm") $
-        moduleHeaders "Destiny.Generated.Types" ++
+    writeFile (outputDir </> "Model.elm") $
+        moduleHeaders "Destiny.Generated.Model" ++
         makeModuleContentWithAlterations stripFieldPrefixes definitions
   where
     generatedDir projectDir = projectDir </> "client" </> "src" </> "Destiny" </> "Generated"

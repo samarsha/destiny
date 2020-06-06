@@ -8,7 +8,7 @@ import Control.Exception
 import Control.Monad
 import Data.Aeson
 import Debug.Trace
-import Destiny.Types
+import Destiny.Model
 import Network.WebSockets
 import Safe.Foldable
 

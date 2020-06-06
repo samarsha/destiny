@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Destiny.Generated.Types exposing (Aspect, Entity, Id, World)
+import Destiny.Generated.Model exposing (Aspect, Entity, Id, World)
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (checked, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
