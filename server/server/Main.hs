@@ -57,7 +57,7 @@ removeClient cid state = state { stateClients = filter ((/=) cid . clientId) $ s
 handleMessage :: Connection -> MVar State -> IO ()
 handleMessage connection stateVar = decode <$> receiveData connection >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
-        world' <- updateWorld (stateWorld state) message
+        world' <- updateWorld message $ stateWorld state
         broadcast world' $ stateClients state
         return state { stateWorld = world' }
     Nothing -> return ()

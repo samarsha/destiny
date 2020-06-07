@@ -60,18 +60,18 @@ data ClientRequest
     | RemoveDie Aspect
     | Roll Aspect
 
-updateWorld :: World -> ClientRequest -> IO World
-updateWorld world = \case
-    AddEntity -> addEntity world
-    ToggleEntity entity -> return $ toggleEntity world entity
-    RemoveEntity entity -> return $ removeEntity world entity
-    AddAspect entity -> addAspect world entity
-    EditAspect aspect -> return $ updateAspect world aspect
-    RemoveAspect _ -> putStrLn "RemoveAspect" >> return world
-    AddDie _ -> putStrLn "AddDie" >> return world
-    ToggleDie _ _ _ -> putStrLn "ToggleDie" >> return world
-    RemoveDie _ -> putStrLn "RemoveDie" >> return world
-    Roll _ -> putStrLn "Roll" >> return world
+updateWorld :: ClientRequest -> World -> IO World
+updateWorld = \case
+    AddEntity -> addEntity
+    ToggleEntity entity -> return . toggleEntity entity
+    RemoveEntity entity -> return . removeEntity entity
+    AddAspect entity -> addAspect entity
+    EditAspect aspect -> return . updateAspect aspect
+    RemoveAspect _ -> \world -> putStrLn "RemoveAspect" >> return world
+    AddDie _ -> \world -> putStrLn "AddDie" >> return world
+    ToggleDie _ _ _ -> \world -> putStrLn "ToggleDie" >> return world
+    RemoveDie _ -> \world -> putStrLn "RemoveDie" >> return world
+    Roll _ -> \world -> putStrLn "Roll" >> return world
 
 addEntity :: World -> IO World
 addEntity world = do
@@ -79,29 +79,29 @@ addEntity world = do
     let entity = Entity { entityId = eid, entityAspects = [], entityCollapsed = False }
     return world { worldEntities = entity : worldEntities world }
 
-updateEntity :: World -> Entity -> World
-updateEntity world entity = world { worldEntities = map replaceEntity $ worldEntities world }
+updateEntity :: Entity -> World -> World
+updateEntity entity world = world { worldEntities = map replaceEntity $ worldEntities world }
   where
     replaceEntity entity'
         | entityId entity' == entityId entity = entity
         | otherwise = entity'
 
-toggleEntity :: World -> Entity -> World
-toggleEntity world entity =
-    updateEntity world entity { entityCollapsed = not (entityCollapsed entity) }
+toggleEntity :: Entity -> World -> World
+toggleEntity entity world =
+    updateEntity entity { entityCollapsed = not (entityCollapsed entity) } world
 
-removeEntity :: World -> Entity -> World
-removeEntity world entity =
+removeEntity :: Entity -> World -> World
+removeEntity entity world =
     world { worldEntities = filter ((/=) (entityId entity) . entityId) $ worldEntities world }
 
-addAspect :: World -> Entity -> IO World
-addAspect world entity = do
+addAspect :: Entity -> World -> IO World
+addAspect entity world = do
     aid <- randomRIO (Id 0, Id 1000000)
     let aspect = Aspect { aspectId = aid, aspectText = "", aspectDice = [] }
-    return $ updateEntity world entity { entityAspects = aspect : entityAspects entity }
+    return $ updateEntity entity { entityAspects = aspect : entityAspects entity } world
 
-updateAspect :: World -> Aspect -> World
-updateAspect world aspect = world { worldEntities = map updateEntityAspects $ worldEntities world }
+updateAspect :: Aspect -> World -> World
+updateAspect aspect world = world { worldEntities = map updateEntityAspects $ worldEntities world }
   where
     updateEntityAspects entity = entity { entityAspects = map replaceAspect $ entityAspects entity }
     replaceAspect aspect'
