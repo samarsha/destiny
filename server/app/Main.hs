@@ -66,12 +66,13 @@ httpApp request respond = respond $ case rawPathInfo request of
 webSocketsApp :: MVar State -> ServerApp
 webSocketsApp stateVar pending = do
     connection <- acceptRequest pending
-    client <- modifyMVar stateVar $ \state@State { stateWorld = world } -> do
-        sendTextData connection $ encode world
-        addClient connection state
-    finally
-        (forever $ handleMessage connection stateVar)
-        (modifyMVar_ stateVar $ return . removeClient (clientId client))
+    withPingThread connection 30 (return ()) $ do
+        client <- modifyMVar stateVar $ \state@State { stateWorld = world } -> do
+            sendTextData connection $ encode world
+            addClient connection state
+        finally
+            (forever $ handleMessage connection stateVar)
+            (modifyMVar_ stateVar $ return . removeClient (clientId client))
 
 addClient :: Connection -> State -> IO (State, Client)
 addClient connection state@State { stateClients = clients } = do
