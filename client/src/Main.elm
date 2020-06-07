@@ -1,33 +1,34 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
-import Destiny.Generated.Model exposing (Aspect, Entity, Id, World)
+import Destiny.Generated.Model exposing
+  ( Aspect
+  , ClientRequest (..)
+  , Entity
+  , World
+  , jsonDecWorld
+  , jsonEncClientRequest
+  )
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (checked, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
-import Random
+import Json.Decode exposing (Value, decodeValue)
 
 type Message
-  = AddEntity
-  | AddEntityWithId Id
-  | ToggleEntity Entity
-  | RemoveEntity Entity
-  | AddAspect Entity
-  | AddAspectWithId Entity Id
-  | EditAspect Aspect
-  | RemoveAspect Aspect
-  | AddDie Aspect
-  | ToggleDie Aspect Int Bool
-  | RemoveDie Aspect
-  | Roll Aspect
-  | RollResult Int
+  = UpdateWorld World
+  | DecodeError Json.Decode.Error
+  | Request ClientRequest
+
+port receive : (Value -> msg) -> Sub msg
+
+port send : Value -> Cmd msg
 
 main : Program () World Message
 main =
   Browser.element
     { init = init
     , update = update
-    , subscriptions = always Sub.none
+    , subscriptions = always receiveWorld
     , view = view
     }
 
@@ -37,119 +38,102 @@ init _ = ({ entities = [], lastRoll = 0 }, Cmd.none)
 update : Message -> World -> (World, Cmd Message)
 update message world =
   case message of
-    AddEntity ->
-      (world, Random.generate AddEntityWithId (Random.int 0 (2^31 - 1)))
-    AddEntityWithId id ->
-      (addEntity id world, Cmd.none)
-    ToggleEntity entity ->
-      (updateEntity { entity | collapsed = not entity.collapsed } world, Cmd.none)
-    RemoveEntity entity ->
-      (removeEntity entity world, Cmd.none)
-    AddAspect parent ->
-      (world, Random.generate (AddAspectWithId parent) (Random.int 0 (2^31 - 1)))
-    AddAspectWithId parent id ->
-      (addAspect parent id world, Cmd.none)
-    EditAspect aspect ->
-      (updateAspect aspect world, Cmd.none)
-    RemoveAspect aspect ->
-      (removeAspect aspect world, Cmd.none)
-    AddDie aspect ->
-      (updateAspect { aspect | dice = False :: aspect.dice } world, Cmd.none)
-    ToggleDie aspect index selected ->
-      (updateAspect { aspect | dice = replace index selected aspect.dice } world, Cmd.none)
-    RemoveDie aspect ->
-      (removeDie aspect world, Cmd.none)
-    Roll aspect ->
-      rollAspect aspect world
-    RollResult roll ->
-      ({ world | lastRoll = roll }, Cmd.none)
+    UpdateWorld newWorld -> (newWorld, Cmd.none)
+    DecodeError _ -> (world, Cmd.none)
+    Request request -> (world, jsonEncClientRequest request |> send)
 
-replace : Int -> a -> List a -> List a
-replace index item = List.indexedMap (\i x -> if i == index then item else x)
-
-addEntity : Id -> World -> World
-addEntity id world =
-  let entity = { id = id, aspects = [], collapsed = False }
-  in { world | entities = entity :: world.entities }
-
-updateEntity : Entity -> World -> World
-updateEntity entity world =
+receiveWorld : Sub Message
+receiveWorld =
   let
-    replaceEntity originalEntity =
-      if originalEntity.id == entity.id
-      then entity
-      else originalEntity
+    decode value =
+      case decodeValue jsonDecWorld value of
+        Ok world -> UpdateWorld world
+        Err error -> DecodeError error
   in
-    { world | entities = List.map replaceEntity world.entities }
+    receive decode
 
-removeEntity : Entity -> World -> World
-removeEntity entity world =
-  { world | entities = List.filter (\e -> e.id /= entity.id) world.entities }
+-- replace : Int -> a -> List a -> List a
+-- replace index item = List.indexedMap (\i x -> if i == index then item else x)
 
-addAspect : Entity -> Id -> World -> World
-addAspect entity id =
-  let aspect = { id = id, text = "Hello, world!", dice = [] }
-  in updateEntity { entity | aspects = aspect :: entity.aspects }
+-- updateEntity : Entity -> World -> World
+-- updateEntity entity world =
+--   let
+--     replaceEntity originalEntity =
+--       if originalEntity.id == entity.id
+--       then entity
+--       else originalEntity
+--   in
+--     { world | entities = List.map replaceEntity world.entities }
 
-updateAspect : Aspect -> World -> World
-updateAspect aspect world =
-  let
-    replaceAspect originalAspect =
-      if originalAspect.id == aspect.id
-      then aspect
-      else originalAspect
-    updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
-  in
-    { world | entities = List.map updateEntityAspects world.entities }
+-- removeEntity : Entity -> World -> World
+-- removeEntity entity world =
+--   { world | entities = List.filter (\e -> e.id /= entity.id) world.entities }
 
-removeAspect : Aspect -> World -> World
-removeAspect aspect world =
-  let
-    updateEntityAspects entity =
-      { entity | aspects = List.filter (\a -> a.id /= aspect.id) entity.aspects }
-  in
-    { world | entities = List.map updateEntityAspects world.entities }
+-- addAspect : Entity -> Id -> World -> World
+-- addAspect entity id =
+--   let aspect = { id = id, text = "Hello, world!", dice = [] }
+--   in updateEntity { entity | aspects = aspect :: entity.aspects }
 
-rollAspect : Aspect -> World -> (World, Cmd Message)
-rollAspect aspect world =
-  let
-    newWorld = updateAspect { aspect | dice = List.filter not aspect.dice } world
-    rolled = List.filter identity aspect.dice |> List.length
-    command = Random.generate RollResult (Random.int rolled (6 * rolled))
-  in
-    (newWorld, command)
+-- updateAspect : Aspect -> World -> World
+-- updateAspect aspect world =
+--   let
+--     replaceAspect originalAspect =
+--       if originalAspect.id == aspect.id
+--       then aspect
+--       else originalAspect
+--     updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
+--   in
+--     { world | entities = List.map updateEntityAspects world.entities }
 
-removeDie : Aspect -> World -> World
-removeDie aspect =
-  let
-    newDice =
-      case aspect.dice of
-        [] -> []
-        _ :: xs -> xs
-  in
-    updateAspect { aspect | dice = newDice }
+-- removeAspect : Aspect -> World -> World
+-- removeAspect aspect world =
+--   let
+--     updateEntityAspects entity =
+--       { entity | aspects = List.filter (\a -> a.id /= aspect.id) entity.aspects }
+--   in
+--     { world | entities = List.map updateEntityAspects world.entities }
+
+-- rollAspect : Aspect -> World -> (World, Cmd Message)
+-- rollAspect aspect world =
+--   let
+--     newWorld = updateAspect { aspect | dice = List.filter not aspect.dice } world
+--     rolled = List.filter identity aspect.dice |> List.length
+--     command = Random.generate RollResult (Random.int rolled (6 * rolled))
+--   in
+--     (newWorld, command)
+
+-- removeDie : Aspect -> World -> World
+-- removeDie aspect =
+--   let
+--     newDice =
+--       case aspect.dice of
+--         [] -> []
+--         _ :: xs -> xs
+--   in
+--     updateAspect { aspect | dice = newDice }
 
 view : World -> Html Message
 view world =
   div []
     [ text ("Rolled: " ++ String.fromInt world.lastRoll)
-    , button [ onClick AddEntity ] [ text "+" ]
+    , button [ onClick (Request AddEntity) ] [ text "+" ]
     , div [] (List.map viewEntity world.entities)
     ]
 
 viewEntity : Entity -> Html Message
 viewEntity entity =
-  div [] <| List.append
+  List.append
     [ text "Entity"
-    , button [ onClick (ToggleEntity entity) ]
+    , button [ onClick (ToggleEntity entity |> Request) ]
              [ text (if entity.collapsed then "Show" else "Hide") ]
-    , button [ onClick (RemoveEntity entity) ] [ text "Remove" ]
-    , button [ onClick (AddAspect entity) ] [ text "+" ]
+    , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
+    , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
     ]
     ( if entity.collapsed
       then []
       else List.map viewAspect entity.aspects
     )
+  |> div []
 
 viewAspect : Aspect -> Html Message
 viewAspect aspect =
@@ -158,17 +142,18 @@ viewAspect aspect =
       input
         [ type_ "checkbox"
         , checked selected
-        , onCheck (ToggleDie aspect index)
+        , onCheck (ToggleDie aspect index >> Request)
         ]
         []
-    edit text = EditAspect { aspect | text = text }
+    edit text = EditAspect { aspect | text = text } |> Request
   in
-    div [] <| List.concat
+    List.concat
       [ [ textarea [ value aspect.text, onInput edit ] []
-        , button [ onClick (RemoveAspect aspect) ] [ text "Remove" ]
-        , button [ onClick (AddDie aspect) ] [ text "+" ]
-        , button [ onClick (RemoveDie aspect) ] [ text "-" ]
+        , button [ onClick (RemoveAspect aspect |> Request) ] [ text "Remove" ]
+        , button [ onClick (AddDie aspect |> Request) ] [ text "+" ]
+        , button [ onClick (RemoveDie aspect |> Request) ] [ text "-" ]
         ]
       , List.indexedMap die aspect.dice
-      , [ button [ onClick (Roll aspect) ] [ text "Roll" ] ]
+      , [ button [ onClick (Roll aspect |> Request) ] [ text "Roll" ] ]
       ]
+    |> div []

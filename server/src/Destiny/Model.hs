@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Model
@@ -7,10 +8,13 @@ module Destiny.Model
     , Entity (..)
     , World (..)
     , Id
+    , updateWorld
     )
 where
 
+import Destiny.Utils
 import Elm.Derive
+import System.Random
 
 -- | The world.
 data World = World
@@ -42,7 +46,7 @@ data Aspect = Aspect
 
 -- | An opaque identifier.
 newtype Id = Id Int
-    deriving (Bounded, Enum, Eq, Ord)
+    deriving (Bounded, Enum, Eq, Ord, Random)
 
 data ClientRequest
     = AddEntity
@@ -56,8 +60,24 @@ data ClientRequest
     | RemoveDie Aspect
     | Roll Aspect
 
-deriveBoth defaultOptions ''Aspect
+updateWorld :: World -> ClientRequest -> IO World
+updateWorld world = \case
+    AddEntity -> do
+        eid <- randomRIO (Id 0, Id 1000000)
+        let entity = Entity { entityId = eid, entityAspects = [], entityCollapsed = False }
+        return world { worldEntities = entity : worldEntities world }
+    ToggleEntity _ -> putStrLn "ToggleEntity" >> return world
+    RemoveEntity _ -> putStrLn "RemoveEntity" >> return world
+    AddAspect _ -> putStrLn "AddAspect" >> return world
+    EditAspect _ -> putStrLn "EditAspect" >> return world
+    RemoveAspect _ -> putStrLn "RemoveAspect" >> return world
+    AddDie _ -> putStrLn "AddDie" >> return world
+    ToggleDie _ _ _ -> putStrLn "ToggleDie" >> return world
+    RemoveDie _ -> putStrLn "RemoveDie" >> return world
+    Roll _ -> putStrLn "Roll" >> return world
+
+deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
+deriveBoth (stripFieldPrefixOptions "entity") ''Entity
+deriveBoth (stripFieldPrefixOptions "world") ''World
 deriveBoth defaultOptions ''ClientRequest
-deriveBoth defaultOptions ''Entity
 deriveBoth defaultOptions ''Id
-deriveBoth defaultOptions ''World
