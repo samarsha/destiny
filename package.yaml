@@ -17,6 +17,7 @@ dependencies:
 - random
 - safe
 - text
+- uuid
 - wai
 - wai-websockets
 - warp

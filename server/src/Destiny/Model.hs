@@ -13,6 +13,7 @@ module Destiny.Model
     )
 where
 
+import Data.UUID
 import Destiny.Utils
 import Elm.Derive
 import System.Random
@@ -28,7 +29,7 @@ data World = World
 -- | An entity.
 data Entity = Entity
     { -- | The entity ID.
-      entityId :: Id
+      entityId :: UUID
       -- | The aspects that belong to the entity.
     , entityAspects :: [Aspect]
       -- | True if the entity is collapsed.
@@ -38,7 +39,7 @@ data Entity = Entity
 -- | An aspect.
 data Aspect = Aspect
     { -- | The aspect ID.
-      aspectId :: Id
+      aspectId :: UUID
       -- | The description of the aspect.
     , aspectText :: String
       -- | A list of the selected status for each free invoke die.
@@ -82,7 +83,7 @@ updateWorld = \case
 
 addEntity :: World -> IO World
 addEntity world = do
-    newId <- randomRIO (Id 0, Id 1000000)
+    newId <- randomIO
     let entity = Entity { entityId = newId, entityAspects = [], entityCollapsed = False }
     return world { worldEntities = entity : worldEntities world }
 
@@ -104,7 +105,7 @@ removeEntity entity world@World { worldEntities = entities } = world
 
 addAspect :: Entity -> World -> IO World
 addAspect entity world = do
-    newId <- randomRIO (Id 0, Id 1000000)
+    newId <- randomIO
     let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = [] }
     return $ updateEntity entity { entityAspects = aspect : entityAspects entity } world
 
