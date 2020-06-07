@@ -68,7 +68,9 @@ httpApp request respond = respond $ case rawPathInfo request of
 webSocketsApp :: MVar State -> ServerApp
 webSocketsApp stateVar pending = do
     connection <- acceptRequest pending
-    client <- modifyMVar stateVar $ return . addClient connection
+    client <- modifyMVar stateVar $ \state -> do
+        sendTextData connection $ encode $ stateWorld state
+        return $ addClient connection state
     finally
         (forever $ handleMessage connection stateVar)
         (modifyMVar_ stateVar $ return . removeClient (clientId client))
