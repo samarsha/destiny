@@ -62,19 +62,43 @@ data ClientRequest
 
 updateWorld :: World -> ClientRequest -> IO World
 updateWorld world = \case
-    AddEntity -> do
-        eid <- randomRIO (Id 0, Id 1000000)
-        let entity = Entity { entityId = eid, entityAspects = [], entityCollapsed = False }
-        return world { worldEntities = entity : worldEntities world }
-    ToggleEntity _ -> putStrLn "ToggleEntity" >> return world
-    RemoveEntity _ -> putStrLn "RemoveEntity" >> return world
-    AddAspect _ -> putStrLn "AddAspect" >> return world
+    AddEntity -> addEntity world
+    ToggleEntity entity -> return $ toggleEntity world entity
+    RemoveEntity entity -> return $ removeEntity world entity
+    AddAspect entity -> addAspect world entity
     EditAspect _ -> putStrLn "EditAspect" >> return world
     RemoveAspect _ -> putStrLn "RemoveAspect" >> return world
     AddDie _ -> putStrLn "AddDie" >> return world
     ToggleDie _ _ _ -> putStrLn "ToggleDie" >> return world
     RemoveDie _ -> putStrLn "RemoveDie" >> return world
     Roll _ -> putStrLn "Roll" >> return world
+
+addEntity :: World -> IO World
+addEntity world = do
+    eid <- randomRIO (Id 0, Id 1000000)
+    let entity = Entity { entityId = eid, entityAspects = [], entityCollapsed = False }
+    return world { worldEntities = entity : worldEntities world }
+
+updateEntity :: World -> Entity -> World
+updateEntity world entity = world { worldEntities = map replaceEntity $ worldEntities world }
+  where
+    replaceEntity originalEntity
+        | entityId originalEntity == entityId entity = entity
+        | otherwise = originalEntity
+
+toggleEntity :: World -> Entity -> World
+toggleEntity world entity =
+    updateEntity world entity { entityCollapsed = not (entityCollapsed entity) }
+
+removeEntity :: World -> Entity -> World
+removeEntity world entity =
+    world { worldEntities = filter ((/=) (entityId entity) . entityId) $ worldEntities world }
+
+addAspect :: World -> Entity -> IO World
+addAspect world entity = do
+    aid <- randomRIO (Id 0, Id 1000000)
+    let aspect = Aspect { aspectId = aid, aspectText = "", aspectDice = [] }
+    return $ updateEntity world entity { entityAspects = aspect : entityAspects entity }
 
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
