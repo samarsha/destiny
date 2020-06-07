@@ -87,7 +87,7 @@ addEntity world = do
     return world { worldEntities = entity : worldEntities world }
 
 updateEntity :: Entity -> World -> World
-updateEntity entity (world @ World { worldEntities = entities }) = world
+updateEntity entity world@World { worldEntities = entities } = world
     { worldEntities = map replaceEntity entities }
   where
     replaceEntity entity'
@@ -99,7 +99,7 @@ toggleEntity entity = updateEntity entity
     { entityCollapsed = not (entityCollapsed entity) }
 
 removeEntity :: Entity -> World -> World
-removeEntity entity (world @ World { worldEntities = entities }) = world
+removeEntity entity world@World { worldEntities = entities } = world
     { worldEntities = filter (\entity' -> entityId entity' /= entityId entity) entities }
 
 addAspect :: Entity -> World -> IO World
@@ -109,27 +109,27 @@ addAspect entity world = do
     return $ updateEntity entity { entityAspects = aspect : entityAspects entity } world
 
 updateAspect :: Aspect -> World -> World
-updateAspect aspect (world @ World { worldEntities = entities }) = world
+updateAspect aspect world@World { worldEntities = entities } = world
     { worldEntities = map updateEntityAspects entities }
   where
-    updateEntityAspects (entity @ Entity { entityAspects = aspects }) = entity
+    updateEntityAspects entity@Entity { entityAspects = aspects } = entity
         { entityAspects = map replaceAspect aspects }
     replaceAspect aspect'
         | aspectId aspect' == aspectId aspect = aspect
         | otherwise = aspect'
 
 removeAspect :: Aspect -> World -> World
-removeAspect aspect (world @ World { worldEntities = entities }) = world
+removeAspect aspect world@World { worldEntities = entities } = world
     { worldEntities = map updateEntityAspects entities }
   where
-    updateEntityAspects (entity @ Entity { entityAspects = aspects }) = entity
+    updateEntityAspects entity@Entity { entityAspects = aspects } = entity
         { entityAspects = filter (\aspect' -> aspectId aspect' /= aspectId aspect) aspects }
 
 addDie :: Aspect -> World -> World
 addDie aspect = updateAspect aspect { aspectDice = False : aspectDice aspect }
 
 toggleDie :: Aspect -> Int -> Bool -> World -> World
-toggleDie (aspect @ Aspect { aspectDice = dice }) index selected = updateAspect aspect
+toggleDie aspect@Aspect { aspectDice = dice } index selected = updateAspect aspect
     { aspectDice = zipWith replaceIndex [0..] dice }
   where
     replaceIndex i x
@@ -144,7 +144,7 @@ removeDie aspect = updateAspect aspect { aspectDice = dice' }
         _ : xs -> xs
 
 rollDice :: Aspect -> World -> IO World
-rollDice (aspect @ Aspect { aspectDice = dice }) world = do
+rollDice aspect@Aspect { aspectDice = dice } world = do
     result <- sum <$> mapM randomRIO (replicate numRolled (1, 6))
     return world' { worldLastRoll = result }
   where
