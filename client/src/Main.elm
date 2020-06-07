@@ -40,7 +40,14 @@ update message world =
   case message of
     UpdateWorld newWorld -> (newWorld, Cmd.none)
     DecodeError _ -> (world, Cmd.none)
-    Request request -> (world, jsonEncClientRequest request |> send)
+    Request request ->
+      let
+        newWorld =
+          case request of
+            EditAspect aspect -> updateAspect aspect world
+            _ -> world
+      in
+        (newWorld, jsonEncClientRequest request |> send)
 
 receiveWorld : Sub Message
 receiveWorld =
@@ -55,16 +62,15 @@ receiveWorld =
 -- replace : Int -> a -> List a -> List a
 -- replace index item = List.indexedMap (\i x -> if i == index then item else x)
 
--- updateAspect : Aspect -> World -> World
--- updateAspect aspect world =
---   let
---     replaceAspect originalAspect =
---       if originalAspect.id == aspect.id
---       then aspect
---       else originalAspect
---     updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
---   in
---     { world | entities = List.map updateEntityAspects world.entities }
+updateAspect : Aspect -> World -> World
+updateAspect aspect world =
+  let
+    replaceAspect originalAspect =
+      if originalAspect.id == aspect.id then aspect
+      else originalAspect
+    updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
+  in
+    { world | entities = List.map updateEntityAspects world.entities }
 
 -- removeAspect : Aspect -> World -> World
 -- removeAspect aspect world =
@@ -110,8 +116,7 @@ viewEntity entity =
     , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
     , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
     ]
-    ( if entity.collapsed
-      then []
+    ( if entity.collapsed then []
       else List.map viewAspect entity.aspects
     )
   |> div []
