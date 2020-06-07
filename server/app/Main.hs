@@ -11,6 +11,7 @@ import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder
 import Data.FileEmbed
+import Data.UUID
 import Destiny.Model
 import Network.HTTP.Types
 import Network.Mime
@@ -18,8 +19,8 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Handler.WebSockets
 import Network.WebSockets
-import Safe.Foldable
 import System.FilePath
+import System.Random
 import Text.Printf
 
 import qualified Data.ByteString.Char8 as ByteString
@@ -31,7 +32,7 @@ data State = State
     }
 
 data Client = Client
-    { clientId :: Id
+    { clientId :: UUID
     , clientConnection :: Connection
     }
 
@@ -65,21 +66,22 @@ httpApp request respond = respond $ case rawPathInfo request of
 webSocketsApp :: MVar State -> ServerApp
 webSocketsApp stateVar pending = do
     connection <- acceptRequest pending
-    client <- modifyMVar stateVar $ \state -> do
-        sendTextData connection $ encode $ stateWorld state
-        return $ addClient connection state
+    client <- modifyMVar stateVar $ \state@State { stateWorld = world } -> do
+        sendTextData connection $ encode world
+        addClient connection state
     finally
         (forever $ handleMessage connection stateVar)
         (modifyMVar_ stateVar $ return . removeClient (clientId client))
 
-addClient :: Connection -> State -> (State, Client)
-addClient connection state = (state { stateClients = client : stateClients state }, client)
-  where
-    client = Client { clientId = cid, clientConnection = connection }
-    cid = maybe minBound succ $ maximumMay $ map clientId $ stateClients state
+addClient :: Connection -> State -> IO (State, Client)
+addClient connection state@State { stateClients = clients } = do
+    newId <- randomIO
+    let client = Client { clientId = newId, clientConnection = connection }
+    return (state { stateClients = client : clients }, client)
 
-removeClient :: Id -> State -> State
-removeClient cid state = state { stateClients = filter ((/=) cid . clientId) $ stateClients state }
+removeClient :: UUID -> State -> State
+removeClient uuid state@State { stateClients = clients } = state
+    { stateClients = filter (\client -> clientId client /= uuid) clients }
 
 handleMessage :: Connection -> MVar State -> IO ()
 handleMessage connection stateVar = decode <$> receiveData connection >>= \case

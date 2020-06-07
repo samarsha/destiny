@@ -6,7 +6,6 @@ module Destiny.Model
     ( Aspect
     , ClientRequest
     , Entity
-    , Id
     , World
     , emptyWorld
     , updateWorld
@@ -45,10 +44,6 @@ data Aspect = Aspect
       -- | A list of the selected status for each free invoke die.
     , aspectDice :: [Bool]
     }
-
--- | An opaque identifier.
-newtype Id = Id Int
-    deriving (Bounded, Enum, Eq, Ord, Random)
 
 data ClientRequest
     = AddEntity
@@ -156,4 +151,3 @@ deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
 deriveBoth (stripFieldPrefixOptions "world") ''World
 deriveBoth defaultOptions ''ClientRequest
-deriveBoth defaultOptions ''Id
