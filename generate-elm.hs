@@ -1,5 +1,5 @@
 {- stack runghc
-   --package destiny-server
+   --package destiny
    --package directory
    --package elm-bridge
    --package filepath
@@ -15,7 +15,7 @@ import System.FilePath
 
 main :: IO ()
 main = do
-    outputDir <- generatedDir <$> takeDirectory <$> getProgPath
+    outputDir <- generatedDir <$> getProgPath
     createDirectoryIfMissing True outputDir
     writeFile (outputDir </> "Model.elm") $ makeElmModule "Destiny.Generated.Model" definitions
   where

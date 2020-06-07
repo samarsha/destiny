@@ -52,7 +52,7 @@ emptyState = State
     }
 
 clientAppDir :: [(FilePath, ByteString)]
-clientAppDir = $(embedDir $ ".." </> "client" </> "app")
+clientAppDir = $(embedDir $ "client" </> "app")
 
 httpApp :: Application
 httpApp request respond = respond $ case rawPathInfo request of

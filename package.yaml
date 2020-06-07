@@ -1,4 +1,4 @@
-name: destiny-server
+name: destiny
 version: 0.1.0.0
 github: samarsha/destiny
 author: Sarah Marshall
@@ -26,11 +26,11 @@ ghc-options:
 - -Wall
 
 library:
-  source-dirs: src
+  source-dirs: server/src
 
 executables:
   destiny-server:
     main: Main.hs
-    source-dirs: app
+    source-dirs: server/app
     dependencies:
-    - destiny-server
+    - destiny
