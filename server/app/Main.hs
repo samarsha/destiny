@@ -44,10 +44,7 @@ main = do
 
 emptyState :: State
 emptyState = State
-    { stateWorld = World
-        { worldEntities = []
-        , worldLastRoll = 0
-        }
+    { stateWorld = emptyWorld
     , stateClients = []
     }
 

@@ -3,11 +3,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Model
-    ( Aspect (..)
-    , ClientRequest (..)
-    , Entity (..)
-    , World (..)
+    ( Aspect
+    , ClientRequest
+    , Entity
     , Id
+    , World
+    , emptyWorld
     , updateWorld
     )
 where
@@ -59,6 +60,12 @@ data ClientRequest
     | ToggleDie Aspect Int Bool
     | RemoveDie Aspect
     | Roll Aspect
+
+emptyWorld :: World
+emptyWorld = World
+    { worldEntities = []
+    , worldLastRoll = 0
+    }
 
 updateWorld :: ClientRequest -> World -> IO World
 updateWorld = \case
