@@ -75,53 +75,55 @@ updateWorld = \case
 
 addEntity :: World -> IO World
 addEntity world = do
-    eid <- randomRIO (Id 0, Id 1000000)
-    let entity = Entity { entityId = eid, entityAspects = [], entityCollapsed = False }
+    newId <- randomRIO (Id 0, Id 1000000)
+    let entity = Entity { entityId = newId, entityAspects = [], entityCollapsed = False }
     return world { worldEntities = entity : worldEntities world }
 
 updateEntity :: Entity -> World -> World
-updateEntity entity world = world { worldEntities = map replaceEntity $ worldEntities world }
+updateEntity entity (world @ World { worldEntities = entities }) = world
+    { worldEntities = map replaceEntity entities }
   where
     replaceEntity entity'
         | entityId entity' == entityId entity = entity
         | otherwise = entity'
 
 toggleEntity :: Entity -> World -> World
-toggleEntity entity world =
-    updateEntity entity { entityCollapsed = not (entityCollapsed entity) } world
+toggleEntity entity = updateEntity entity
+    { entityCollapsed = not (entityCollapsed entity) }
 
 removeEntity :: Entity -> World -> World
-removeEntity entity world =
-    world { worldEntities = filter ((/=) (entityId entity) . entityId) $ worldEntities world }
+removeEntity entity (world @ World { worldEntities = entities }) = world
+    { worldEntities = filter (\entity' -> entityId entity' /= entityId entity) entities }
 
 addAspect :: Entity -> World -> IO World
 addAspect entity world = do
-    aid <- randomRIO (Id 0, Id 1000000)
-    let aspect = Aspect { aspectId = aid, aspectText = "", aspectDice = [] }
+    newId <- randomRIO (Id 0, Id 1000000)
+    let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = [] }
     return $ updateEntity entity { entityAspects = aspect : entityAspects entity } world
 
 updateAspect :: Aspect -> World -> World
-updateAspect aspect world = world { worldEntities = map updateEntityAspects $ worldEntities world }
+updateAspect aspect (world @ World { worldEntities = entities }) = world
+    { worldEntities = map updateEntityAspects entities }
   where
-    updateEntityAspects entity = entity { entityAspects = map replaceAspect $ entityAspects entity }
+    updateEntityAspects (entity @ Entity { entityAspects = aspects }) = entity
+        { entityAspects = map replaceAspect aspects }
     replaceAspect aspect'
         | aspectId aspect' == aspectId aspect = aspect
         | otherwise = aspect'
 
 removeAspect :: Aspect -> World -> World
-removeAspect aspect world = world { worldEntities = map updateEntityAspects $ worldEntities world }
+removeAspect aspect (world @ World { worldEntities = entities }) = world
+    { worldEntities = map updateEntityAspects entities }
   where
-    updateEntityAspects entity = entity
-        { entityAspects = filter ((/=) (aspectId aspect) . aspectId) $ entityAspects entity
-        }
+    updateEntityAspects (entity @ Entity { entityAspects = aspects }) = entity
+        { entityAspects = filter (\aspect' -> aspectId aspect' /= aspectId aspect) aspects }
 
 addDie :: Aspect -> World -> World
-addDie aspect world = updateAspect aspect { aspectDice = False : aspectDice aspect } world
+addDie aspect = updateAspect aspect { aspectDice = False : aspectDice aspect }
 
 toggleDie :: Aspect -> Int -> Bool -> World -> World
-toggleDie aspect index selected = updateAspect aspect
-    { aspectDice = zipWith replaceIndex [0..] $ aspectDice aspect
-    }
+toggleDie (aspect @ Aspect { aspectDice = dice }) index selected = updateAspect aspect
+    { aspectDice = zipWith replaceIndex [0..] dice }
   where
     replaceIndex i x
         | i == index = selected
@@ -135,12 +137,12 @@ removeDie aspect = updateAspect aspect { aspectDice = dice' }
         _ : xs -> xs
 
 rollDice :: Aspect -> World -> IO World
-rollDice aspect world = do
-    result <- sum <$> mapM randomRIO (replicate rolled (1, 6))
+rollDice (aspect @ Aspect { aspectDice = dice }) world = do
+    result <- sum <$> mapM randomRIO (replicate numRolled (1, 6))
     return world' { worldLastRoll = result }
   where
-    world' = updateAspect aspect { aspectDice = filter not $ aspectDice aspect } world
-    rolled = length $ filter id $ aspectDice aspect
+    world' = updateAspect aspect { aspectDice = filter not dice } world
+    numRolled = length $ filter id dice
 
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
