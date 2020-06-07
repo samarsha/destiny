@@ -67,11 +67,11 @@ updateWorld = \case
     RemoveEntity entity -> return . removeEntity entity
     AddAspect entity -> addAspect entity
     EditAspect aspect -> return . updateAspect aspect
-    RemoveAspect _ -> \world -> putStrLn "RemoveAspect" >> return world
-    AddDie _ -> \world -> putStrLn "AddDie" >> return world
-    ToggleDie _ _ _ -> \world -> putStrLn "ToggleDie" >> return world
-    RemoveDie _ -> \world -> putStrLn "RemoveDie" >> return world
-    Roll _ -> \world -> putStrLn "Roll" >> return world
+    RemoveAspect aspect -> return . removeAspect aspect
+    AddDie aspect -> return . addDie aspect
+    ToggleDie aspect index selected -> return . toggleDie aspect index selected
+    RemoveDie aspect -> return . removeDie aspect
+    Roll aspect -> rollDice aspect
 
 addEntity :: World -> IO World
 addEntity world = do
@@ -107,6 +107,40 @@ updateAspect aspect world = world { worldEntities = map updateEntityAspects $ wo
     replaceAspect aspect'
         | aspectId aspect' == aspectId aspect = aspect
         | otherwise = aspect'
+
+removeAspect :: Aspect -> World -> World
+removeAspect aspect world = world { worldEntities = map updateEntityAspects $ worldEntities world }
+  where
+    updateEntityAspects entity = entity
+        { entityAspects = filter ((/=) (aspectId aspect) . aspectId) $ entityAspects entity
+        }
+
+addDie :: Aspect -> World -> World
+addDie aspect world = updateAspect aspect { aspectDice = False : aspectDice aspect } world
+
+toggleDie :: Aspect -> Int -> Bool -> World -> World
+toggleDie aspect index selected = updateAspect aspect
+    { aspectDice = zipWith replaceIndex [0..] $ aspectDice aspect
+    }
+  where
+    replaceIndex i x
+        | i == index = selected
+        | otherwise = x
+
+removeDie :: Aspect -> World -> World
+removeDie aspect = updateAspect aspect { aspectDice = dice' }
+  where
+    dice' = case aspectDice aspect of
+        [] -> []
+        _ : xs -> xs
+
+rollDice :: Aspect -> World -> IO World
+rollDice aspect world = do
+    result <- sum <$> mapM randomRIO (replicate rolled (1, 6))
+    return world' { worldLastRoll = result }
+  where
+    world' = updateAspect aspect { aspectDice = filter not $ aspectDice aspect } world
+    rolled = length $ filter id $ aspectDice aspect
 
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity

@@ -59,9 +59,6 @@ receiveWorld =
   in
     receive decode
 
--- replace : Int -> a -> List a -> List a
--- replace index item = List.indexedMap (\i x -> if i == index then item else x)
-
 updateAspect : Aspect -> World -> World
 updateAspect aspect world =
   let
@@ -71,33 +68,6 @@ updateAspect aspect world =
     updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
   in
     { world | entities = List.map updateEntityAspects world.entities }
-
--- removeAspect : Aspect -> World -> World
--- removeAspect aspect world =
---   let
---     updateEntityAspects entity =
---       { entity | aspects = List.filter (\a -> a.id /= aspect.id) entity.aspects }
---   in
---     { world | entities = List.map updateEntityAspects world.entities }
-
--- rollAspect : Aspect -> World -> (World, Cmd Message)
--- rollAspect aspect world =
---   let
---     newWorld = updateAspect { aspect | dice = List.filter not aspect.dice } world
---     rolled = List.filter identity aspect.dice |> List.length
---     command = Random.generate RollResult (Random.int rolled (6 * rolled))
---   in
---     (newWorld, command)
-
--- removeDie : Aspect -> World -> World
--- removeDie aspect =
---   let
---     newDice =
---       case aspect.dice of
---         [] -> []
---         _ :: xs -> xs
---   in
---     updateAspect { aspect | dice = newDice }
 
 view : World -> Html Message
 view world =
