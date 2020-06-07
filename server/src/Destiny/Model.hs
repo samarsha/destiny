@@ -66,7 +66,7 @@ updateWorld world = \case
     ToggleEntity entity -> return $ toggleEntity world entity
     RemoveEntity entity -> return $ removeEntity world entity
     AddAspect entity -> addAspect world entity
-    EditAspect _ -> putStrLn "EditAspect" >> return world
+    EditAspect aspect -> return $ updateAspect world aspect
     RemoveAspect _ -> putStrLn "RemoveAspect" >> return world
     AddDie _ -> putStrLn "AddDie" >> return world
     ToggleDie _ _ _ -> putStrLn "ToggleDie" >> return world
@@ -82,9 +82,9 @@ addEntity world = do
 updateEntity :: World -> Entity -> World
 updateEntity world entity = world { worldEntities = map replaceEntity $ worldEntities world }
   where
-    replaceEntity originalEntity
-        | entityId originalEntity == entityId entity = entity
-        | otherwise = originalEntity
+    replaceEntity entity'
+        | entityId entity' == entityId entity = entity
+        | otherwise = entity'
 
 toggleEntity :: World -> Entity -> World
 toggleEntity world entity =
@@ -99,6 +99,14 @@ addAspect world entity = do
     aid <- randomRIO (Id 0, Id 1000000)
     let aspect = Aspect { aspectId = aid, aspectText = "", aspectDice = [] }
     return $ updateEntity world entity { entityAspects = aspect : entityAspects entity }
+
+updateAspect :: World -> Aspect -> World
+updateAspect world aspect = world { worldEntities = map updateEntityAspects $ worldEntities world }
+  where
+    updateEntityAspects entity = entity { entityAspects = map replaceAspect $ entityAspects entity }
+    replaceAspect aspect'
+        | aspectId aspect' == aspectId aspect = aspect
+        | otherwise = aspect'
 
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
