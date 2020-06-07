@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main (main) where
 
@@ -7,10 +8,22 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Data.Aeson
+import Data.ByteString (ByteString)
+import Data.ByteString.Builder
+import Data.FileEmbed
 import Destiny.Model
+import Network.HTTP.Types
+import Network.Mime
+import Network.Wai
+import Network.Wai.Handler.Warp
+import Network.Wai.Handler.WebSockets
 import Network.WebSockets
 import Safe.Foldable
+import System.FilePath
 import Text.Printf
+
+import qualified Data.ByteString.Char8 as ByteString
+import qualified Data.Text as Text
 
 data State = State
     { stateWorld :: World
@@ -22,6 +35,13 @@ data Client = Client
     , clientConnection :: Connection
     }
 
+main :: IO ()
+main = do
+    stateVar <- newMVar emptyState
+    putStrLn $ printf "Listening on port %d." $ getPort defaultSettings
+    runSettings defaultSettings $
+        websocketsOr defaultConnectionOptions (webSocketsApp stateVar) httpApp
+
 emptyState :: State
 emptyState = State
     { stateWorld = World
@@ -31,19 +51,27 @@ emptyState = State
     , stateClients = []
     }
 
-main :: IO ()
-main = do
-    stateVar <- newMVar emptyState
-    putStrLn $ printf "Listening on %s:%d." hostName port
-    runServer hostName port $ \pending -> do
-        connection <- acceptRequest pending
-        client <- modifyMVar stateVar $ return . addClient connection
-        finally
-            (forever $ handleMessage connection stateVar)
-            (modifyMVar_ stateVar $ return . removeClient (clientId client))
+clientAppDir :: [(FilePath, ByteString)]
+clientAppDir = $(embedDir $ ".." </> "client" </> "app")
+
+httpApp :: Application
+httpApp request respond = respond $ case rawPathInfo request of
+    "/" -> response "index.html"
+    path -> response $ ByteString.unpack $ ByteString.tail path
   where
-    hostName = "localhost"
-    port = 3000
+    response path = case lookup path clientAppDir of
+        Just content ->
+            let contentType = defaultMimeLookup $ Text.pack path
+            in responseBuilder status200 [("Content-Type", contentType)] $ byteString content
+        Nothing -> responseLBS status404 [("Content-Type", "text/plain")] "404 Not Found"
+
+webSocketsApp :: MVar State -> ServerApp
+webSocketsApp stateVar pending = do
+    connection <- acceptRequest pending
+    client <- modifyMVar stateVar $ return . addClient connection
+    finally
+        (forever $ handleMessage connection stateVar)
+        (modifyMVar_ stateVar $ return . removeClient (clientId client))
 
 addClient :: Connection -> State -> (State, Client)
 addClient connection state = (state { stateClients = client : stateClients state }, client)

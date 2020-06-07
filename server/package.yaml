@@ -8,10 +8,18 @@ copyright: 2020 Sarah Marshall
 dependencies:
 - aeson
 - base >= 4.7 && < 5
+- bytestring
 - elm-bridge
+- file-embed
+- filepath
+- http-types
+- mime-types
 - random
 - safe
 - text
+- wai
+- wai-websockets
+- warp
 - websockets
 
 ghc-options:
