@@ -26,14 +26,11 @@ port send : Value -> Cmd msg
 main : Program () World Message
 main =
   Browser.element
-    { init = init
+    { init = always ({ entities = [], lastRoll = 0 }, Cmd.none)
     , update = update
     , subscriptions = always receiveWorld
     , view = view
     }
-
-init : () -> (World, Cmd Message)
-init _ = ({ entities = [], lastRoll = 0 }, Cmd.none)
 
 update : Message -> World -> (World, Cmd Message)
 update message world =

@@ -12,7 +12,8 @@
         node: document.getElementById("main")
       });
 
-      const socket = new WebSocket("ws://" + location.host);
+      const host = location.host || "localhost:3000";
+      const socket = new WebSocket("ws://" + host);
       socket.addEventListener("message", event => app.ports.receive.send(JSON.parse(event.data)));
       app.ports.send.subscribe(data => socket.send(JSON.stringify(data)));
     </script>
