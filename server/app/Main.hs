@@ -7,6 +7,7 @@ module Main (main) where
 import Control.Concurrent
 import Control.Exception
 import Control.Monad
+import Control.Monad.Random
 import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder
@@ -20,7 +21,6 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Handler.WebSockets
 import Network.WebSockets
 import System.FilePath
-import System.Random
 import Text.Printf
 
 import qualified Data.ByteString.Char8 as ByteString
@@ -69,14 +69,14 @@ webSocketsApp stateVar pending = do
     withPingThread connection 30 (return ()) $ do
         client <- modifyMVar stateVar $ \state@State { stateWorld = world } -> do
             sendTextData connection $ encode world
-            addClient connection state
+            evalRandIO $ addClient connection state
         finally
             (forever $ handleMessage connection stateVar)
             (modifyMVar_ stateVar $ return . removeClient (clientId client))
 
-addClient :: Connection -> State -> IO (State, Client)
+addClient :: RandomGen g => Connection -> State -> Rand g (State, Client)
 addClient connection state@State { stateClients = clients } = do
-    newId <- randomIO
+    newId <- getRandom
     let client = Client { clientId = newId, clientConnection = connection }
     return (state { stateClients = client : clients }, client)
 
@@ -87,7 +87,7 @@ removeClient uuid state@State { stateClients = clients } = state
 handleMessage :: Connection -> MVar State -> IO ()
 handleMessage connection stateVar = decode <$> receiveData connection >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
-        world' <- updateWorld message $ stateWorld state
+        world' <- evalRandIO $ updateWorld message $ stateWorld state
         broadcast world' $ stateClients state
         return state { stateWorld = world' }
     Nothing -> return ()

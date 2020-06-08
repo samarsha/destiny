@@ -14,7 +14,7 @@ dependencies:
 - filepath
 - http-types
 - mime-types
-- random
+- MonadRandom
 - safe
 - text
 - uuid

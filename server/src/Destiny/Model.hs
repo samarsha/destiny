@@ -12,10 +12,10 @@ module Destiny.Model
     )
 where
 
+import Control.Monad.Random
 import Data.UUID
 import Destiny.Utils
 import Elm.Derive
-import System.Random
 
 -- | The world.
 data World = World
@@ -63,7 +63,7 @@ emptyWorld = World
     , worldLastRoll = 0
     }
 
-updateWorld :: ClientRequest -> World -> IO World
+updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
 updateWorld = \case
     AddEntity -> addEntity
     ToggleEntity entity -> return . toggleEntity entity
@@ -76,11 +76,11 @@ updateWorld = \case
     RemoveDie aspect -> return . removeDie aspect
     Roll aspect -> rollDice aspect
 
-addEntity :: World -> IO World
-addEntity world = do
-    newId <- randomIO
+addEntity :: RandomGen g => World -> Rand g World
+addEntity world@World { worldEntities = entities } = do
+    newId <- getRandom
     let entity = Entity { entityId = newId, entityAspects = [], entityCollapsed = False }
-    return world { worldEntities = entity : worldEntities world }
+    return world { worldEntities = entity : entities }
 
 updateEntity :: Entity -> World -> World
 updateEntity entity world@World { worldEntities = entities } = world
@@ -98,11 +98,11 @@ removeEntity :: Entity -> World -> World
 removeEntity entity world@World { worldEntities = entities } = world
     { worldEntities = filter (\entity' -> entityId entity' /= entityId entity) entities }
 
-addAspect :: Entity -> World -> IO World
-addAspect entity world = do
-    newId <- randomIO
+addAspect :: RandomGen g => Entity -> World -> Rand g World
+addAspect entity@Entity { entityAspects = aspects } world = do
+    newId <- getRandom
     let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = [] }
-    return $ updateEntity entity { entityAspects = aspect : entityAspects entity } world
+    return $ updateEntity entity { entityAspects = aspect : aspects } world
 
 updateAspect :: Aspect -> World -> World
 updateAspect aspect world@World { worldEntities = entities } = world
@@ -139,13 +139,13 @@ removeDie aspect = updateAspect aspect { aspectDice = dice' }
         [] -> []
         _ : xs -> xs
 
-rollDice :: Aspect -> World -> IO World
+rollDice :: RandomGen g => Aspect -> World -> Rand g World
 rollDice aspect@Aspect { aspectDice = dice } world = do
-    result <- sum <$> mapM randomRIO (replicate numRolled (1, 6))
-    return world' { worldLastRoll = result }
+    rolls <- take numRolls <$> getRandomRs (1, 6)
+    return world' { worldLastRoll = sum rolls }
   where
     world' = updateAspect aspect { aspectDice = filter not dice } world
-    numRolled = length $ filter id dice
+    numRolls = length $ filter id dice
 
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
