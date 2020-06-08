@@ -16,6 +16,7 @@ dependencies:
 - mime-types
 - MonadRandom
 - safe
+- signal
 - text
 - uuid
 - wai

@@ -12,6 +12,7 @@ import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder
 import Data.FileEmbed
+import Data.Function
 import Data.UUID
 import Destiny.Model
 import Network.HTTP.Types
@@ -21,6 +22,7 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Handler.WebSockets
 import Network.WebSockets
 import System.FilePath
+import System.Signal
 import Text.Printf
 
 import qualified Data.ByteString.Char8 as ByteString
@@ -39,9 +41,17 @@ data Client = Client
 main :: IO ()
 main = do
     stateVar <- newMVar emptyState
-    putStrLn $ printf "Listening on port %d." $ getPort defaultSettings
-    runSettings defaultSettings $
-        websocketsOr defaultConnectionOptions (webSocketsApp stateVar) httpApp
+    putStrLn $ printf "Listening on port %d." $ getPort settings
+    runSettings settings $ websocketsOr defaultConnectionOptions (webSocketsApp stateVar) httpApp
+
+settings :: Settings
+settings = defaultSettings
+    & setInstallShutdownHandler installShutdownHandler
+    & setGracefulShutdownTimeout (Just 5)
+  where
+    installShutdownHandler closeSocket = installHandler sigINT $ const $ do
+        putStrLn "Shutting down."
+        closeSocket
 
 emptyState :: State
 emptyState = State
