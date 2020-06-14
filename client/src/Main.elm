@@ -10,7 +10,7 @@ import Destiny.Generated.Model exposing
   , jsonEncClientRequest
   )
 import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (checked, type_, value)
+import Html.Attributes exposing (checked, class, placeholder, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Json.Decode exposing (Value, decodeValue)
 
@@ -71,22 +71,22 @@ view world =
   div []
     [ text ("Rolled: " ++ String.fromInt world.lastRoll)
     , button [ onClick (Request AddEntity) ] [ text "+" ]
-    , div [] (List.map viewEntity world.entities)
+    , div [ class "entities" ] (List.map viewEntity world.entities)
     ]
 
 viewEntity : Entity -> Html Message
 viewEntity entity =
-  List.append
-    [ text "Entity"
+  div [ class "entity" ]
+    [ div [ class "name" ] [ text "Untitled entity" ]
     , button [ onClick (ToggleEntity entity |> Request) ]
              [ text (if entity.collapsed then "Show" else "Hide") ]
     , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
     , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
+    , div [ class "aspects" ]
+        ( if entity.collapsed then []
+          else List.map viewAspect entity.aspects
+        )
     ]
-    ( if entity.collapsed then []
-      else List.map viewAspect entity.aspects
-    )
-  |> div []
 
 viewAspect : Aspect -> Html Message
 viewAspect aspect =
@@ -101,7 +101,7 @@ viewAspect aspect =
     edit text = EditAspect { aspect | text = text } |> Request
   in
     List.concat
-      [ [ textarea [ value aspect.text, onInput edit ] []
+      [ [ textarea [ value aspect.text, placeholder "Describe this aspect.", onInput edit ] []
         , button [ onClick (RemoveAspect aspect |> Request) ] [ text "Remove" ]
         , button [ onClick (AddDie aspect |> Request) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect |> Request) ] [ text "-" ]
@@ -109,4 +109,4 @@ viewAspect aspect =
       , List.indexedMap die aspect.dice
       , [ button [ onClick (Roll aspect |> Request) ] [ text "Roll" ] ]
       ]
-    |> div []
+    |> div [ class "aspect" ]
