@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -8,15 +8,6 @@
   </head>
   <body>
     <div id="main"></div>
-    <script>
-      const app = Elm.Main.init({
-        node: document.getElementById("main")
-      });
-
-      const host = location.host || "localhost:3000";
-      const socket = new WebSocket("ws://" + host);
-      socket.addEventListener("message", event => app.ports.receive.send(JSON.parse(event.data)));
-      app.ports.send.subscribe(data => socket.send(JSON.stringify(data)));
-    </script>
+    <script type="module" src="init.js"></script>
   </body>
 </html>

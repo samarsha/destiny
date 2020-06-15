@@ -47,6 +47,7 @@ data Aspect = Aspect
 data ClientRequest
     = AddEntity
     | ToggleEntity Entity
+    | MoveEntity Entity Int
     | RemoveEntity Entity
     | AddAspect Entity
     | EditAspect Aspect
@@ -66,6 +67,7 @@ updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
 updateWorld = \case
     AddEntity -> addEntity
     ToggleEntity entity -> return . toggleEntity entity
+    MoveEntity entity index -> return . moveEntity entity index
     RemoveEntity entity -> return . removeEntity entity
     AddAspect entity -> addAspect entity
     EditAspect aspect -> return . updateAspect aspect
@@ -92,6 +94,12 @@ updateEntity entity world@World { worldEntities = entities } = world
 toggleEntity :: Entity -> World -> World
 toggleEntity entity = updateEntity entity
     { entityCollapsed = not (entityCollapsed entity) }
+
+moveEntity :: Entity -> Int -> World -> World
+moveEntity entity index world@World { worldEntities = entities } = world { worldEntities = moved }
+  where
+    removed = filter (\entity' -> entityId entity' /= entityId entity) entities
+    moved = take index removed ++ entity : drop index removed
 
 removeEntity :: Entity -> World -> World
 removeEntity entity world@World { worldEntities = entities } = world
