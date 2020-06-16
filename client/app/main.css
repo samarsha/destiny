@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans&family=Roboto&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans&family=Roboto&display=swap");
 
 body {
     background-color: #f7f7f2;
@@ -58,4 +58,8 @@ body, textarea {
 
 .dragging .entity {
     margin: 0;
+}
+
+.drag-removed {
+    visibility: hidden;
 }

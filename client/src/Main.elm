@@ -43,6 +43,11 @@ type alias Draggable =
   , region : Rectangle
   }
 
+type DragStatus
+  = DragWaiting
+  | DragRemoved
+  | DragDragging
+
 type alias Position =
   { x : Float
   , y : Float
@@ -153,13 +158,21 @@ moveEntity entity index world =
 
 view : Model -> Html Message
 view model =
-  List.append
-    [ text ("Rolled: " ++ String.fromInt model.world.lastRoll)
-    , button [ onClick (Request AddEntity) ] [ text "+" ]
-    , div [ class "entities" ] (List.map (viewEntity True) model.world.entities)
-    ]
-    (Maybe.Extra.toList <| viewDragBox model)
-  |> div [ on "pointerup" <| Decode.succeed <| Drag DragEnd ]
+  let
+    dragStatus entity =
+      case (model.dragObject, model.dragPosition) of
+        (Just dragEntity, Just _) ->
+          if dragEntity.id == entity.id then DragRemoved else DragWaiting
+        _ -> DragWaiting
+    entityElement entity = viewEntity (dragStatus entity) entity
+  in
+    List.append
+      [ text ("Rolled: " ++ String.fromInt model.world.lastRoll)
+      , button [ onClick (Request AddEntity) ] [ text "+" ]
+      , div [ class "entities" ] (List.map entityElement model.world.entities)
+      ]
+      (Maybe.Extra.toList <| viewDragBox model)
+    |> div [ on "pointerup" <| Decode.succeed <| Drag DragEnd ]
 
 viewDragBox : Model -> Maybe (Html Message)
 viewDragBox model =
@@ -171,20 +184,21 @@ viewDragBox model =
         , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
         , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
         ]
-        [ viewEntity False entity ]
+        [ viewEntity DragDragging entity ]
     _ -> Nothing
 
-viewEntity : Bool -> Entity -> Html Message
-viewEntity isDraggable entity =
+viewEntity : DragStatus -> Entity -> Html Message
+viewEntity dragStatus entity =
   let
     attributes =
       List.append
         [ class "entity"
         , on "pointerdown" <| Decode.succeed <| Drag <| DragPrepare entity
         ]
-        ( if isDraggable
-          then [ attribute "data-draggable" <| Uuid.toString entity.id ]
-          else []
+        ( case dragStatus of
+            DragWaiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
+            DragRemoved -> [ class "drag-removed" ]
+            DragDragging -> []
         )
   in
     div attributes
