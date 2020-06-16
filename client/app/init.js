@@ -14,7 +14,8 @@ app.ports.send.subscribe(data => socket.send(JSON.stringify(data)));
 // Dragging
 
 document.addEventListener("pointerdown", downEvent => {
-  if (!ignoredDragElements.includes(downEvent.target.tagName.toLowerCase())) {
+  if (!ignoredDragElements.includes(downEvent.target.tagName.toLowerCase()) &&
+      downEvent.target.closest("[data-draggable]") !== null) {
     prepareDrag(downEvent);
   }
 });
