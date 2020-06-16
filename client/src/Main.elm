@@ -90,7 +90,7 @@ update : Message -> Model -> (Model, Cmd Message)
 update message model =
   case message of
     UpdateWorld newWorld -> ({ model | world = newWorld }, Cmd.none)
-    DecodeError _ -> Debug.todo "Decoding error."
+    DecodeError error -> "Decoding error: " ++ Decode.errorToString error |> Debug.todo
     Request request -> handleRequest request model
     Drag event -> handleDrag event model
 
