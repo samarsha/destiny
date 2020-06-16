@@ -70,7 +70,10 @@ const distance = p1 => p2 => {
 const dragMove = moveEvent =>
   app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
 
-const dragEnd = _ => document.removeEventListener("pointermove", dragMove);
+const dragEnd = _ => {
+  document.removeEventListener("pointermove", dragMove);
+  app.ports.drag.send({ dragEnd: [] });
+};
 
 const draggables = () => Array
   .from(document.querySelectorAll("[data-draggable]"))

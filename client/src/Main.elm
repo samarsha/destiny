@@ -172,7 +172,7 @@ view model =
       , div [ class "entities" ] (List.map entityElement model.world.entities)
       ]
       (Maybe.Extra.toList <| viewDragBox model)
-    |> div [ on "pointerup" <| Decode.succeed <| Drag DragEnd ]
+    |> div []
 
 viewDragBox : Model -> Maybe (Html Message)
 viewDragBox model =
