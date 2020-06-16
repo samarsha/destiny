@@ -26,10 +26,12 @@ const ignoredDragElements = ["button", "input", "textarea"];
 
 const prepareDrag = downEvent => {
   const expectDragStart = moveEvent => {
-    if (distance(position(downEvent))(position(moveEvent)) >= dragThreshold) {
+    if (distance(mousePosition(downEvent))(mousePosition(moveEvent)) >= dragThreshold) {
       cancelDragStart();
-      app.ports.drag.send({ dragStart: offset(moveEvent) });
-      app.ports.drag.send({ dragMove: [position(moveEvent), draggables()] });
+      const draggablePosition = elementPosition(downEvent.target.closest("[data-draggable]"));
+      const offset = subtract(mousePosition(moveEvent))(draggablePosition);
+      app.ports.drag.send({ dragStart: offset });
+      app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
       document.addEventListener("pointermove", dragMove);
       document.addEventListener("pointerup", dragEnd);
     }
@@ -45,7 +47,14 @@ const prepareDrag = downEvent => {
   document.addEventListener("pointerup", cancelDragStart);
 };
 
-const position = event => ({ x: event.clientX, y: event.clientY });
+const subtract = p1 => p2 => ({ x: p1.x - p2.x, y: p1.y - p2.y });
+
+const mousePosition = event => ({ x: event.clientX, y: event.clientY });
+
+const elementPosition = element => {
+  const rect = element.getBoundingClientRect();
+  return { x: rect.left, y: rect.top };
+};
 
 const offset = event => ({
   x: event.offsetX + event.target.offsetLeft,
@@ -59,7 +68,7 @@ const distance = p1 => p2 => {
 };
 
 const dragMove = moveEvent =>
-  app.ports.drag.send({ dragMove: [position(moveEvent), draggables()] });
+  app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
 
 const dragEnd = _ => document.removeEventListener("pointermove", dragMove);
 
