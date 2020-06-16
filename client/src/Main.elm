@@ -6,19 +6,23 @@ import Destiny.Generated.Model exposing
   , ClientRequest (..)
   , Entity
   , World
+  , jsonDecEntity
   , jsonDecWorld
   , jsonEncClientRequest
   )
+import Dict
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, checked, class, placeholder, style, type_, value)
 import Html.Events exposing (on, onCheck, onClick, onInput)
 import Json.Decode as Decode
+import Json.Helpers exposing (decodeSumObjectWithSingleField)
 import Maybe.Extra
 import Uuid exposing (Uuid)
 
 type alias Model =
   { world : World
   , dragObject : Maybe Entity
+  , dragOffset : Maybe Position
   , dragPosition : Maybe Position
   }
 
@@ -26,14 +30,13 @@ type Message
   = UpdateWorld World
   | DecodeError Decode.Error
   | Request ClientRequest
-  | DragPrepare Entity
+  | Drag DragEvent
+
+type DragEvent
+  = DragPrepare Entity
+  | DragStart Position
   | DragMove Position (List Draggable)
   | DragEnd
-
-type alias DragMessage =
-  { position : Position
-  , draggables : List Draggable
-  }
 
 type alias Draggable =
   { id : Uuid
@@ -64,6 +67,7 @@ main =
     { init = always
         ( { world = { entities = [], lastRoll = 0 }
           , dragObject = Nothing
+          , dragOffset = Nothing
           , dragPosition = Nothing
           }
         , Cmd.none
@@ -71,7 +75,7 @@ main =
     , update = update
     , subscriptions = always <| Sub.batch
         [ receive <| decodeMessage jsonDecWorld UpdateWorld
-        , drag <| decodeMessage dragMessageDecoder (\msg -> DragMove msg.position msg.draggables)
+        , drag <| decodeMessage dragMessageDecoder Drag
         ]
     , view = view
     }
@@ -88,9 +92,7 @@ update message model =
     UpdateWorld newWorld -> ({ model | world = newWorld }, Cmd.none)
     DecodeError _ -> Debug.todo "Decoding error."
     Request request -> handleRequest request model
-    DragPrepare entity -> ({ model | dragObject = Just entity }, Cmd.none)
-    DragMove position draggables -> moveDragObject position draggables model
-    DragEnd -> ({ model | dragObject = Nothing, dragPosition = Nothing }, Cmd.none)
+    Drag event -> handleDrag event model
 
 handleRequest : ClientRequest -> Model -> (Model, Cmd Message)
 handleRequest request model =
@@ -101,6 +103,15 @@ handleRequest request model =
         _ -> model.world
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
+
+handleDrag : DragEvent -> Model -> (Model, Cmd Message)
+handleDrag event model =
+  case event of
+    DragPrepare entity -> ({ model | dragObject = Just entity }, Cmd.none)
+    DragStart offset -> ({ model | dragOffset = Just offset }, Cmd.none)
+    DragMove position draggables -> moveDragObject position draggables model
+    DragEnd ->
+      ({ model | dragObject = Nothing, dragOffset = Nothing, dragPosition = Nothing }, Cmd.none)
 
 moveDragObject : Position -> List Draggable -> Model -> (Model, Cmd Message)
 moveDragObject position draggables model =
@@ -116,8 +127,9 @@ moveDragObject position draggables model =
     case (model.dragObject, newIndex) of
       (Just entity, Just index) ->
         if newIndex /= currentIndex
-        then update (Request <| MoveEntity entity index)
-          { model | world = moveEntity entity index newModel.world }
+        then
+          update (Request <| MoveEntity entity index)
+            { model | world = moveEntity entity index newModel.world }
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
 
@@ -147,19 +159,19 @@ view model =
     , div [ class "entities" ] (List.map (viewEntity True) model.world.entities)
     ]
     (Maybe.Extra.toList <| viewDragBox model)
-  |> div [ on "pointerup" <| Decode.succeed DragEnd ]
+  |> div [ on "pointerup" <| Decode.succeed <| Drag DragEnd ]
 
 viewDragBox : Model -> Maybe (Html Message)
 viewDragBox model =
-  case (model.dragObject, model.dragPosition) of
-    (Just entity, Just { x, y }) ->
+  case (model.dragObject, model.dragOffset, model.dragPosition) of
+    (Just entity, Just offset, Just position) -> Just <|
       div
-        [ style "position" "absolute"
-        , style "left" <| String.fromFloat x ++ "px"
-        , style "top" <| String.fromFloat y ++ "px"
+        [ class "dragging"
+        , style "position" "absolute"
+        , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
+        , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
         ]
         [ viewEntity False entity ]
-      |> Just
     _ -> Nothing
 
 viewEntity : Bool -> Entity -> Html Message
@@ -168,7 +180,7 @@ viewEntity isDraggable entity =
     attributes =
       List.append
         [ class "entity"
-        , on "pointerdown" <| Decode.succeed <| DragPrepare entity
+        , on "pointerdown" <| Decode.succeed <| Drag <| DragPrepare entity
         ]
         ( if isDraggable
           then [ attribute "data-draggable" <| Uuid.toString entity.id ]
@@ -177,8 +189,9 @@ viewEntity isDraggable entity =
   in
     div attributes
       [ div [ class "name" ] [ text "Untitled entity" ]
-      , button [ onClick (ToggleEntity entity |> Request) ]
-              [ text (if entity.collapsed then "Show" else "Hide") ]
+      , button
+          [ onClick (ToggleEntity entity |> Request) ]
+          [ text (if entity.collapsed then "Show" else "Hide") ]
       , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
       , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
       , div [ class "aspects" ]
@@ -210,11 +223,23 @@ viewAspect aspect =
       ]
     |> div [ class "aspect" ]
 
-dragMessageDecoder : Decode.Decoder DragMessage
+dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
-  Decode.map2 DragMessage
-    (Decode.field "position" positionDecoder)
-    (Decode.field "draggables" <| Decode.list draggableDecoder)
+  let
+    prepareDecoder = Decode.map DragPrepare jsonDecEntity
+    startDecoder = Decode.map DragStart positionDecoder
+    moveDecoder = Decode.map2 DragMove
+      (Decode.index 0 positionDecoder)
+      (Decode.index 1 <| Decode.list draggableDecoder)
+    endDecoder = Decode.succeed DragEnd
+  in
+    Dict.fromList
+      [ ("dragPrepare", prepareDecoder)
+      , ("dragStart", startDecoder)
+      , ("dragMove", moveDecoder)
+      , ("dragEnd", endDecoder)
+      ]
+    |> decodeSumObjectWithSingleField "DragEvent"
 
 draggableDecoder : Decode.Decoder Draggable
 draggableDecoder =

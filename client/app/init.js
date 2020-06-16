@@ -27,7 +27,8 @@ const prepareDrag = downEvent => {
   const expectDragStart = moveEvent => {
     if (distance(position(downEvent))(position(moveEvent)) >= dragThreshold) {
       cancelDragStart();
-      app.ports.drag.send({ position: position(moveEvent), draggables: draggables() });
+      app.ports.drag.send({ dragStart: offset(moveEvent) });
+      app.ports.drag.send({ dragMove: [position(moveEvent), draggables()] });
       document.addEventListener("pointermove", dragMove);
       document.addEventListener("pointerup", dragEnd);
     }
@@ -45,6 +46,11 @@ const prepareDrag = downEvent => {
 
 const position = event => ({ x: event.clientX, y: event.clientY });
 
+const offset = event => ({
+  x: event.offsetX + event.target.offsetLeft,
+  y: event.offsetY + event.target.offsetTop
+});
+
 const distance = p1 => p2 => {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
@@ -52,7 +58,7 @@ const distance = p1 => p2 => {
 };
 
 const dragMove = moveEvent =>
-  app.ports.drag.send({ position: position(moveEvent), draggables: draggables() });
+  app.ports.drag.send({ dragMove: [position(moveEvent), draggables()] });
 
 const dragEnd = _ => document.removeEventListener("pointermove", dragMove);
 
