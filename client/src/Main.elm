@@ -14,6 +14,7 @@ import Dict
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, checked, class, placeholder, style, type_, value)
 import Html.Events exposing (on, onCheck, onClick, onInput)
+import Html.Keyed
 import Json.Decode as Decode
 import Json.Helpers exposing (decodeSumObjectWithSingleField)
 import Maybe.Extra
@@ -164,12 +165,12 @@ view model =
         (Just dragEntity, Just _) ->
           if dragEntity.id == entity.id then DragRemoved else DragWaiting
         _ -> DragWaiting
-    entityElement entity = viewEntity (dragStatus entity) entity
+    entityElement entity = (Uuid.toString entity.id, viewEntity (dragStatus entity) entity)
   in
     List.append
       [ text ("Rolled: " ++ String.fromInt model.world.lastRoll)
       , button [ onClick (Request AddEntity) ] [ text "+" ]
-      , div [ class "entities" ] (List.map entityElement model.world.entities)
+      , Html.Keyed.node "div" [ class "entities" ] (List.map entityElement model.world.entities)
       ]
       (Maybe.Extra.toList <| viewDragBox model)
     |> div []
