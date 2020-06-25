@@ -5,6 +5,13 @@
 
 packages:
 - completed:
+    hackage: o-clock-1.1.0@sha256:941ac2bc1732e6622b165831c4badb1a8e846f451620bd028064339f5b284224,5043
+    pantry-tree:
+      size: 1043
+      sha256: 177f9923edf9494c6a1bb1c02bbf38e6bd3675e2245effaeaa9a7f76c893d7a6
+  original:
+    hackage: o-clock-1.1.0@sha256:941ac2bc1732e6622b165831c4badb1a8e846f451620bd028064339f5b284224,5043
+- completed:
     hackage: process-1.6.9.0@sha256:0cafe6e1313790863bd81cf40563baf5feea9ca2957e79a4d92bacfcc455604a,2468
     pantry-tree:
       size: 1211

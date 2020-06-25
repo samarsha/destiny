@@ -7,14 +7,17 @@ copyright: 2020 Sarah Marshall
 
 dependencies:
 - aeson
+- aeson-pretty
 - base >= 4.7 && < 5
 - bytestring
+- directory
 - elm-bridge
 - file-embed
 - filepath
 - http-types
 - mime-types
 - MonadRandom
+- o-clock
 - safe
 - signal
 - text
