@@ -27,11 +27,12 @@ import Network.Wai.Handler.WebSockets
 import Network.WebSockets
 import System.Directory
 import System.FilePath
+import System.IO
 import System.IO.Error
 import System.Signal
 import Text.Printf
-import Time.Units
 import Time.Rational
+import Time.Units
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
@@ -94,7 +95,7 @@ saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> MVar State -> IO 
 saveWorldEvery interval stateVar = do
     threadDelay interval
     world <- stateWorld <$> readMVar stateVar
-    saveWorld world
+    catchIOError (saveWorld world) $ hPutStrLn stderr . show
 
 readSavedWorld :: IO (Maybe World)
 readSavedWorld = do
