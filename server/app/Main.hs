@@ -38,9 +38,9 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.Text as Text
 
-data State = State
-    { stateWorld :: World
-    , stateClients :: [Client]
+data ServerState = ServerState
+    { serverWorld :: World
+    , serverClients :: [Client]
     }
 
 data Client = Client
@@ -59,21 +59,21 @@ main = do
   where
     saveInterval = sec 30
 
-serverSettings :: MVar State -> Settings
+serverSettings :: MVar ServerState -> Settings
 serverSettings stateVar = defaultSettings
     & setInstallShutdownHandler installShutdownHandler
     & setGracefulShutdownTimeout (Just 5)
   where
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
-        world <- stateWorld <$> readMVar stateVar
+        world <- serverWorld <$> readMVar stateVar
         saveWorld world
         closeSocket
 
-newState :: World -> State
-newState world = State
-    { stateWorld = world
-    , stateClients = []
+newState :: World -> ServerState
+newState world = ServerState
+    { serverWorld = world
+    , serverClients = []
     }
 
 clientAppDir :: [(FilePath, ByteString)]
@@ -91,10 +91,10 @@ saveWorld world = do
   where
     format = defConfig { confIndent = Spaces 2 }
 
-saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> MVar State -> IO ()
+saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> MVar ServerState -> IO ()
 saveWorldEvery interval stateVar = do
     threadDelay interval
-    world <- stateWorld <$> readMVar stateVar
+    world <- serverWorld <$> readMVar stateVar
     catchIOError (saveWorld world) $ hPutStrLn stderr . show
 
 readSavedWorld :: IO (Maybe World)
@@ -116,11 +116,11 @@ httpApp request respond = respond $ case rawPathInfo request of
             in responseBuilder status200 [("Content-Type", contentType)] $ byteString content
         Nothing -> responseLBS status404 [("Content-Type", "text/plain")] "404 Not Found"
 
-webSocketsApp :: MVar State -> ServerApp
+webSocketsApp :: MVar ServerState -> ServerApp
 webSocketsApp stateVar pending = do
     connection <- acceptRequest pending
     withPingThread connection (toNum @Second pingInterval) (return ()) $ do
-        client <- modifyMVar stateVar $ \state@State { stateWorld = world } -> do
+        client <- modifyMVar stateVar $ \state@ServerState { serverWorld = world } -> do
             sendTextData connection $ encode world
             evalRandIO $ addClient connection state
         finally
@@ -129,22 +129,22 @@ webSocketsApp stateVar pending = do
   where
     pingInterval = sec 30
 
-addClient :: RandomGen g => Connection -> State -> Rand g (State, Client)
-addClient connection state@State { stateClients = clients } = do
+addClient :: RandomGen g => Connection -> ServerState -> Rand g (ServerState, Client)
+addClient connection state@ServerState { serverClients = clients } = do
     newId <- getRandom
     let client = Client { clientId = newId, clientConnection = connection }
-    return (state { stateClients = client : clients }, client)
+    return (state { serverClients = client : clients }, client)
 
-removeClient :: UUID -> State -> State
-removeClient uuid state@State { stateClients = clients } = state
-    { stateClients = filter (\client -> clientId client /= uuid) clients }
+removeClient :: UUID -> ServerState -> ServerState
+removeClient uuid state@ServerState { serverClients = clients } = state
+    { serverClients = filter (\client -> clientId client /= uuid) clients }
 
-handleMessage :: Connection -> MVar State -> IO ()
+handleMessage :: Connection -> MVar ServerState -> IO ()
 handleMessage connection stateVar = decode <$> receiveData connection >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
-        world' <- evalRandIO $ updateWorld message $ stateWorld state
-        broadcast world' $ stateClients state
-        return state { stateWorld = world' }
+        world' <- evalRandIO $ updateWorld message $ serverWorld state
+        broadcast world' $ serverClients state
+        return state { serverWorld = world' }
     Nothing -> return ()
 
 broadcast :: ToJSON a => a -> [Client] -> IO ()

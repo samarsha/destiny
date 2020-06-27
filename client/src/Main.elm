@@ -20,7 +20,7 @@ import Json.Helpers exposing (decodeSumObjectWithSingleField)
 import Maybe.Extra
 import Uuid exposing (Uuid)
 
-type alias Model =
+type alias ClientState =
   { world : World
   , dragObject : Maybe Entity
   , dragOffset : Maybe Position
@@ -67,7 +67,7 @@ port send : Decode.Value -> Cmd msg
 
 port drag : (Decode.Value -> msg) -> Sub msg
 
-main : Program () Model Message
+main : Program () ClientState Message
 main =
   Browser.element
     { init = always
@@ -92,7 +92,7 @@ decodeMessage decoder toMessage value =
     Ok result -> toMessage result
     Err error -> DecodeError error
 
-update : Message -> Model -> (Model, Cmd Message)
+update : Message -> ClientState -> (ClientState, Cmd Message)
 update message model =
   case message of
     UpdateWorld newWorld -> ({ model | world = newWorld }, Cmd.none)
@@ -100,7 +100,7 @@ update message model =
     Request request -> handleRequest request model
     Drag event -> handleDrag event model
 
-handleRequest : ClientRequest -> Model -> (Model, Cmd Message)
+handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Message)
 handleRequest request model =
   let
     newWorld =
@@ -110,7 +110,7 @@ handleRequest request model =
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
 
-handleDrag : DragEvent -> Model -> (Model, Cmd Message)
+handleDrag : DragEvent -> ClientState -> (ClientState, Cmd Message)
 handleDrag event model =
   case event of
     DragPrepare entity -> ({ model | dragObject = Just entity }, Cmd.none)
@@ -119,7 +119,7 @@ handleDrag event model =
     DragEnd ->
       ({ model | dragObject = Nothing, dragOffset = Nothing, dragPosition = Nothing }, Cmd.none)
 
-moveDragObject : Position -> List Draggable -> Model -> (Model, Cmd Message)
+moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Message)
 moveDragObject position draggables model =
   let
     currentIndex = model.dragObject |> Maybe.andThen (.id >> entityIndex model)
@@ -157,7 +157,7 @@ moveEntity entity index world =
   in
     { world | entities = moved }
 
-view : Model -> Html Message
+view : ClientState -> Html Message
 view model =
   let
     dragStatus entity =
@@ -175,7 +175,7 @@ view model =
       (Maybe.Extra.toList <| viewDragBox model)
     |> div []
 
-viewDragBox : Model -> Maybe (Html Message)
+viewDragBox : ClientState -> Maybe (Html Message)
 viewDragBox model =
   case (model.dragObject, model.dragOffset, model.dragPosition) of
     (Just entity, Just offset, Just position) -> Just <|
@@ -283,7 +283,7 @@ withinRectangle position rect =
   rect.y <= position.y &&
   position.y <= rect.y + rect.height
 
-entityIndex : Model -> Uuid -> Maybe Int
+entityIndex : ClientState -> Uuid -> Maybe Int
 entityIndex model id =
   model.world.entities
   |> List.indexedMap (\index entity -> if entity.id == id then Just index else Nothing)
