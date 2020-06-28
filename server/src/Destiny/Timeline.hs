@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Timeline (Timeline, commit, modify, redo, singleton, undo, update, value) where
@@ -11,9 +9,15 @@ data Timeline a = Timeline
     { timelinePast :: [a]
     , timelinePresent :: a
     , timelineFuture :: [a]
-    , timelineLength :: Int
     , timelineCommitted :: Bool
     }
+
+instance Foldable Timeline where
+    foldr f z Timeline { timelinePast = past
+                       , timelinePresent = present
+                       , timelineFuture = future
+                       } =
+        foldr f z $ reverse future ++ present : past
 
 deriveJSON (stripFieldPrefixOptions "timeline") ''Timeline
 
@@ -22,7 +26,6 @@ singleton x = Timeline
     { timelinePast = []
     , timelinePresent = x
     , timelineFuture = []
-    , timelineLength = 1
     , timelineCommitted = True
     }
 
@@ -59,24 +62,19 @@ commit timeline = timeline { timelineCommitted = True }
 update :: a -> Timeline a -> Timeline a
 update x timeline@Timeline { timelinePast = past
                            , timelinePresent = present
-                           , timelineFuture = future
-                           , timelineLength = len
                            , timelineCommitted = committed
                            }
-    | committed && len == maxLen = timeline' { timelinePast = present : init past }
-    | committed = timeline'
-        { timelinePast = present : past
-        , timelineLength = timelineLength timeline' + 1
-        }
+    | committed && length timeline == maxLength =
+        timeline' { timelinePast = present : init past }
+    | committed = timeline' { timelinePast = present : past }
     | otherwise = timeline'
   where
     timeline' = timeline
         { timelinePresent = x
         , timelineFuture = []
-        , timelineLength = len - length future
         , timelineCommitted = False
         }
-    maxLen = 100
+    maxLength = 100
 
 modify :: Timeline a -> (a -> a) -> Timeline a
 modify timeline@Timeline { timelinePresent = present } f = update (f $ present) timeline
