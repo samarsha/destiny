@@ -74,7 +74,7 @@ update x timeline@Timeline { timelinePast = past
         , timelineFuture = []
         , timelineCommitted = False
         }
-    maxLength = 100
+    maxLength = 50
 
 modify :: Timeline a -> (a -> a) -> Timeline a
 modify timeline@Timeline { timelinePresent = present } f = update (f present) timeline
