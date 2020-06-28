@@ -272,7 +272,16 @@ viewAspect aspect =
 viewEvent : Event -> Html Message
 viewEvent event =
   case event of
-    RollResult _ rolls -> div [] [ rolls |> List.map String.fromInt |> String.join ", " |> text ]
+    RollResult _ rolls ->
+      div [] <|
+        [ rolls |> List.map String.fromInt |> String.join " + " |> text ] ++
+        ( if List.length rolls > 1
+          then
+            [ text " = "
+            , List.sum rolls |> String.fromInt |> text
+            ]
+          else []
+        )
 
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
