@@ -83,7 +83,7 @@ getWorldSavePath = do
 saveWorld :: World -> IO ()
 saveWorld world = do
     path <- getWorldSavePath
-    writeFile path $ LBS.unpack $ encodePretty' format world
+    LBS.writeFile path $ encodePretty' format world
   where
     format = defConfig { confIndent = Spaces 2 }
 
@@ -98,7 +98,7 @@ saveWorldEvery interval stateVar = forever $ do
 readSavedWorld :: IO (Maybe World)
 readSavedWorld = do
     path <- getWorldSavePath
-    catchIOError (decode <$> LBS.pack <$> readFile path) $ \err ->
+    catchIOError (decode <$> LBS.readFile path) $ \err ->
         if isDoesNotExistError err
         then return Nothing
         else ioError err
