@@ -2,11 +2,12 @@
 
 body {
     background-color: #f7f7f2;
-    display: flex;
     margin: 0;
 }
 
-body, textarea {
+body,
+button,
+textarea {
     font-family: "Roboto", sans-serif;
     font-size: 12pt;
 }
@@ -30,6 +31,18 @@ body, textarea {
     white-space: pre-wrap;
 }
 
+.active-roll {
+    background: #1098f7;
+    color: #f7f7f2;
+    font-size: 14pt;
+    padding: 10px;
+    text-align: center;
+}
+
+.active-roll button {
+    margin-left: 10px;
+}
+
 .entities {
     align-items: flex-start;
     display: flex;
@@ -45,7 +58,7 @@ body, textarea {
 }
 
 .entity .name {
-    background: #A53860;
+    background: #a53860;
     border: 0;
     box-sizing: border-box;
     color: #f7f7f2;
