@@ -66,8 +66,7 @@ serverSettings stateVar = defaultSettings
   where
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
-        world <- serverWorld <$> readMVar stateVar
-        saveWorld world
+        saveWorld =<< serverWorld <$> readMVar stateVar
         closeSocket
 
 newState :: World -> ServerState
