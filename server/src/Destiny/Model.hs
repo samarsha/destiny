@@ -1,10 +1,13 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Model
     ( Aspect
+    , AspectId
     , ClientRequest
     , Entity
+    , EntityId
     , World
     , WorldSnapshot
     , commit
@@ -44,7 +47,7 @@ data WorldSnapshot = WorldSnapshot
 -- | An entity.
 data Entity = Entity
     { -- | The entity ID.
-      entityId :: UUID
+      entityId :: EntityId
       -- | The entity name.
     , entityName :: String
       -- | The aspects that belong to the entity.
@@ -53,35 +56,45 @@ data Entity = Entity
     , entityCollapsed :: Bool
     }
 
+-- | An entity ID.
+newtype EntityId = EntityId UUID
+    deriving (Eq, Random)
+
 -- | An aspect.
 data Aspect = Aspect
     { -- | The aspect ID.
-      aspectId :: UUID
+      aspectId :: AspectId
       -- | The description of the aspect.
     , aspectText :: String
       -- | A list of the selected status for each free invoke die.
     , aspectDice :: [Bool]
     }
 
+-- | An aspect ID.
+newtype AspectId = AspectId UUID
+    deriving (Eq, Random)
+
 data ClientRequest
     = AddEntity
-    | ToggleEntity UUID          -- Entity ID
-    | SetEntityName UUID String  -- Entity ID
-    | MoveEntity UUID Int        -- Entity ID
-    | RemoveEntity UUID          -- Entity ID
-    | AddAspect UUID             -- Entity ID
-    | SetAspectText UUID String  -- Aspect ID
-    | RemoveAspect UUID          -- Aspect ID
-    | AddDie UUID                -- Aspect ID
-    | SetDie UUID Int Bool       -- Aspect ID
-    | RemoveDie UUID             -- Aspect ID
-    | Roll UUID                  -- Aspect ID
+    | ToggleEntity EntityId
+    | SetEntityName EntityId String
+    | MoveEntity EntityId Int
+    | RemoveEntity EntityId
+    | AddAspect EntityId
+    | SetAspectText AspectId String
+    | RemoveAspect AspectId
+    | AddDie AspectId
+    | SetDie AspectId Int Bool
+    | RemoveDie AspectId
+    | Roll AspectId
     | Undo
     | Redo
 
 deriveJSON (stripFieldPrefixOptions "world") ''World
 deriveBoth (stripFieldPrefixOptions "snapshot") ''WorldSnapshot
+deriveBoth defaultOptions ''EntityId
 deriveBoth (stripFieldPrefixOptions "entity") ''Entity
+deriveBoth defaultOptions ''AspectId
 deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
 deriveBoth defaultOptions ''ClientRequest
 
@@ -125,65 +138,65 @@ addEntity world@World { worldTimeline = timeline } = do
             }
     return world { worldTimeline = Timeline.modify timeline (entity :) }
 
-modifyEntity :: (Entity -> Maybe Entity) -> UUID -> World -> World
-modifyEntity f uuid world@World { worldTimeline = timeline } =
+modifyEntity :: (Entity -> Maybe Entity) -> EntityId -> World -> World
+modifyEntity f eid world@World { worldTimeline = timeline } =
     world { worldTimeline = Timeline.modify timeline $ mapMaybe modify }
   where
-    modify entity@Entity { entityId = uuid' }
-        | uuid == uuid' = f entity
-        | otherwise     = Just entity
+    modify entity@Entity { entityId = eid' }
+        | eid == eid' = f entity
+        | otherwise   = Just entity
 
-toggleEntity :: UUID -> World -> World
+toggleEntity :: EntityId -> World -> World
 toggleEntity = modifyEntity $ \entity@Entity { entityCollapsed = collapsed } ->
     Just $ entity { entityCollapsed = not collapsed }
 
-setEntityName :: String -> UUID -> World -> World
+setEntityName :: String -> EntityId -> World -> World
 setEntityName name = modifyEntity $ \entity -> Just $ entity { entityName = name }
 
-moveEntity :: Int -> UUID -> World -> World
-moveEntity index uuid world@World { worldTimeline = timeline } =
-    case find ((==) uuid . entityId) $ Timeline.value timeline of
+moveEntity :: Int -> EntityId -> World -> World
+moveEntity index eid world@World { worldTimeline = timeline } =
+    case find ((==) eid . entityId) $ Timeline.value timeline of
         Just entity -> world { worldTimeline = Timeline.modify timeline $ move entity }
         Nothing -> world
   where
     move entity entities = take index removed ++ entity : drop index removed
       where
-        removed = filter ((/=) uuid . entityId) entities
+        removed = filter ((/=) eid . entityId) entities
 
-removeEntity :: UUID -> World -> World
+removeEntity :: EntityId -> World -> World
 removeEntity = modifyEntity $ const Nothing
 
-addAspect :: RandomGen g => UUID -> World -> Rand g World
-addAspect uuid world = do
+addAspect :: RandomGen g => EntityId -> World -> Rand g World
+addAspect eid world = do
     newId <- getRandom
     let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = [] }
-    return $ modifyEntity (add aspect) uuid world
+    return $ modifyEntity (add aspect) eid world
   where
     add aspect entity@Entity { entityAspects = aspects } =
         Just $ entity { entityAspects = aspect : aspects }
 
-modifyAspect :: (Aspect -> Maybe Aspect) -> UUID -> World -> World
-modifyAspect f uuid world@World { worldTimeline = timeline } = world
+modifyAspect :: (Aspect -> Maybe Aspect) -> AspectId -> World -> World
+modifyAspect f aid world@World { worldTimeline = timeline } = world
     { worldTimeline = Timeline.modify timeline $ map $
         \entity@Entity { entityAspects = aspects } ->
             entity { entityAspects = mapMaybe modify aspects }
     }
   where
-    modify aspect@Aspect { aspectId = uuid' }
-        | uuid == uuid' = f aspect
-        | otherwise     = Just aspect
+    modify aspect@Aspect { aspectId = aid' }
+        | aid == aid' = f aspect
+        | otherwise   = Just aspect
 
-setAspectText :: String -> UUID -> World -> World
+setAspectText :: String -> AspectId -> World -> World
 setAspectText text = modifyAspect $ \aspect -> Just $ aspect { aspectText = text }
 
-removeAspect :: UUID -> World -> World
+removeAspect :: AspectId -> World -> World
 removeAspect = modifyAspect $ const Nothing
 
-addDie :: UUID -> World -> World
+addDie :: AspectId -> World -> World
 addDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
     Just $ aspect { aspectDice = False : dice }
 
-setDie :: Int -> Bool -> UUID -> World -> World
+setDie :: Int -> Bool -> AspectId -> World -> World
 setDie index selected = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
     Just $ aspect { aspectDice = zipWith replaceIndex [0..] dice }
   where
@@ -191,23 +204,23 @@ setDie index selected = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
         | i == index = selected
         | otherwise  = x
 
-removeDie :: UUID -> World -> World
+removeDie :: AspectId -> World -> World
 removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
     let dice' = case dice of
                     [] -> []
                     _ : xs -> xs
     in Just $ aspect { aspectDice = dice' }
 
-rollDice :: RandomGen g => UUID -> World -> Rand g World
-rollDice uuid world@World { worldTimeline = timeline } = case aspects of
+rollDice :: RandomGen g => AspectId -> World -> Rand g World
+rollDice aid world@World { worldTimeline = timeline } = case aspects of
     [Aspect { aspectDice = dice }] -> do
         let numRolls = length $ filter id dice
         rolls <- take numRolls <$> getRandomRs (1, 6)
         let world' = world { worldLastRoll = sum rolls }
-        return $ modifyAspect (setDice $ filter not dice) uuid world'
+        return $ modifyAspect (setDice $ filter not dice) aid world'
     _ -> return world
   where
-    aspects = concatMap (filter ((==) uuid . aspectId) . entityAspects) $ Timeline.value timeline
+    aspects = concatMap (filter ((==) aid . aspectId) . entityAspects) $ Timeline.value timeline
     setDice dice aspect = Just $ aspect { aspectDice = dice }
 
 undo :: World -> World

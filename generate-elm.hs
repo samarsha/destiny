@@ -29,8 +29,10 @@ main = do
 defs :: [DefineElm]
 defs =
     [ DefineElm (Proxy :: Proxy Aspect)
+    , DefineElm (Proxy :: Proxy AspectId)
     , DefineElm (Proxy :: Proxy ClientRequest)
     , DefineElm (Proxy :: Proxy Entity)
+    , DefineElm (Proxy :: Proxy EntityId)
     , DefineElm (Proxy :: Proxy WorldSnapshot)
     ]
 
@@ -57,9 +59,10 @@ renameType :: String -> String -> ETypeDef -> ETypeDef
 renameType before after = \case
     ETypeAlias (alias@EAlias { ea_fields = fields }) -> ETypeAlias $ alias
         { ea_fields = map (second rename) fields }
+    ETypePrimAlias (alias@EPrimAlias { epa_type = eType }) -> ETypePrimAlias $ alias
+        { epa_type = rename eType }
     ETypeSum (eSum@ESum { es_constructors = constructors }) -> ETypeSum $ eSum
         { es_constructors = map updateSumConstructor constructors }
-    typeDef -> typeDef
   where
     rename (ETyCon (ETCon name))
         | name == before = ETyCon $ ETCon after
