@@ -105,7 +105,7 @@ handleRequest request model =
   let
     newWorld =
       case request of
-        EditAspect aspect -> updateAspect aspect model.world
+        SetAspectText id text -> modifyAspect (\aspect -> { aspect | text = text }) id model.world
         _ -> model.world
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
@@ -134,20 +134,20 @@ moveDragObject position draggables model =
       (Just entity, Just index) ->
         if newIndex /= currentIndex
         then
-          update (Request <| MoveEntity entity index)
+          update (MoveEntity entity.id index |> Request)
             { model | world = moveEntity entity index newModel.world }
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
 
-updateAspect : Aspect -> WorldSnapshot -> WorldSnapshot
-updateAspect aspect world =
-  let
-    replaceAspect originalAspect =
-      if originalAspect.id == aspect.id then aspect
-      else originalAspect
-    updateEntityAspects entity = { entity | aspects = List.map replaceAspect entity.aspects }
+modifyAspect : (Aspect -> Aspect) -> Uuid -> WorldSnapshot -> WorldSnapshot
+modifyAspect f id world =
+  let modify aspect = if id == aspect.id then f aspect else aspect
   in
-    { world | entities = List.map updateEntityAspects world.entities }
+    { world
+    | entities = List.map
+        (\entity -> { entity | aspects = List.map modify entity.aspects })
+        world.entities
+    }
 
 moveEntity : Entity -> Int -> WorldSnapshot -> WorldSnapshot
 moveEntity entity index world =
@@ -209,14 +209,14 @@ viewEntity dragStatus entity =
           [ class "name"
           , placeholder "Name this entity"
           , value entity.name
-          , onInput <| EditEntityName entity.id >> Request
+          , onInput <| SetEntityName entity.id >> Request
           ]
           []
       , button
-          [ onClick (ToggleEntity entity |> Request) ]
+          [ onClick (ToggleEntity entity.id |> Request) ]
           [ text <| if entity.collapsed then "Show" else "Hide" ]
-      , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
-      , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
+      , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "Remove" ]
+      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+" ]
       , div [ class "aspects" ]
           ( if entity.collapsed then []
             else List.map viewAspect entity.aspects
@@ -230,21 +230,21 @@ viewAspect aspect =
       input
         [ type_ "checkbox"
         , checked selected
-        , onCheck (ToggleDie aspect index >> Request)
+        , onCheck (SetDie aspect.id index >> Request)
         ]
         []
-    edit text = EditAspect { aspect | text = text } |> Request
+    edit text = SetAspectText aspect.id text |> Request
   in
     List.concat
       [ [ div
             [ attribute "data-autoexpand" aspect.text ]
             [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
-        , button [ onClick (RemoveAspect aspect |> Request) ] [ text "Remove" ]
-        , button [ onClick (AddDie aspect |> Request) ] [ text "+" ]
-        , button [ onClick (RemoveDie aspect |> Request) ] [ text "-" ]
+        , button [ onClick (RemoveAspect aspect.id |> Request) ] [ text "Remove" ]
+        , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
+        , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
         ]
       , List.indexedMap die aspect.dice
-      , [ button [ onClick (Roll aspect |> Request) ] [ text "Roll" ] ]
+      , [ button [ onClick (Roll aspect.id |> Request) ] [ text "Roll" ] ]
       ]
     |> div [ class "aspect" ]
 
