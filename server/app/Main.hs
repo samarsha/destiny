@@ -52,7 +52,7 @@ main :: IO ()
 main = do
     savedWorld <- readSavedWorld
     stateVar <- newMVar $ newState $ fromMaybe emptyWorld savedWorld
-    _ <- forkIO $ forever $ saveWorldEvery saveInterval stateVar
+    _ <- forkIO $ saveWorldEvery saveInterval stateVar
     let settings = serverSettings stateVar
     putStrLn $ printf "Listening on port %d." $ getPort settings
     runSettings settings $ websocketsOr defaultConnectionOptions (webSocketsApp stateVar) httpApp
@@ -89,7 +89,7 @@ saveWorld world = do
     format = defConfig { confIndent = Spaces 2 }
 
 saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> MVar ServerState -> IO ()
-saveWorldEvery interval stateVar = do
+saveWorldEvery interval stateVar = forever $ do
     threadDelay interval
     world <- modifyMVar stateVar $ \state ->
         let state' = state { serverWorld = commit $ serverWorld state }
