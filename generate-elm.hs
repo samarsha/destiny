@@ -31,7 +31,7 @@ defs =
     [ DefineElm (Proxy :: Proxy Aspect)
     , DefineElm (Proxy :: Proxy ClientRequest)
     , DefineElm (Proxy :: Proxy Entity)
-    , DefineElm (Proxy :: Proxy World)
+    , DefineElm (Proxy :: Proxy WorldSnapshot)
     ]
 
 makeModule :: String -> [DefineElm] -> String

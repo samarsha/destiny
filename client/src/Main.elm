@@ -5,9 +5,9 @@ import Destiny.Generated.Model exposing
   ( Aspect
   , ClientRequest (..)
   , Entity
-  , World
+  , WorldSnapshot
   , jsonDecEntity
-  , jsonDecWorld
+  , jsonDecWorldSnapshot
   , jsonEncClientRequest
   )
 import Dict
@@ -21,14 +21,14 @@ import Maybe.Extra
 import Uuid exposing (Uuid)
 
 type alias ClientState =
-  { world : World
+  { world : WorldSnapshot
   , dragObject : Maybe Entity
   , dragOffset : Maybe Position
   , dragPosition : Maybe Position
   }
 
 type Message
-  = UpdateWorld World
+  = UpdateWorld WorldSnapshot
   | DecodeError Decode.Error
   | Request ClientRequest
   | Drag DragEvent
@@ -80,7 +80,7 @@ main =
         )
     , update = update
     , subscriptions = always <| Sub.batch
-        [ receive <| decodeMessage jsonDecWorld UpdateWorld
+        [ receive <| decodeMessage jsonDecWorldSnapshot UpdateWorld
         , drag <| decodeMessage dragMessageDecoder Drag
         ]
     , view = view
@@ -139,7 +139,7 @@ moveDragObject position draggables model =
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
 
-updateAspect : Aspect -> World -> World
+updateAspect : Aspect -> WorldSnapshot -> WorldSnapshot
 updateAspect aspect world =
   let
     replaceAspect originalAspect =
@@ -149,7 +149,7 @@ updateAspect aspect world =
   in
     { world | entities = List.map updateEntityAspects world.entities }
 
-moveEntity : Entity -> Int -> World -> World
+moveEntity : Entity -> Int -> WorldSnapshot -> WorldSnapshot
 moveEntity entity index world =
   let
     removed = List.filter (\e -> e.id /= entity.id) world.entities
@@ -169,7 +169,9 @@ view model =
   in
     List.append
       [ text ("Rolled: " ++ String.fromInt model.world.lastRoll)
-      , button [ onClick (Request AddEntity) ] [ text "+" ]
+      , button [ onClick <| Request AddEntity ] [ text "+" ]
+      , button [ onClick <| Request Undo ] [ text "Undo" ]
+      , button [ onClick <| Request Redo ] [ text "Redo" ]
       , Html.Keyed.node "div" [ class "entities" ] (List.map entityElement model.world.entities)
       ]
       (Maybe.Extra.toList <| viewDragBox model)

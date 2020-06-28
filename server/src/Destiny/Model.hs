@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -6,22 +8,37 @@ module Destiny.Model
     , ClientRequest
     , Entity
     , World
+    , WorldSnapshot
+    , commit
     , emptyWorld
     , updateWorld
+    , worldSnapshot
     )
 where
 
 import Control.Monad.Random
+import Data.Aeson.TH (deriveJSON)
 import Data.UUID
+import Destiny.Timeline (Timeline)
 import Destiny.Utils
 import Elm.Derive
 
+import qualified Destiny.Timeline as Timeline
+
 -- | The world.
 data World = World
-    { -- | The entities.
-      worldEntities :: [Entity]
+    { -- | The timeline of entities.
+      worldTimeline :: Timeline [Entity]
       -- | The result of the last dice roll.
     , worldLastRoll :: Int
+    }
+
+-- | A snapshot of the world.
+data WorldSnapshot = WorldSnapshot
+    { -- | The entities.
+      snapshotEntities :: [Entity]
+      -- | The result of the last dice roll.
+    , snapshotLastRoll :: Int
     }
 
 -- | An entity.
@@ -56,11 +73,25 @@ data ClientRequest
     | ToggleDie Aspect Int Bool
     | RemoveDie Aspect
     | Roll Aspect
+    | Undo
+    | Redo
+
+deriveJSON (stripFieldPrefixOptions "world") ''World
+deriveBoth (stripFieldPrefixOptions "snapshot") ''WorldSnapshot
+deriveBoth (stripFieldPrefixOptions "entity") ''Entity
+deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
+deriveBoth defaultOptions ''ClientRequest
 
 emptyWorld :: World
 emptyWorld = World
-    { worldEntities = []
+    { worldTimeline = Timeline.singleton []
     , worldLastRoll = 0
+    }
+
+worldSnapshot :: World -> WorldSnapshot
+worldSnapshot World { worldTimeline = timeline, worldLastRoll = lastRoll } = WorldSnapshot
+    { snapshotEntities = Timeline.value timeline
+    , snapshotLastRoll = lastRoll
     }
 
 updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
@@ -76,16 +107,18 @@ updateWorld = \case
     ToggleDie aspect index selected -> return . toggleDie aspect index selected
     RemoveDie aspect -> return . removeDie aspect
     Roll aspect -> rollDice aspect
+    Undo -> return . undo
+    Redo -> return . redo
 
 addEntity :: RandomGen g => World -> Rand g World
-addEntity world@World { worldEntities = entities } = do
+addEntity world@World { worldTimeline = timeline } = do
     newId <- getRandom
     let entity = Entity { entityId = newId, entityAspects = [], entityCollapsed = False }
-    return world { worldEntities = entity : entities }
+    return world { worldTimeline = Timeline.modify timeline (entity :) }
 
 updateEntity :: Entity -> World -> World
-updateEntity entity world@World { worldEntities = entities } = world
-    { worldEntities = map replaceEntity entities }
+updateEntity entity world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map replaceEntity }
   where
     replaceEntity entity'
         | entityId entity' == entityId entity = entity
@@ -96,14 +129,18 @@ toggleEntity entity = updateEntity entity
     { entityCollapsed = not (entityCollapsed entity) }
 
 moveEntity :: Entity -> Int -> World -> World
-moveEntity entity index world@World { worldEntities = entities } = world { worldEntities = moved }
+moveEntity entity index world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline move }
   where
-    removed = filter (\entity' -> entityId entity' /= entityId entity) entities
-    moved = take index removed ++ entity : drop index removed
+    move entities = take index removed ++ entity : drop index removed
+      where
+        removed = filter (\entity' -> entityId entity' /= entityId entity) entities
 
 removeEntity :: Entity -> World -> World
-removeEntity entity world@World { worldEntities = entities } = world
-    { worldEntities = filter (\entity' -> entityId entity' /= entityId entity) entities }
+removeEntity entity world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $
+        filter (\entity' -> entityId entity' /= entityId entity)
+    }
 
 addAspect :: RandomGen g => Entity -> World -> Rand g World
 addAspect entity@Entity { entityAspects = aspects } world = do
@@ -112,8 +149,8 @@ addAspect entity@Entity { entityAspects = aspects } world = do
     return $ updateEntity entity { entityAspects = aspect : aspects } world
 
 updateAspect :: Aspect -> World -> World
-updateAspect aspect world@World { worldEntities = entities } = world
-    { worldEntities = map updateEntityAspects entities }
+updateAspect aspect world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map updateEntityAspects }
   where
     updateEntityAspects entity@Entity { entityAspects = aspects } = entity
         { entityAspects = map replaceAspect aspects }
@@ -122,8 +159,8 @@ updateAspect aspect world@World { worldEntities = entities } = world
         | otherwise = aspect'
 
 removeAspect :: Aspect -> World -> World
-removeAspect aspect world@World { worldEntities = entities } = world
-    { worldEntities = map updateEntityAspects entities }
+removeAspect aspect world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map updateEntityAspects }
   where
     updateEntityAspects entity@Entity { entityAspects = aspects } = entity
         { entityAspects = filter (\aspect' -> aspectId aspect' /= aspectId aspect) aspects }
@@ -154,7 +191,11 @@ rollDice aspect@Aspect { aspectDice = dice } world = do
     world' = updateAspect aspect { aspectDice = filter not dice } world
     numRolls = length $ filter id dice
 
-deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
-deriveBoth (stripFieldPrefixOptions "entity") ''Entity
-deriveBoth (stripFieldPrefixOptions "world") ''World
-deriveBoth defaultOptions ''ClientRequest
+commit :: World -> World
+commit world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.commit timeline }
+
+undo :: World -> World
+undo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.undo timeline }
+
+redo :: World -> World
+redo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.redo timeline }

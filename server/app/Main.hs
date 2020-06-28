@@ -71,10 +71,7 @@ serverSettings stateVar = defaultSettings
         closeSocket
 
 newState :: World -> ServerState
-newState world = ServerState
-    { serverWorld = world
-    , serverClients = []
-    }
+newState world = ServerState { serverWorld = world, serverClients = [] }
 
 clientAppDir :: [(FilePath, ByteString)]
 clientAppDir = $(embedDir $ "client" </> "app")
@@ -94,7 +91,9 @@ saveWorld world = do
 saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> MVar ServerState -> IO ()
 saveWorldEvery interval stateVar = do
     threadDelay interval
-    world <- serverWorld <$> readMVar stateVar
+    world <- modifyMVar stateVar $ \state ->
+        let state' = state { serverWorld = commit $ serverWorld state }
+        in  return (state', serverWorld state')
     catchIOError (saveWorld world) $ hPutStrLn stderr . show
 
 readSavedWorld :: IO (Maybe World)
@@ -121,7 +120,7 @@ webSocketsApp stateVar pending = do
     connection <- acceptRequest pending
     withPingThread connection (toNum @Second pingInterval) (return ()) $ do
         client <- modifyMVar stateVar $ \state@ServerState { serverWorld = world } -> do
-            sendTextData connection $ encode world
+            sendTextData connection $ encode $ worldSnapshot world
             evalRandIO $ addClient connection state
         finally
             (forever $ handleMessage connection stateVar)
@@ -143,7 +142,7 @@ handleMessage :: Connection -> MVar ServerState -> IO ()
 handleMessage connection stateVar = decode <$> receiveData connection >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
         world' <- evalRandIO $ updateWorld message $ serverWorld state
-        broadcast world' $ serverClients state
+        broadcast (worldSnapshot world') $ serverClients state
         return state { serverWorld = world' }
     Nothing -> return ()
 
