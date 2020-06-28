@@ -236,7 +236,9 @@ viewAspect aspect =
     edit text = EditAspect { aspect | text = text } |> Request
   in
     List.concat
-      [ [ textarea [ value aspect.text, placeholder "Describe this aspect.", onInput edit ] []
+      [ [ div
+            [ attribute "data-autoexpand" aspect.text ]
+            [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
         , button [ onClick (RemoveAspect aspect |> Request) ] [ text "Remove" ]
         , button [ onClick (AddDie aspect |> Request) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect |> Request) ] [ text "-" ]

@@ -11,6 +11,25 @@ body, textarea {
     font-size: 12pt;
 }
 
+[data-autoexpand] {
+    position: relative;
+}
+
+[data-autoexpand] textarea {
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+[data-autoexpand]::after {
+    content: attr(data-autoexpand) " ";
+    display: block;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
 .entities {
     align-items: flex-start;
     display: flex;
@@ -23,6 +42,7 @@ body, textarea {
     flex: 1 1 13%;
     margin-bottom: 10px;
     margin: 5px;
+    max-width: 250px;
     min-width: 250px;
 }
 
@@ -48,10 +68,12 @@ body, textarea {
     border: 0;
     box-sizing: border-box;
     display: block;
-    min-height: 50px;
+    resize: none;
+}
+
+.entity .aspect [data-autoexpand],
+.entity .aspect textarea {
     padding: 10px;
-    resize: vertical;
-    width: 100%;
 }
 
 [data-draggable] {
