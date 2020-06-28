@@ -8,6 +8,8 @@ module Destiny.Model
     , ClientRequest
     , Entity
     , EntityId
+    , Event
+    , RollId
     , World
     , WorldSnapshot
     , commit
@@ -23,7 +25,6 @@ import Data.List
 import Data.Maybe
 import Data.UUID
 import Destiny.Timeline (Timeline)
-import Destiny.Utils
 import Elm.Derive
 
 import qualified Destiny.Timeline as Timeline
@@ -32,16 +33,16 @@ import qualified Destiny.Timeline as Timeline
 data World = World
     { -- | The timeline of entities.
       worldTimeline :: Timeline [Entity]
-      -- | The result of the last dice roll.
-    , worldLastRoll :: Int
+      -- | The events that have occurred.
+    , worldEvents :: [Event]
     }
 
 -- | A snapshot of the world.
 data WorldSnapshot = WorldSnapshot
     { -- | The entities.
       snapshotEntities :: [Entity]
-      -- | The result of the last dice roll.
-    , snapshotLastRoll :: Int
+      -- | The events that have occurred.
+    , snapshotEvents :: [Event]
     }
 
 -- | An entity.
@@ -66,12 +67,17 @@ data Aspect = Aspect
       aspectId :: AspectId
       -- | The description of the aspect.
     , aspectText :: String
-      -- | A list of the selected status for each free invoke die.
-    , aspectDice :: [Bool]
+      -- | The number of free invoke dice for the aspect.
+    , aspectDice :: Int
     }
 
 -- | An aspect ID.
 newtype AspectId = AspectId UUID
+    deriving (Eq, Random)
+
+data Event = RollResult RollId [Int]
+
+newtype RollId = RollId UUID
     deriving (Eq, Random)
 
 data ClientRequest
@@ -84,46 +90,46 @@ data ClientRequest
     | SetAspectText AspectId String
     | RemoveAspect AspectId
     | AddDie AspectId
-    | SetDie AspectId Int Bool
     | RemoveDie AspectId
-    | Roll AspectId
+    | RollDie AspectId RollId
     | Undo
     | Redo
 
-deriveJSON (stripFieldPrefixOptions "world") ''World
-deriveBoth (stripFieldPrefixOptions "snapshot") ''WorldSnapshot
+deriveBoth defaultOptions ''RollId
+deriveBoth defaultOptions ''Event
+deriveJSON (defaultOptionsDropLower 5) ''World
+deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
 deriveBoth defaultOptions ''EntityId
-deriveBoth (stripFieldPrefixOptions "entity") ''Entity
+deriveBoth (defaultOptionsDropLower 6) ''Entity
 deriveBoth defaultOptions ''AspectId
-deriveBoth (stripFieldPrefixOptions "aspect") ''Aspect
+deriveBoth (defaultOptionsDropLower 6) ''Aspect
 deriveBoth defaultOptions ''ClientRequest
 
 emptyWorld :: World
 emptyWorld = World
     { worldTimeline = Timeline.singleton []
-    , worldLastRoll = 0
+    , worldEvents = []
     }
 
 worldSnapshot :: World -> WorldSnapshot
-worldSnapshot World { worldTimeline = timeline, worldLastRoll = lastRoll } = WorldSnapshot
+worldSnapshot World { worldTimeline = timeline, worldEvents = events } = WorldSnapshot
     { snapshotEntities = Timeline.value timeline
-    , snapshotLastRoll = lastRoll
+    , snapshotEvents = events
     }
 
 updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
 updateWorld = \case
     AddEntity -> addEntity
-    ToggleEntity uuid -> return . toggleEntity uuid
-    SetEntityName uuid name -> return . setEntityName name uuid
-    MoveEntity uuid index -> return . moveEntity index uuid
-    RemoveEntity uuid -> return . removeEntity uuid
-    AddAspect uuid -> addAspect uuid
-    SetAspectText uuid text -> return . setAspectText text uuid
-    RemoveAspect uuid -> return . removeAspect uuid
-    AddDie uuid -> return . addDie uuid
-    SetDie uuid index selected -> return . setDie index selected uuid
-    RemoveDie uuid -> return . removeDie uuid
-    Roll aspect -> rollDice aspect
+    ToggleEntity eid -> return . toggleEntity eid
+    SetEntityName eid name -> return . setEntityName name eid
+    MoveEntity eid index -> return . moveEntity index eid
+    RemoveEntity eid -> return . removeEntity eid
+    AddAspect eid -> addAspect eid
+    SetAspectText aid text -> return . setAspectText text aid
+    RemoveAspect aid -> return . removeAspect aid
+    AddDie aid -> return . addDie aid
+    RemoveDie aid -> return . removeDie aid
+    RollDie aid rid -> rollDie rid aid
     Undo -> return . undo
     Redo -> return . redo
 
@@ -169,7 +175,7 @@ removeEntity = modifyEntity $ const Nothing
 addAspect :: RandomGen g => EntityId -> World -> Rand g World
 addAspect eid world = do
     newId <- getRandom
-    let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = [] }
+    let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = 0 }
     return $ modifyEntity (add aspect) eid world
   where
     add aspect entity@Entity { entityAspects = aspects } =
@@ -194,34 +200,33 @@ removeAspect = modifyAspect $ const Nothing
 
 addDie :: AspectId -> World -> World
 addDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
-    Just $ aspect { aspectDice = False : dice }
-
-setDie :: Int -> Bool -> AspectId -> World -> World
-setDie index selected = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
-    Just $ aspect { aspectDice = zipWith replaceIndex [0..] dice }
-  where
-    replaceIndex i x
-        | i == index = selected
-        | otherwise  = x
+    Just $ aspect { aspectDice = dice + 1 }
 
 removeDie :: AspectId -> World -> World
 removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
-    let dice' = case dice of
-                    [] -> []
-                    _ : xs -> xs
-    in Just $ aspect { aspectDice = dice' }
+    if dice >= 1
+        then Just $ aspect { aspectDice = dice - 1 }
+        else Just $ aspect
 
-rollDice :: RandomGen g => AspectId -> World -> Rand g World
-rollDice aid world@World { worldTimeline = timeline } = case aspects of
-    [Aspect { aspectDice = dice }] -> do
-        let numRolls = length $ filter id dice
-        rolls <- take numRolls <$> getRandomRs (1, 6)
-        let world' = world { worldLastRoll = sum rolls }
-        return $ modifyAspect (setDice $ filter not dice) aid world'
+rollDie :: RandomGen g => RollId -> AspectId -> World -> Rand g World
+rollDie rid aid world@World { worldTimeline = timeline, worldEvents = events } = case aspects of
+    [Aspect { aspectDice = dice }] | dice >= 1 -> do
+        roll <- getRandomR (1, 6)
+        let world' = world { worldEvents = updateEvents roll }
+        return $ modifyAspect (setDice $ dice - 1) aid world'
     _ -> return world
   where
     aspects = concatMap (filter ((==) aid . aspectId) . entityAspects) $ Timeline.value timeline
     setDice dice aspect = Just $ aspect { aspectDice = dice }
+    updateEvents roll = case find requestedRoll events of
+        Just _ -> map (amendRoll roll) events
+        Nothing -> RollResult rid [roll] : events
+    amendRoll roll result@(RollResult rid' rolls)
+        | rid == rid' = RollResult rid $ roll : rolls
+        | otherwise   = result
+    requestedRoll (RollResult rid' _)
+        | rid == rid' = True
+        | otherwise   = False
 
 undo :: World -> World
 undo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.undo timeline }

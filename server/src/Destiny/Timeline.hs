@@ -3,7 +3,7 @@
 module Destiny.Timeline (Timeline, commit, modify, redo, singleton, undo, update, value) where
 
 import Data.Aeson.TH
-import Destiny.Utils
+import Elm.Derive
 
 data Timeline a = Timeline
     { timelinePast :: [a]
@@ -19,7 +19,7 @@ instance Foldable Timeline where
                        } =
         foldr f z $ reverse future ++ present : past
 
-deriveJSON (stripFieldPrefixOptions "timeline") ''Timeline
+deriveJSON (defaultOptionsDropLower 8) ''Timeline
 
 singleton :: a -> Timeline a
 singleton x = Timeline

@@ -3,8 +3,11 @@ port module Main exposing (main)
 import Browser
 import Destiny.Generated.Model exposing
   ( Aspect
+  , AspectId
   , ClientRequest (..)
   , Entity
+  , Event (..)
+  , RollId
   , WorldSnapshot
   , jsonDecEntity
   , jsonDecWorldSnapshot
@@ -12,16 +15,18 @@ import Destiny.Generated.Model exposing
   )
 import Dict
 import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (attribute, checked, class, placeholder, style, type_, value)
-import Html.Events exposing (on, onCheck, onClick, onInput)
+import Html.Attributes exposing (attribute, class, placeholder, style, value)
+import Html.Events exposing (on, onClick, onInput)
 import Html.Keyed
 import Json.Decode as Decode
 import Json.Helpers exposing (decodeSumObjectWithSingleField)
 import Maybe.Extra
+import Random
 import Uuid exposing (Uuid)
 
 type alias ClientState =
   { world : WorldSnapshot
+  , activeRoll : Maybe RollId
   , dragObject : Maybe Entity
   , dragOffset : Maybe Position
   , dragPosition : Maybe Position
@@ -32,6 +37,9 @@ type Message
   | DecodeError Decode.Error
   | Request ClientRequest
   | Drag DragEvent
+  | StartOrContinueRoll AspectId
+  | StartRoll AspectId RollId
+  | EndRoll
 
 type DragEvent
   = DragPrepare Entity
@@ -71,7 +79,8 @@ main : Program () ClientState Message
 main =
   Browser.element
     { init = always
-        ( { world = { entities = [], lastRoll = 0 }
+        ( { world = { entities = [], events = [] }
+          , activeRoll = Nothing
           , dragObject = Nothing
           , dragOffset = Nothing
           , dragPosition = Nothing
@@ -99,6 +108,11 @@ update message model =
     DecodeError error -> "Decoding error: " ++ Decode.errorToString error |> Debug.todo
     Request request -> handleRequest request model
     Drag event -> handleDrag event model
+    StartOrContinueRoll id -> handleRoll id model
+    StartRoll aspectId rollId -> update
+      (Request <| RollDie aspectId rollId) 
+      { model | activeRoll = Just rollId }
+    EndRoll -> ({ model | activeRoll = Nothing }, Cmd.none)
 
 handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Message)
 handleRequest request model =
@@ -118,6 +132,12 @@ handleDrag event model =
     DragMove position draggables -> moveDragObject position draggables model
     DragEnd ->
       ({ model | dragObject = Nothing, dragOffset = Nothing, dragPosition = Nothing }, Cmd.none)
+
+handleRoll : AspectId -> ClientState -> (ClientState, Cmd Message)
+handleRoll aspectId state =
+  case state.activeRoll of
+    Just rollId -> (state, RollDie aspectId rollId |> jsonEncClientRequest |> send)
+    Nothing -> (state, Uuid.uuidGenerator |> Random.generate (StartRoll aspectId))
 
 moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Message)
 moveDragObject position draggables model =
@@ -167,15 +187,24 @@ view model =
         _ -> DragWaiting
     entityElement entity = (Uuid.toString entity.id, viewEntity (dragStatus entity) entity)
   in
-    List.append
-      [ text ("Rolled: " ++ String.fromInt model.world.lastRoll)
-      , button [ onClick <| Request AddEntity ] [ text "+" ]
-      , button [ onClick <| Request Undo ] [ text "Undo" ]
-      , button [ onClick <| Request Redo ] [ text "Redo" ]
-      , Html.Keyed.node "div" [ class "entities" ] (List.map entityElement model.world.entities)
-      ]
-      (Maybe.Extra.toList <| viewDragBox model)
+    (Maybe.Extra.toList <| viewRollBar <| Maybe.Extra.isJust model.activeRoll) ++
+    [ button [ onClick <| Request AddEntity ] [ text "+" ]
+    , button [ onClick <| Request Undo ] [ text "Undo" ]
+    , button [ onClick <| Request Redo ] [ text "Redo" ]
+    , Html.Keyed.node "div" [ class "entities" ] <| List.map entityElement model.world.entities
+    , div [ class "events" ] <| List.map viewEvent model.world.events
+    ] ++
+    (Maybe.Extra.toList <| viewDragBox model)
     |> div []
+
+viewRollBar : Bool -> Maybe (Html Message)
+viewRollBar rolling =
+  if rolling
+  then
+    Just <| div
+      [ class "active-roll" ]
+      [ text "You're on a roll!", button [ onClick EndRoll ] [ text "Finish" ] ]
+  else Nothing
 
 viewDragBox : ClientState -> Maybe (Html Message)
 viewDragBox model =
@@ -226,13 +255,6 @@ viewEntity dragStatus entity =
 viewAspect : Aspect -> Html Message
 viewAspect aspect =
   let
-    die index selected =
-      input
-        [ type_ "checkbox"
-        , checked selected
-        , onCheck (SetDie aspect.id index >> Request)
-        ]
-        []
     edit text = SetAspectText aspect.id text |> Request
   in
     List.concat
@@ -243,10 +265,14 @@ viewAspect aspect =
         , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
         ]
-      , List.indexedMap die aspect.dice
-      , [ button [ onClick (Roll aspect.id |> Request) ] [ text "Roll" ] ]
+      , List.repeat aspect.dice <| button [ onClick <| StartOrContinueRoll aspect.id ] [ text "🎲" ]
       ]
     |> div [ class "aspect" ]
+
+viewEvent : Event -> Html Message
+viewEvent event =
+  case event of
+    RollResult _ rolls -> div [] [ rolls |> List.map String.fromInt |> String.join ", " |> text ]
 
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
