@@ -12,6 +12,7 @@ dependencies:
 - bytestring
 - directory
 - elm-bridge
+- extra
 - file-embed
 - filepath
 - http-types

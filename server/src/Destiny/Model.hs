@@ -22,6 +22,7 @@ where
 import Control.Monad.Random
 import Data.Aeson.TH (deriveJSON)
 import Data.List
+import Data.List.Extra
 import Data.Maybe
 import Data.UUID
 import Destiny.Timeline (Timeline)
@@ -142,7 +143,7 @@ addEntity world@World { worldTimeline = timeline } = do
             , entityAspects = []
             , entityCollapsed = False
             }
-    return world { worldTimeline = Timeline.modify timeline (entity :) }
+    return world { worldTimeline = Timeline.modify timeline $ flip snoc entity }
 
 modifyEntity :: (Entity -> Maybe Entity) -> EntityId -> World -> World
 modifyEntity f eid world@World { worldTimeline = timeline } =
@@ -179,7 +180,7 @@ addAspect eid world = do
     return $ modifyEntity (add aspect) eid world
   where
     add aspect entity@Entity { entityAspects = aspects } =
-        Just $ entity { entityAspects = aspect : aspects }
+        Just $ entity { entityAspects = snoc aspects aspect }
 
 modifyAspect :: (Aspect -> Maybe Aspect) -> AspectId -> World -> World
 modifyAspect f aid world@World { worldTimeline = timeline } = world
@@ -220,9 +221,9 @@ rollDie rid aid world@World { worldTimeline = timeline, worldEvents = events } =
     setDice dice aspect = Just $ aspect { aspectDice = dice }
     updateEvents roll = case find requestedRoll events of
         Just _ -> map (amendRoll roll) events
-        Nothing -> RollResult rid [roll] : events
+        Nothing -> snoc events $ RollResult rid [roll]
     amendRoll roll result@(RollResult rid' rolls)
-        | rid == rid' = RollResult rid $ roll : rolls
+        | rid == rid' = RollResult rid $ snoc rolls roll
         | otherwise   = result
     requestedRoll (RollResult rid' _)
         | rid == rid' = True
