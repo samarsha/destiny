@@ -98,7 +98,7 @@ saveWorldEvery interval stateVar = forever $ do
 readSavedWorld :: IO (Maybe World)
 readSavedWorld = do
     path <- getWorldSavePath
-    catchIOError (decode <$> LBS.readFile path) $ \err ->
+    catchIOError (decodeStrict <$> BS.readFile path) $ \err ->
         if isDoesNotExistError err
         then return Nothing
         else ioError err
