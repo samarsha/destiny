@@ -205,10 +205,16 @@ viewEntity dragStatus entity =
         )
   in
     div attributes
-      [ div [ class "name" ] [ text "Untitled entity" ]
+      [ input
+          [ class "name"
+          , placeholder "Name this entity"
+          , value entity.name
+          , onInput <| EditEntityName entity.id >> Request
+          ]
+          []
       , button
           [ onClick (ToggleEntity entity |> Request) ]
-          [ text (if entity.collapsed then "Show" else "Hide") ]
+          [ text <| if entity.collapsed then "Show" else "Hide" ]
       , button [ onClick (RemoveEntity entity |> Request) ] [ text "Remove" ]
       , button [ onClick (AddAspect entity |> Request) ] [ text "+" ]
       , div [ class "aspects" ]

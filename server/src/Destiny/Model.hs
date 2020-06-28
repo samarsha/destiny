@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -45,6 +43,8 @@ data WorldSnapshot = WorldSnapshot
 data Entity = Entity
     { -- | The entity ID.
       entityId :: UUID
+      -- | The entity name.
+    , entityName :: String
       -- | The aspects that belong to the entity.
     , entityAspects :: [Aspect]
       -- | True if the entity is collapsed.
@@ -64,6 +64,7 @@ data Aspect = Aspect
 data ClientRequest
     = AddEntity
     | ToggleEntity Entity
+    | EditEntityName UUID String
     | MoveEntity Entity Int
     | RemoveEntity Entity
     | AddAspect Entity
@@ -98,6 +99,7 @@ updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
 updateWorld = \case
     AddEntity -> addEntity
     ToggleEntity entity -> return . toggleEntity entity
+    EditEntityName uuid name -> return . editEntityName uuid name
     MoveEntity entity index -> return . moveEntity entity index
     RemoveEntity entity -> return . removeEntity entity
     AddAspect entity -> addAspect entity
@@ -113,7 +115,12 @@ updateWorld = \case
 addEntity :: RandomGen g => World -> Rand g World
 addEntity world@World { worldTimeline = timeline } = do
     newId <- getRandom
-    let entity = Entity { entityId = newId, entityAspects = [], entityCollapsed = False }
+    let entity = Entity
+            { entityId = newId
+            , entityName = ""
+            , entityAspects = []
+            , entityCollapsed = False
+            }
     return world { worldTimeline = Timeline.modify timeline (entity :) }
 
 updateEntity :: Entity -> World -> World
@@ -127,6 +134,14 @@ updateEntity entity world@World { worldTimeline = timeline } = world
 toggleEntity :: Entity -> World -> World
 toggleEntity entity = updateEntity entity
     { entityCollapsed = not (entityCollapsed entity) }
+
+editEntityName :: UUID -> String -> World -> World
+editEntityName uuid name world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map update }
+  where
+    update entity
+        | entityId entity == uuid = entity { entityName = name }
+        | otherwise = entity
 
 moveEntity :: Entity -> Int -> World -> World
 moveEntity entity index world@World { worldTimeline = timeline } = world

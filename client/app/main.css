@@ -28,7 +28,9 @@ body, textarea {
 
 .entity .name {
     background: #A53860;
+    border: 0;
     color: #f7f7f2;
+    display: block;
     font-family: "Noto Sans", sans-serif;
     font-size: 14pt;
     padding: 15px 10px;

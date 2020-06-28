@@ -57,9 +57,15 @@ renameType :: String -> String -> ETypeDef -> ETypeDef
 renameType before after = \case
     ETypeAlias (alias@EAlias { ea_fields = fields }) -> ETypeAlias $ alias
         { ea_fields = map (second rename) fields }
+    ETypeSum (eSum@ESum { es_constructors = constructors }) -> ETypeSum $ eSum
+        { es_constructors = map updateSumConstructor constructors }
     typeDef -> typeDef
   where
     rename (ETyCon (ETCon name))
         | name == before = ETyCon $ ETCon after
         | otherwise      = ETyCon $ ETCon name
-    rename t = t
+    rename eType = eType
+    updateSumConstructor (constructor@STC { _stcFields = fields }) = constructor
+        { _stcFields = updateSumFields fields }
+    updateSumFields (Anonymous types) = Anonymous $ map rename types
+    updateSumFields (Named fields) = Named $ map (second rename) fields
