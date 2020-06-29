@@ -10,6 +10,7 @@ import Destiny.Generated.Model exposing
   , RollId
   , Stat (..)
   , StatGroup (..)
+  , StatId
   , WorldSnapshot
   , jsonDecEntity
   , jsonDecWorldSnapshot
@@ -17,7 +18,7 @@ import Destiny.Generated.Model exposing
   )
 import Dict
 import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (attribute, class, placeholder, style, type_, value)
+import Html.Attributes exposing (attribute, class, disabled, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
 import Html.Keyed
 import Json.Decode as Decode
@@ -39,8 +40,9 @@ type Message
   | DecodeError Decode.Error
   | Request ClientRequest
   | Drag DragEvent
-  | StartOrContinueRoll AspectId
-  | StartRoll AspectId RollId
+  | GenerateRollId StatId
+  | StartRoll StatId RollId
+  | ContinueRoll AspectId
   | EndRoll
 
 type DragEvent
@@ -110,10 +112,16 @@ update message model =
     DecodeError error -> "Decoding error: " ++ Decode.errorToString error |> Debug.todo
     Request request -> handleRequest request model
     Drag event -> handleDrag event model
-    StartOrContinueRoll id -> handleRoll id model
-    StartRoll aspectId rollId -> update
-      (Request <| RollDie aspectId rollId) 
-      { model | activeRoll = Just rollId }
+    GenerateRollId statId -> (model, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
+    StartRoll statId rollId ->
+      let cmd = RollStat statId rollId |> jsonEncClientRequest |> send
+      in ({ model | activeRoll = Just rollId }, cmd)
+    ContinueRoll aspectId ->
+      let
+        cmd = case model.activeRoll of
+          Just rollId -> RollAspect aspectId rollId |> jsonEncClientRequest |> send
+          Nothing -> Cmd.none
+      in (model, cmd)
     EndRoll -> ({ model | activeRoll = Nothing }, Cmd.none)
 
 handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Message)
@@ -134,12 +142,6 @@ handleDrag event model =
     DragMove position draggables -> moveDragObject position draggables model
     DragEnd ->
       ({ model | dragObject = Nothing, dragOffset = Nothing, dragPosition = Nothing }, Cmd.none)
-
-handleRoll : AspectId -> ClientState -> (ClientState, Cmd Message)
-handleRoll aspectId state =
-  case state.activeRoll of
-    Just rollId -> (state, RollDie aspectId rollId |> jsonEncClientRequest |> send)
-    Nothing -> (state, Uuid.uuidGenerator |> Random.generate (StartRoll aspectId))
 
 moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Message)
 moveDragObject position draggables model =
@@ -187,9 +189,10 @@ view model =
         (Just dragEntity, Just _) ->
           if dragEntity.id == entity.id then DragRemoved else DragWaiting
         _ -> DragWaiting
-    entityElement entity = (Uuid.toString entity.id, viewEntity (dragStatus entity) entity)
+    rolling = Maybe.Extra.isJust model.activeRoll
+    entityElement entity = (Uuid.toString entity.id, viewEntity rolling (dragStatus entity) entity)
   in
-    (Maybe.Extra.toList <| viewRollBar <| Maybe.Extra.isJust model.activeRoll) ++
+    (Maybe.Extra.toList <| viewRollBar rolling) ++
     [ button [ onClick <| Request AddEntity ] [ text "+" ]
     , button [ onClick <| Request Undo ] [ text "Undo" ]
     , button [ onClick <| Request Redo ] [ text "Redo" ]
@@ -218,11 +221,11 @@ viewDragBox model =
         , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
         , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
         ]
-        [ viewEntity DragDragging entity ]
+        [ viewEntity (Maybe.Extra.isJust model.activeRoll) DragDragging entity ]
     _ -> Nothing
 
-viewEntity : DragStatus -> Entity -> Html Message
-viewEntity dragStatus entity =
+viewEntity : Bool -> DragStatus -> Entity -> Html Message
+viewEntity rolling dragStatus entity =
   let
     attributes =
       List.append
@@ -249,17 +252,18 @@ viewEntity dragStatus entity =
       , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
       ] ++
       [ div [ class "stats"] <|
-          List.map viewStatGroup entity.statGroups ++
+          List.map (viewStatGroup rolling) entity.statGroups ++
           [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
       , div [ class "aspects" ]
-          ( if entity.collapsed then []
-            else List.map viewAspect entity.aspects
+          ( if entity.collapsed
+            then []
+            else List.map (viewAspect rolling) entity.aspects
           )
       , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
 
-viewStatGroup : StatGroup -> Html Message
-viewStatGroup group = case group of
+viewStatGroup : Bool -> StatGroup -> Html Message
+viewStatGroup rolling group = case group of
   StatGroup id name stats -> div [ class "stat-group" ] <|
     div [ class "stat-group-controls" ]
       [ input
@@ -271,10 +275,10 @@ viewStatGroup group = case group of
       , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
       , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
       ]
-    :: List.map viewStat stats
+    :: List.map (viewStat rolling) stats
 
-viewStat : Stat -> Html Message
-viewStat stat = case stat of
+viewStat : Bool -> Stat -> Html Message
+viewStat rolling stat = case stat of
   Stat id name score -> div [ class "stat" ]
     [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
     , input
@@ -283,11 +287,12 @@ viewStat stat = case stat of
         , value <| String.fromInt score
         ]
         []
+    , button [ disabled rolling, id |> GenerateRollId |> onClick ] [ text "🎲" ]
     , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
     ]
 
-viewAspect : Aspect -> Html Message
-viewAspect aspect =
+viewAspect : Bool -> Aspect -> Html Message
+viewAspect rolling aspect =
   let
     edit text = SetAspectText aspect.id text |> Request
   in
@@ -299,7 +304,11 @@ viewAspect aspect =
         , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
         ]
-      , List.repeat aspect.dice <| button [ onClick <| StartOrContinueRoll aspect.id ] [ text "🎲" ]
+      , List.repeat aspect.dice <| button
+          [ disabled <| not rolling
+          , onClick <| ContinueRoll aspect.id
+          ]
+          [ text "🎲" ]
       ]
     |> div [ class "aspect" ]
 

@@ -115,7 +115,8 @@ data ClientRequest
     | RemoveAspect AspectId
     | AddDie AspectId
     | RemoveDie AspectId
-    | RollDie AspectId RollId
+    | RollStat StatId RollId
+    | RollAspect AspectId RollId
     | Undo
     | Redo
 
@@ -164,7 +165,8 @@ updateWorld = \case
     RemoveAspect aid -> return . removeAspect aid
     AddDie aid -> return . addDie aid
     RemoveDie aid -> return . removeDie aid
-    RollDie aid rid -> rollDie rid aid
+    RollStat sid rid -> rollStat rid sid
+    RollAspect aid rid -> rollAspect rid aid
     Undo -> return . undo
     Redo -> return . redo
 
@@ -301,8 +303,22 @@ removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
         then Just $ aspect { aspectDice = dice - 1 }
         else Just $ aspect
 
-rollDie :: RandomGen g => RollId -> AspectId -> World -> Rand g World
-rollDie rid aid world@World { worldTimeline = timeline, worldEvents = events } = case aspects of
+rollStat :: RandomGen g => RollId -> StatId -> World -> Rand g World
+rollStat rid sid world@World { worldTimeline = timeline, worldEvents = events } = case stats of
+    [Stat _ _ score] -> do
+        -- TODO: Generate roll ID on the server and send it to just the client that initiated the
+        -- roll.
+        roll <- getRandomR (1, 6)
+        return $ world { worldEvents = snoc events $ RollResult rid [roll, score] }
+    _ -> return world
+  where
+    stats = concatMap (filter ((==) sid . statId) . concatMap statGroupStats . entityStatGroups) $
+        Timeline.value timeline
+    statGroupStats (StatGroup _ _ stats') = stats'
+    statId (Stat sid' _ _) = sid'
+
+rollAspect :: RandomGen g => RollId -> AspectId -> World -> Rand g World
+rollAspect rid aid world@World { worldTimeline = timeline, worldEvents = events } = case aspects of
     [Aspect { aspectDice = dice }] | dice >= 1 -> do
         roll <- getRandomR (1, 6)
         let world' = world { worldEvents = updateEvents roll }
@@ -313,7 +329,7 @@ rollDie rid aid world@World { worldTimeline = timeline, worldEvents = events } =
     setDice dice aspect = Just $ aspect { aspectDice = dice }
     updateEvents roll = case find requestedRoll events of
         Just _ -> map (amendRoll roll) events
-        Nothing -> snoc events $ RollResult rid [roll]
+        Nothing -> events
     amendRoll roll result@(RollResult rid' rolls)
         | rid == rid' = RollResult rid $ snoc rolls roll
         | otherwise   = result
