@@ -8,6 +8,8 @@ import Destiny.Generated.Model exposing
   , Entity
   , Event (..)
   , RollId
+  , Stat (..)
+  , StatGroup (..)
   , WorldSnapshot
   , jsonDecEntity
   , jsonDecWorldSnapshot
@@ -15,7 +17,7 @@ import Destiny.Generated.Model exposing
   )
 import Dict
 import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (attribute, class, placeholder, style, value)
+import Html.Attributes exposing (attribute, class, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
 import Html.Keyed
 import Json.Decode as Decode
@@ -233,7 +235,7 @@ viewEntity dragStatus entity =
             DragDragging -> []
         )
   in
-    div attributes
+    div attributes <|
       [ input
           [ class "name"
           , placeholder "Name this entity"
@@ -245,12 +247,42 @@ viewEntity dragStatus entity =
           [ onClick (ToggleEntity entity.id |> Request) ]
           [ text <| if entity.collapsed then "Show" else "Hide" ]
       , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "Remove" ]
-      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+" ]
+      , button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ]
+      ] ++
+      List.map viewStatGroup entity.statGroups ++
+      [ button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       , div [ class "aspects" ]
           ( if entity.collapsed then []
             else List.map viewAspect entity.aspects
           )
       ]
+
+viewStatGroup : StatGroup -> Html Message
+viewStatGroup group = case group of
+  StatGroup id name stats -> div [] <|
+    [ input
+        [ onInput <| SetStatGroupName id >> Request
+        , placeholder "Name this stat group"
+        , value name
+        ]
+        []
+    , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
+    , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "X" ]
+    ] ++
+    List.map viewStat stats
+
+viewStat : Stat -> Html Message
+viewStat stat = case stat of
+  Stat id name score -> div []
+    [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
+    , input
+        [ type_ "number"
+        , onInput <| String.toInt >> Maybe.withDefault score >> SetStatScore id >> Request
+        , value <| String.fromInt score
+        ]
+        []
+    , button [ id |> RemoveStat |> Request |> onClick ] [ text "X" ]
+    ]
 
 viewAspect : Aspect -> Html Message
 viewAspect aspect =

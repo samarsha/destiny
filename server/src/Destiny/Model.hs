@@ -10,6 +10,10 @@ module Destiny.Model
     , EntityId
     , Event
     , RollId
+    , Stat
+    , StatGroup
+    , StatGroupId
+    , StatId
     , World
     , WorldSnapshot
     , commit
@@ -52,6 +56,8 @@ data Entity = Entity
       entityId :: EntityId
       -- | The entity name.
     , entityName :: String
+      -- | The entity stat groups.
+    , entityStatGroups :: [StatGroup]
       -- | The aspects that belong to the entity.
     , entityAspects :: [Aspect]
       -- | True if the entity is collapsed.
@@ -60,6 +66,16 @@ data Entity = Entity
 
 -- | An entity ID.
 newtype EntityId = EntityId UUID
+    deriving (Eq, Random)
+
+data StatGroup = StatGroup StatGroupId String [Stat]
+
+newtype StatGroupId = StatGroupId UUID
+    deriving (Eq, Random)
+
+data Stat = Stat StatId String Int
+
+newtype StatId = StatId UUID
     deriving (Eq, Random)
 
 -- | An aspect.
@@ -87,6 +103,13 @@ data ClientRequest
     | SetEntityName EntityId String
     | MoveEntity EntityId Int
     | RemoveEntity EntityId
+    | AddStatGroup EntityId
+    | SetStatGroupName StatGroupId String
+    | RemoveStatGroup StatGroupId
+    | AddStat StatGroupId
+    | SetStatName StatId String
+    | SetStatScore StatId Int
+    | RemoveStat StatId
     | AddAspect EntityId
     | SetAspectText AspectId String
     | RemoveAspect AspectId
@@ -101,6 +124,10 @@ deriveBoth defaultOptions ''Event
 deriveJSON (defaultOptionsDropLower 5) ''World
 deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
 deriveBoth defaultOptions ''EntityId
+deriveBoth defaultOptions ''StatId
+deriveBoth defaultOptions ''Stat
+deriveBoth defaultOptions ''StatGroupId
+deriveBoth defaultOptions ''StatGroup
 deriveBoth (defaultOptionsDropLower 6) ''Entity
 deriveBoth defaultOptions ''AspectId
 deriveBoth (defaultOptionsDropLower 6) ''Aspect
@@ -125,6 +152,13 @@ updateWorld = \case
     SetEntityName eid name -> return . setEntityName name eid
     MoveEntity eid index -> return . moveEntity index eid
     RemoveEntity eid -> return . removeEntity eid
+    AddStatGroup eid -> addStatGroup eid
+    SetStatGroupName sgid name -> return . setStatGroupName name sgid
+    RemoveStatGroup sgid -> return . removeStatGroup sgid
+    AddStat sgid -> addStat sgid
+    SetStatName sid name -> return . setStatName name sid
+    SetStatScore sid score -> return . setStatScore score sid
+    RemoveStat sid -> return . removeStat sid
     AddAspect eid -> addAspect eid
     SetAspectText aid text -> return . setAspectText text aid
     RemoveAspect aid -> return . removeAspect aid
@@ -140,6 +174,7 @@ addEntity world@World { worldTimeline = timeline } = do
     let entity = Entity
             { entityId = newId
             , entityName = ""
+            , entityStatGroups = []
             , entityAspects = []
             , entityCollapsed = False
             }
@@ -172,6 +207,63 @@ moveEntity index eid world@World { worldTimeline = timeline } =
 
 removeEntity :: EntityId -> World -> World
 removeEntity = modifyEntity $ const Nothing
+
+addStatGroup :: RandomGen g => EntityId -> World -> Rand g World
+addStatGroup eid world = do
+    newId <- getRandom
+    let statGroup = StatGroup newId "" []
+    return $ modifyEntity (add statGroup) eid world
+  where
+    add statGroup entity@Entity { entityStatGroups = statGroups } =
+        Just $ entity { entityStatGroups = snoc statGroups statGroup }
+
+modifyStatGroup :: (StatGroup -> Maybe StatGroup) -> StatGroupId -> World -> World
+modifyStatGroup f sgid world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map $
+        \entity@Entity { entityStatGroups = statGroups } ->
+            entity { entityStatGroups = mapMaybe modify statGroups }
+    }
+  where
+    modify statGroup@(StatGroup sgid' _ _)
+        | sgid == sgid' = f statGroup
+        | otherwise     = Just $ statGroup
+
+setStatGroupName :: String -> StatGroupId -> World -> World
+setStatGroupName name = modifyStatGroup $ \(StatGroup sgid _ stats) ->
+    Just $ StatGroup sgid name stats
+
+removeStatGroup :: StatGroupId -> World -> World
+removeStatGroup = modifyStatGroup $ const Nothing
+
+addStat :: RandomGen g => StatGroupId -> World -> Rand g World
+addStat sgid world = do
+    newId <- getRandom
+    let stat = Stat newId "" 0
+    return $ modifyStatGroup (add stat) sgid world
+  where
+    add stat (StatGroup sgid' name stats) = Just $ StatGroup sgid' name $ snoc stats stat
+
+modifyStat :: (Stat -> Maybe Stat) -> StatId -> World -> World
+modifyStat f sid world@World { worldTimeline = timeline } = world
+    { worldTimeline = Timeline.modify timeline $ map $
+        \entity@Entity { entityStatGroups = statGroups } -> entity
+            { entityStatGroups = flip map statGroups $ \(StatGroup name sgid stats) ->
+                StatGroup name sgid $ mapMaybe modify stats
+            }
+    }
+  where
+    modify stat@(Stat sid' _ _)
+        | sid == sid' = f stat
+        | otherwise   = Just $ stat
+
+setStatName :: String -> StatId -> World -> World
+setStatName name = modifyStat $ \(Stat sid _ score) -> Just $ Stat sid name score
+
+setStatScore :: Int -> StatId -> World -> World
+setStatScore score = modifyStat $ \(Stat sid name _) -> Just $ Stat sid name score
+
+removeStat :: StatId -> World -> World
+removeStat = modifyStat $ const Nothing
 
 addAspect :: RandomGen g => EntityId -> World -> Rand g World
 addAspect eid world = do

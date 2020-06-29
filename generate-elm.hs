@@ -35,6 +35,10 @@ defs =
     , DefineElm (Proxy :: Proxy EntityId)
     , DefineElm (Proxy :: Proxy Event)
     , DefineElm (Proxy :: Proxy RollId)
+    , DefineElm (Proxy :: Proxy Stat)
+    , DefineElm (Proxy :: Proxy StatGroup)
+    , DefineElm (Proxy :: Proxy StatGroupId)
+    , DefineElm (Proxy :: Proxy StatId)
     , DefineElm (Proxy :: Proxy WorldSnapshot)
     ]
 
