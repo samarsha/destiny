@@ -246,34 +246,36 @@ viewEntity dragStatus entity =
       , button
           [ onClick (ToggleEntity entity.id |> Request) ]
           [ text <| if entity.collapsed then "Show" else "Hide" ]
-      , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "Remove" ]
-      , button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ]
+      , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
       ] ++
-      List.map viewStatGroup entity.statGroups ++
-      [ button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
+      [ div [ class "stats"] <|
+          List.map viewStatGroup entity.statGroups ++
+          [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
       , div [ class "aspects" ]
           ( if entity.collapsed then []
             else List.map viewAspect entity.aspects
           )
+      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
 
 viewStatGroup : StatGroup -> Html Message
 viewStatGroup group = case group of
-  StatGroup id name stats -> div [] <|
-    [ input
-        [ onInput <| SetStatGroupName id >> Request
-        , placeholder "Name this stat group"
-        , value name
-        ]
-        []
-    , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
-    , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "X" ]
-    ] ++
-    List.map viewStat stats
+  StatGroup id name stats -> div [ class "stat-group" ] <|
+    div [ class "stat-group-controls" ]
+      [ input
+          [ onInput <| SetStatGroupName id >> Request
+          , placeholder "Name this stat group"
+          , value name
+          ]
+          []
+      , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
+      , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
+      ]
+    :: List.map viewStat stats
 
 viewStat : Stat -> Html Message
 viewStat stat = case stat of
-  Stat id name score -> div []
+  Stat id name score -> div [ class "stat" ]
     [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
     , input
         [ type_ "number"
@@ -281,7 +283,7 @@ viewStat stat = case stat of
         , value <| String.fromInt score
         ]
         []
-    , button [ id |> RemoveStat |> Request |> onClick ] [ text "X" ]
+    , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
     ]
 
 viewAspect : Aspect -> Html Message
@@ -293,7 +295,7 @@ viewAspect aspect =
       [ [ div
             [ attribute "data-autoexpand" aspect.text ]
             [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
-        , button [ onClick (RemoveAspect aspect.id |> Request) ] [ text "Remove" ]
+        , button [ onClick (RemoveAspect aspect.id |> Request) ] [ text "✖" ]
         , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
         ]

@@ -7,6 +7,7 @@ body {
 
 body,
 button,
+input,
 textarea {
     font-family: "Roboto", sans-serif;
     font-size: 12pt;
@@ -69,23 +70,50 @@ textarea {
     width: 100%;
 }
 
-.entity .aspect {
+.stats {
+    border-bottom: #ccc 1px solid;
+}
+
+.stats input {
+    border: 0;
+    min-width: 0;
+    padding: 5px 10px;
+}
+
+.stat-group-controls,
+.stat {
+    display: flex;
+}
+
+.stat-group-controls input {
+    font-family: "Noto Sans", sans-serif;
+    font-weight: bold;
+}
+
+.stat input[type="number"] {
+    padding-left: 0;
+    padding-right: 0;
+    text-align: right;
+    width: 60px;
+}
+
+.aspect {
     border-bottom: 1px solid #ddd;
 }
 
-.entity .aspect:last-of-type {
+.aspect:last-of-type {
     border-bottom: none;
 }
 
-.entity .aspect textarea {
+.aspect textarea {
     border: 0;
     box-sizing: border-box;
     display: block;
     resize: none;
 }
 
-.entity .aspect [data-autoexpand],
-.entity .aspect textarea {
+.aspect [data-autoexpand],
+.aspect textarea {
     padding: 10px;
 }
 
