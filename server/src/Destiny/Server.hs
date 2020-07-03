@@ -27,6 +27,7 @@ import System.Directory
 import System.FilePath
 import System.IO
 import System.IO.Error
+import System.Posix.User
 import System.Signal
 import Text.Printf
 import Time.Rational
@@ -41,6 +42,7 @@ import qualified Network.WebSockets as WS
 data ServerOptions = ServerOptions
     { serverPort :: Warp.Port
     , serverStorage :: FilePath
+    , serverUser :: Maybe String
     }
 
 data ServerState = ServerState
@@ -54,12 +56,11 @@ data Client = Client
     }
 
 run :: ServerOptions -> IO ()
-run options@(ServerOptions _ storage) = do
+run options@(ServerOptions _ storage _) = do
     savedWorld <- readSavedWorld storage
     stateVar <- newMVar $ newState $ fromMaybe emptyWorld savedWorld
     _ <- forkIO $ saveWorldEvery saveInterval storage stateVar
     let settings = serverSettings options stateVar
-    putStrLn $ printf "Listening on port %d." $ Warp.getPort settings
     Warp.runSettings settings $ websocketsOr WS.defaultConnectionOptions
         (webSocketsApp stateVar)
         httpApp
@@ -67,14 +68,23 @@ run options@(ServerOptions _ storage) = do
     saveInterval = sec 30
 
 serverSettings :: ServerOptions -> MVar ServerState -> Warp.Settings
-serverSettings (ServerOptions port storage) stateVar = Warp.defaultSettings
+serverSettings (ServerOptions port storage user) stateVar = Warp.defaultSettings
     & Warp.setPort port
+    & Warp.setBeforeMainLoop beforeMainLoop
     & Warp.setInstallShutdownHandler installShutdownHandler
     & Warp.setGracefulShutdownTimeout (Just 5)
   where
+    beforeMainLoop = do
+        putStrLn $ printf "Listening on port %d." port
+        case user of
+            Just user' -> do
+                putStrLn $ printf "Switching to user %s." user'
+                setUserID =<< userID <$> getUserEntryForName user'
+            Nothing -> return ()
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
-        saveWorld storage =<< serverWorld <$> readMVar stateVar
+        world <- serverWorld <$> readMVar stateVar
+        catchIOError (saveWorld storage world) $ hPutStrLn stderr . show
         closeSocket
 
 newState :: World -> ServerState

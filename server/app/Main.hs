@@ -20,6 +20,7 @@ serverOptions :: FilePath -> Parser ServerOptions
 serverOptions defaultStorage = ServerOptions
     <$> (optional portOption <&> fromMaybe 3000)
     <*> (optional storageOption <&> fromMaybe defaultStorage)
+    <*> optional userOption
 
 portOption :: Parser Warp.Port
 portOption = option auto
@@ -34,4 +35,11 @@ storageOption = strOption
     ( long "storage"
    <> metavar "PATH"
    <> help "Directory to use for persistent storage"
+    )
+
+userOption :: Parser String
+userOption = strOption
+    ( long "user"
+   <> metavar "NAME"
+   <> help "User to run as after binding to the port"
     )

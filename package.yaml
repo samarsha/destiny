@@ -23,6 +23,7 @@ dependencies:
 - safe
 - signal
 - text
+- unix
 - uuid
 - wai
 - wai-websockets
