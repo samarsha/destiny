@@ -23,12 +23,16 @@ dependencies:
 - safe
 - signal
 - text
-- unix
 - uuid
 - wai
 - wai-websockets
 - warp
 - websockets
+
+when:
+- condition: "!os(windows)"
+  dependencies:
+  - unix
 
 ghc-options:
 - -Wall

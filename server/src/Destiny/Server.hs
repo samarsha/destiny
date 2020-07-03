@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -27,7 +28,9 @@ import System.Directory
 import System.FilePath
 import System.IO
 import System.IO.Error
+#ifndef mingw32_HOST_OS
 import System.Posix.User
+#endif
 import System.Signal
 import Text.Printf
 import Time.Rational
@@ -42,7 +45,9 @@ import qualified Network.WebSockets as WS
 data ServerOptions = ServerOptions
     { serverPort :: Warp.Port
     , serverStorage :: FilePath
+#ifndef mingw32_HOST_OS
     , serverUser :: Maybe String
+#endif
     }
 
 data ServerState = ServerState
@@ -56,7 +61,7 @@ data Client = Client
     }
 
 run :: ServerOptions -> IO ()
-run options@(ServerOptions _ storage _) = do
+run options@ServerOptions { serverStorage = storage } = do
     savedWorld <- readSavedWorld storage
     stateVar <- newMVar $ newState $ fromMaybe emptyWorld savedWorld
     _ <- forkIO $ saveWorldEvery saveInterval storage stateVar
@@ -68,7 +73,11 @@ run options@(ServerOptions _ storage _) = do
     saveInterval = sec 30
 
 serverSettings :: ServerOptions -> MVar ServerState -> Warp.Settings
+#ifdef mingw32_HOST_OS
+serverSettings (ServerOptions port storage) stateVar = Warp.defaultSettings
+#else
 serverSettings (ServerOptions port storage user) stateVar = Warp.defaultSettings
+#endif
     & Warp.setPort port
     & Warp.setBeforeMainLoop beforeMainLoop
     & Warp.setInstallShutdownHandler installShutdownHandler
@@ -76,11 +85,13 @@ serverSettings (ServerOptions port storage user) stateVar = Warp.defaultSettings
   where
     beforeMainLoop = do
         putStrLn $ printf "Listening on port %d." port
+#ifndef mingw32_HOST_OS
         case user of
             Just user' -> do
                 putStrLn $ printf "Switching to user %s." user'
                 setUserID =<< userID <$> getUserEntryForName user'
             Nothing -> return ()
+#endif
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
         world <- serverWorld <$> readMVar stateVar
