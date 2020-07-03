@@ -17,6 +17,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Builder
 import Data.FileEmbed
 import Data.Function
+import Data.List
 import Data.Maybe
 import Data.UUID
 import Destiny.Model
@@ -59,6 +60,9 @@ data Client = Client
     { clientId :: UUID
     , clientConnection :: WS.Connection
     }
+
+instance Eq Client where
+    a == b = clientId a == clientId b
 
 run :: ServerOptions -> IO ()
 run options@ServerOptions { serverStorage = storage } = do
@@ -153,7 +157,7 @@ webSocketsApp stateVar pending = do
             WS.sendTextData connection $ encode $ worldSnapshot world
             evalRandIO $ addClient connection state
         finally
-            (forever $ handleMessage connection stateVar)
+            (forever $ handleMessage client stateVar)
             (modifyMVar_ stateVar $ return . removeClient (clientId client))
   where
     pingInterval = sec 30
@@ -168,11 +172,14 @@ removeClient :: UUID -> ServerState -> ServerState
 removeClient uuid state@ServerState { serverClients = clients } = state
     { serverClients = filter (\client -> clientId client /= uuid) clients }
 
-handleMessage :: WS.Connection -> MVar ServerState -> IO ()
-handleMessage connection stateVar = decode <$> WS.receiveData connection >>= \case
+handleMessage :: Client -> MVar ServerState -> IO ()
+handleMessage client stateVar = decode <$> WS.receiveData (clientConnection client) >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
-        world' <- evalRandIO $ updateWorld message $ serverWorld state
-        broadcast (worldSnapshot world') $ serverClients state
+        (world', response) <- evalRandIO $ updateWorld message $ serverWorld state
+        let clients = case response of
+                UpdateWorld -> serverClients state
+                NoResponse -> delete client $ serverClients state
+        broadcast (worldSnapshot world') clients
         return state { serverWorld = world' }
     Nothing -> return ()
 

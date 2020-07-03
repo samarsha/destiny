@@ -1,11 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module Destiny.Model
     ( Aspect
     , AspectId
     , ClientRequest
+    , ClientResponse (..)
     , Entity
     , EntityId
     , Event
@@ -25,6 +26,7 @@ where
 
 import Control.Monad.Random
 import Data.Aeson.TH (deriveJSON)
+import Data.Functor
 import Data.List
 import Data.List.Extra
 import Data.Maybe
@@ -120,6 +122,10 @@ data ClientRequest
     | Undo
     | Redo
 
+data ClientResponse
+    = UpdateWorld
+    | NoResponse
+
 deriveBoth defaultOptions ''RollId
 deriveBoth defaultOptions ''Event
 deriveJSON (defaultOptionsDropLower 5) ''World
@@ -146,29 +152,50 @@ worldSnapshot World { worldTimeline = timeline, worldEvents = events } = WorldSn
     , snapshotEvents = events
     }
 
-updateWorld :: RandomGen g => ClientRequest -> World -> Rand g World
-updateWorld = \case
-    AddEntity -> addEntity
-    ToggleEntity eid -> return . toggleEntity eid
-    SetEntityName eid name -> return . setEntityName name eid
-    MoveEntity eid index -> return . moveEntity index eid
-    RemoveEntity eid -> return . removeEntity eid
-    AddStatGroup eid -> addStatGroup eid
-    SetStatGroupName sgid name -> return . setStatGroupName name sgid
-    RemoveStatGroup sgid -> return . removeStatGroup sgid
-    AddStat sgid -> addStat sgid
-    SetStatName sid name -> return . setStatName name sid
-    SetStatScore sid score -> return . setStatScore score sid
-    RemoveStat sid -> return . removeStat sid
-    AddAspect eid -> addAspect eid
-    SetAspectText aid text -> return . setAspectText text aid
-    RemoveAspect aid -> return . removeAspect aid
-    AddDie aid -> return . addDie aid
-    RemoveDie aid -> return . removeDie aid
-    RollStat sid rid -> rollStat rid sid
-    RollAspect aid rid -> rollAspect rid aid
-    Undo -> return . undo
-    Redo -> return . redo
+updateWorld :: RandomGen g => ClientRequest -> World -> Rand g (World, ClientResponse)
+updateWorld request world = case request of
+    AddEntity ->
+        addEntity world <&> (, UpdateWorld)
+    ToggleEntity eid ->
+        return (toggleEntity eid world, UpdateWorld)
+    SetEntityName eid name ->
+        return (setEntityName name eid world, UpdateWorld)
+    MoveEntity eid index ->
+        return (moveEntity index eid world, UpdateWorld)
+    RemoveEntity eid ->
+        return (removeEntity eid world, UpdateWorld)
+    AddStatGroup eid ->
+        addStatGroup eid world <&> (, UpdateWorld)
+    SetStatGroupName sgid name ->
+        return (setStatGroupName name sgid world, UpdateWorld)
+    RemoveStatGroup sgid ->
+        return (removeStatGroup sgid world, UpdateWorld)
+    AddStat sgid ->
+        addStat sgid world <&> (, UpdateWorld)
+    SetStatName sid name ->
+        return (setStatName name sid world, UpdateWorld)
+    SetStatScore sid score ->
+        return (setStatScore score sid world, UpdateWorld)
+    RemoveStat sid ->
+        return (removeStat sid world, UpdateWorld)
+    AddAspect eid ->
+        addAspect eid world <&> (, UpdateWorld)
+    SetAspectText aid text ->
+        return (setAspectText text aid world, NoResponse)
+    RemoveAspect aid ->
+        return (removeAspect aid world, UpdateWorld)
+    AddDie aid ->
+        return (addDie aid world, UpdateWorld)
+    RemoveDie aid ->
+        return (removeDie aid world, UpdateWorld)
+    RollStat sid rid ->
+        rollStat rid sid world <&> (, UpdateWorld)
+    RollAspect aid rid ->
+        rollAspect rid aid world <&> (, UpdateWorld)
+    Undo ->
+        return (undo world, UpdateWorld)
+    Redo ->
+        return (redo world, UpdateWorld)
 
 addEntity :: RandomGen g => World -> Rand g World
 addEntity world@World { worldTimeline = timeline } = do
