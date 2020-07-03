@@ -152,7 +152,7 @@ worldSnapshot World { worldTimeline = timeline, worldEvents = events } = WorldSn
     , snapshotEvents = events
     }
 
-updateWorld :: RandomGen g => ClientRequest -> World -> Rand g (World, ClientResponse)
+updateWorld :: RandomGen r => ClientRequest -> World -> Rand r (World, ClientResponse)
 updateWorld request world = case request of
     AddEntity ->
         addEntity world <&> (, UpdateWorld)
@@ -197,7 +197,7 @@ updateWorld request world = case request of
     Redo ->
         return (redo world, UpdateWorld)
 
-addEntity :: RandomGen g => World -> Rand g World
+addEntity :: RandomGen r => World -> Rand r World
 addEntity world@World { worldTimeline = timeline } = do
     newId <- getRandom
     let entity = Entity
@@ -237,7 +237,7 @@ moveEntity index eid world@World { worldTimeline = timeline } =
 removeEntity :: EntityId -> World -> World
 removeEntity = modifyEntity $ const Nothing
 
-addStatGroup :: RandomGen g => EntityId -> World -> Rand g World
+addStatGroup :: RandomGen r => EntityId -> World -> Rand r World
 addStatGroup eid world = do
     newId <- getRandom
     let statGroup = StatGroup newId "" []
@@ -264,7 +264,7 @@ setStatGroupName name = modifyStatGroup $ \(StatGroup sgid _ stats) ->
 removeStatGroup :: StatGroupId -> World -> World
 removeStatGroup = modifyStatGroup $ const Nothing
 
-addStat :: RandomGen g => StatGroupId -> World -> Rand g World
+addStat :: RandomGen r => StatGroupId -> World -> Rand r World
 addStat sgid world = do
     newId <- getRandom
     let stat = Stat newId "" 0
@@ -294,7 +294,7 @@ setStatScore score = modifyStat $ \(Stat sid name _) -> Just $ Stat sid name sco
 removeStat :: StatId -> World -> World
 removeStat = modifyStat $ const Nothing
 
-addAspect :: RandomGen g => EntityId -> World -> Rand g World
+addAspect :: RandomGen r => EntityId -> World -> Rand r World
 addAspect eid world = do
     newId <- getRandom
     let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = 0 }
@@ -330,7 +330,7 @@ removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
         then Just $ aspect { aspectDice = dice - 1 }
         else Just $ aspect
 
-rollStat :: RandomGen g => RollId -> StatId -> World -> Rand g World
+rollStat :: RandomGen r => RollId -> StatId -> World -> Rand r World
 rollStat rid sid world@World { worldTimeline = timeline, worldEvents = events } = case stats of
     [Stat _ _ score] -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
@@ -344,7 +344,7 @@ rollStat rid sid world@World { worldTimeline = timeline, worldEvents = events } 
     statGroupStats (StatGroup _ _ stats') = stats'
     statId (Stat sid' _ _) = sid'
 
-rollAspect :: RandomGen g => RollId -> AspectId -> World -> Rand g World
+rollAspect :: RandomGen r => RollId -> AspectId -> World -> Rand r World
 rollAspect rid aid world@World { worldTimeline = timeline, worldEvents = events } = case aspects of
     [Aspect { aspectDice = dice }] | dice >= 1 -> do
         roll <- getRandomR (1, 6)
