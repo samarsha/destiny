@@ -1,4 +1,5 @@
 /.stack-work
+/.storage
 /client/app/main.js
 /client/elm-stuff
 /client/src/Destiny/Generated

@@ -19,6 +19,7 @@ dependencies:
 - mime-types
 - MonadRandom
 - o-clock
+- optparse-applicative
 - safe
 - signal
 - text

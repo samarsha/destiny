@@ -33,7 +33,7 @@
         {
             "label": "Run server",
             "type": "shell",
-            "command": "stack run",
+            "command": "stack run -- --storage .storage",
             "problemMatcher": []
         }
     ]
