@@ -73,11 +73,15 @@ run options@ServerOptions { serverStorage = storage } = do
     saveInterval = sec 30
 
 serverSettings :: ServerOptions -> MVar ServerState -> Warp.Settings
-#ifdef mingw32_HOST_OS
-serverSettings (ServerOptions port storage) stateVar = Warp.defaultSettings
-#else
-serverSettings (ServerOptions port storage user) stateVar = Warp.defaultSettings
+serverSettings
+        ServerOptions
+            { serverPort = port
+            , serverStorage = storage
+#ifndef mingw32_HOST_OS
+            , serverUser = user
 #endif
+            }
+        stateVar = Warp.defaultSettings
     & Warp.setPort port
     & Warp.setBeforeMainLoop beforeMainLoop
     & Warp.setInstallShutdownHandler installShutdownHandler
