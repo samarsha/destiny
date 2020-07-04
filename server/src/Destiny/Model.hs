@@ -52,6 +52,9 @@ data WorldSnapshot = WorldSnapshot
     , snapshotEvents :: [Event]
     }
 
+-- | An entity ID.
+newtype EntityId = EntityId UUID deriving (Eq, Random)
+
 -- | An entity.
 data Entity = Entity
     { -- | The entity ID.
@@ -66,19 +69,16 @@ data Entity = Entity
     , entityCollapsed :: Bool
     }
 
--- | An entity ID.
-newtype EntityId = EntityId UUID
-    deriving (Eq, Random)
+newtype StatGroupId = StatGroupId UUID deriving (Eq, Random)
 
 data StatGroup = StatGroup StatGroupId String [Stat]
 
-newtype StatGroupId = StatGroupId UUID
-    deriving (Eq, Random)
+newtype StatId = StatId UUID deriving (Eq, Random)
 
 data Stat = Stat StatId String Int
 
-newtype StatId = StatId UUID
-    deriving (Eq, Random)
+-- | An aspect ID.
+newtype AspectId = AspectId UUID deriving (Eq, Random)
 
 -- | An aspect.
 data Aspect = Aspect
@@ -90,14 +90,9 @@ data Aspect = Aspect
     , aspectDice :: Int
     }
 
--- | An aspect ID.
-newtype AspectId = AspectId UUID
-    deriving (Eq, Random)
+newtype RollId = RollId UUID deriving (Eq, Random)
 
 data Event = RollResult RollId [Int]
-
-newtype RollId = RollId UUID
-    deriving (Eq, Random)
 
 data ClientRequest
     = AddEntity
