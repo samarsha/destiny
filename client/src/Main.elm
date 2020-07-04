@@ -14,13 +14,12 @@ import Destiny.Generated.Model exposing
   , StatGroup (..)
   , StatId
   , WorldSnapshot
-  , jsonDecEntity
+  , jsonDecEntityId
   , jsonDecWorldSnapshot
   , jsonEncClientRequest
   )
 import Dict
-import Dict.Any
-import Flip exposing (flip)
+import Dict.Any exposing (AnyDict)
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
@@ -34,7 +33,7 @@ import Uuid exposing (Uuid)
 type alias ClientState =
   { world : WorldSnapshot
   , activeRoll : Maybe RollId
-  , dragObject : Maybe Entity
+  , dragObject : Maybe EntityId
   , dragOffset : Maybe Position
   , dragPosition : Maybe Position
   }
@@ -50,7 +49,7 @@ type Message
   | EndRoll
 
 type DragEvent
-  = DragPrepare Entity
+  = DragPrepare EntityId
   | DragStart Position
   | DragMove Position (List Draggable)
   | DragEnd
@@ -162,7 +161,7 @@ handleDrag event model =
 moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Message)
 moveDragObject position draggables model =
   let
-    currentIndex = model.dragObject |> Maybe.andThen (.id >> entityIndex model)
+    currentIndex = model.dragObject |> Maybe.andThen (entityIndex model)
     newIndex =
       draggables
       |> List.filter (.region >> withinRectangle position)
@@ -171,11 +170,11 @@ moveDragObject position draggables model =
     newModel = { model | dragPosition = Just position }
   in
     case (model.dragObject, newIndex) of
-      (Just entity, Just index) ->
+      (Just entityId, Just index) ->
         if newIndex /= currentIndex
         then
-          update (MoveEntity entity.id index |> Request)
-            { model | world = moveEntity entity.id index newModel.world }
+          update (MoveEntity entityId index |> Request)
+            { model | world = moveEntity entityId index newModel.world }
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
 
@@ -196,27 +195,28 @@ moveEntity id index world =
   in
     { world | scene = { scene | board = moved } }
 
-keyedMap : (k -> v -> a) -> (k -> Maybe v) -> List k -> List a
-keyedMap f get = List.filterMap (\k -> get k |> Maybe.map (f k))
+joinedMap : (v -> a) -> AnyDict comparable k v -> List k -> List a
+joinedMap f dict = List.filterMap (\key -> Dict.Any.get key dict |> Maybe.map f)
 
 view : ClientState -> Html Message
 view model =
   let
-    dragStatus entity =
+    dragStatus id =
       case (model.dragObject, model.dragPosition) of
-        (Just dragEntity, Just _) ->
-          if dragEntity.id == entity.id then DragRemoved else DragWaiting
+        (Just dragId, Just _) -> if dragId == id then DragRemoved else DragWaiting
         _ -> DragWaiting
     rolling = Maybe.Extra.isJust model.activeRoll
-    entityElement id entity =
-      (Uuid.toString id, viewEntity model.world.scene rolling (dragStatus entity) entity)
+    entityElement entity =
+      ( Uuid.toString entity.id
+      , viewEntity model.world.scene rolling (dragStatus entity.id) entity
+      )
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
     [ button [ onClick <| Request AddEntity ] [ text "+" ]
     , button [ onClick <| Request Undo ] [ text "Undo" ]
     , button [ onClick <| Request Redo ] [ text "Redo" ]
-    , Html.Keyed.node "div" [ class "entities" ] <| keyedMap entityElement
-        (flip Dict.Any.get model.world.scene.entities)
+    , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
+        model.world.scene.entities
         model.world.scene.board
     , div [ class "events" ] <| List.map viewEvent model.world.events
     ] ++
@@ -234,16 +234,19 @@ viewRollBar rolling =
 
 viewDragBox : ClientState -> Maybe (Html Message)
 viewDragBox model =
-  case (model.dragObject, model.dragOffset, model.dragPosition) of
-    (Just entity, Just offset, Just position) -> Just <|
-      div
-        [ class "dragging"
-        , style "position" "absolute"
-        , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
-        , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
-        ]
-        [ viewEntity model.world.scene (Maybe.Extra.isJust model.activeRoll) DragDragging entity ]
-    _ -> Nothing
+  let
+    box position offset entity = div
+      [ class "dragging"
+      , style "position" "absolute"
+      , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
+      , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
+      ]
+      [ viewEntity model.world.scene (Maybe.Extra.isJust model.activeRoll) DragDragging entity ]
+  in
+    case (model.dragObject, model.dragOffset, model.dragPosition) of
+      (Just entityId, Just offset, Just position) ->
+        Dict.Any.get entityId model.world.scene.entities |> Maybe.map (box position offset)
+      _ -> Nothing
 
 viewEntity : Scene -> Bool -> DragStatus -> Entity -> Html Message
 viewEntity scene rolling dragStatus entity =
@@ -251,7 +254,7 @@ viewEntity scene rolling dragStatus entity =
     attributes =
       List.append
         [ class "entity"
-        , on "pointerdown" <| Decode.succeed <| Drag <| DragPrepare entity
+        , on "pointerdown" <| Decode.succeed <| Drag <| DragPrepare entity.id
         ]
         ( case dragStatus of
             DragWaiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
@@ -273,17 +276,12 @@ viewEntity scene rolling dragStatus entity =
       , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
       ] ++
       [ div [ class "stats"] <|
-          keyedMap (\_ group -> viewStatGroup scene rolling group)
-            (flip Dict.Any.get scene.statGroups)
-            entity.statGroups ++
+          joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++
           [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
       , div [ class "aspects" ]
           ( if entity.collapsed
             then []
-            else
-              keyedMap (\_ aspect -> viewAspect rolling aspect)
-                (flip Dict.Any.get scene.aspects)
-                entity.aspects
+            else joinedMap (viewAspect rolling) scene.aspects entity.aspects
           )
       , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
@@ -301,9 +299,7 @@ viewStatGroup scene rolling group = case group of
       , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
       , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
       ]
-    :: keyedMap (\_ stat -> viewStat rolling stat)
-         (flip Dict.Any.get scene.stats)
-         stats
+    :: joinedMap (viewStat rolling) scene.stats stats
 
 viewStat : Bool -> Stat -> Html Message
 viewStat rolling stat = case stat of
@@ -357,7 +353,7 @@ viewEvent event =
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
   let
-    prepareDecoder = Decode.map DragPrepare jsonDecEntity
+    prepareDecoder = Decode.map DragPrepare jsonDecEntityId
     startDecoder = Decode.map DragStart positionDecoder
     moveDecoder = Decode.map2 DragMove
       (Decode.index 0 positionDecoder)

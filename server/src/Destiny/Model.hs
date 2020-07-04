@@ -95,7 +95,7 @@ data Stat = Stat StatId String Int
 data Aspect = Aspect
     { -- | The aspect ID.
       aspectId :: AspectId
-      -- | The description of the aspect.
+     -- | The description of the aspect.
     , aspectText :: String
       -- | The number of free invoke dice for the aspect.
     , aspectDice :: Int
@@ -267,9 +267,9 @@ addStatGroup eid world = do
 
 setStatGroupName :: String -> StatGroupId -> World -> World
 setStatGroupName name sgid = modifyScene $ \scene ->
-    scene { sceneStatGroups = Map.adjust adjust sgid $ sceneStatGroups scene }
+    scene { sceneStatGroups = Map.adjust update sgid $ sceneStatGroups scene }
   where
-    adjust (StatGroup sgid' _ stats) = StatGroup sgid' name stats
+    update (StatGroup sgid' _ stats) = StatGroup sgid' name stats
 
 removeStatGroup :: StatGroupId -> World -> World
 removeStatGroup sgid = modifyScene $ \scene -> scene
@@ -296,10 +296,10 @@ modifyStat f sid = modifyScene $ \scene ->
     scene { sceneStats = Map.adjust f sid $ sceneStats scene }
 
 setStatName :: String -> StatId -> World -> World
-setStatName name = modifyStat $ \(Stat sid' _ score) -> Stat sid' name score
+setStatName name = modifyStat $ \(Stat sid _ score) -> Stat sid name score
 
 setStatScore :: Int -> StatId -> World -> World
-setStatScore score = modifyStat $ \(Stat sid' name _) -> Stat sid' name score
+setStatScore score = modifyStat $ \(Stat sid name _) -> Stat sid name score
 
 removeStat :: StatId -> World -> World
 removeStat sid = modifyScene $ \scene -> scene
