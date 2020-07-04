@@ -7,10 +7,18 @@
             "label": "Build",
             "group": "build",
             "dependsOn": [
+                "Generate Elm model",
                 "Build client",
                 "Build server"
             ],
             "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "Generate Elm model",
+            "group": "build",
+            "type": "shell",
+            "command": "stack generate-elm.hs",
             "problemMatcher": []
         },
         {
