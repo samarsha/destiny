@@ -11,6 +11,7 @@ module Destiny.Model
     , EntityId
     , Event
     , RollId
+    , Scene
     , Stat
     , StatGroup
     , StatGroupId
@@ -26,34 +27,51 @@ where
 
 import Control.Monad.Random
 import Data.Aeson.TH (deriveJSON)
+import Data.Aeson.Types hiding (defaultOptions)
 import Data.Functor
 import Data.List
 import Data.List.Extra
-import Data.Maybe
+import Data.Map.Lazy (Map)
 import Data.UUID
 import Destiny.Timeline (Timeline)
 import Elm.Derive
 
+import qualified Data.Map.Lazy as Map
 import qualified Destiny.Timeline as Timeline
 
 -- | The world.
 data World = World
-    { -- | The timeline of entities.
-      worldTimeline :: Timeline [Entity]
+    { -- | The timeline of scenes.
+      worldTimeline :: Timeline Scene
       -- | The events that have occurred.
     , worldEvents :: [Event]
     }
 
 -- | A snapshot of the world.
 data WorldSnapshot = WorldSnapshot
-    { -- | The entities.
-      snapshotEntities :: [Entity]
+    { -- | The scene.
+      snapshotScene :: Scene
       -- | The events that have occurred.
     , snapshotEvents :: [Event]
     }
 
--- | An entity ID.
-newtype EntityId = EntityId UUID deriving (Eq, Random)
+data Scene = Scene
+    { sceneBoard :: [EntityId]
+    , sceneEntities :: Map EntityId Entity
+    , sceneStatGroups :: Map StatGroupId StatGroup
+    , sceneStats :: Map StatId Stat
+    , sceneAspects :: Map AspectId Aspect
+    }
+
+newtype EntityId = EntityId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+
+newtype StatGroupId = StatGroupId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+
+newtype StatId = StatId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+
+newtype AspectId = AspectId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+
+newtype RollId = RollId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 
 -- | An entity.
 data Entity = Entity
@@ -62,23 +80,16 @@ data Entity = Entity
       -- | The entity name.
     , entityName :: String
       -- | The entity stat groups.
-    , entityStatGroups :: [StatGroup]
+    , entityStatGroups :: [StatGroupId]
       -- | The aspects that belong to the entity.
-    , entityAspects :: [Aspect]
+    , entityAspects :: [AspectId]
       -- | True if the entity is collapsed.
     , entityCollapsed :: Bool
     }
 
-newtype StatGroupId = StatGroupId UUID deriving (Eq, Random)
-
-data StatGroup = StatGroup StatGroupId String [Stat]
-
-newtype StatId = StatId UUID deriving (Eq, Random)
+data StatGroup = StatGroup StatGroupId String [StatId]
 
 data Stat = Stat StatId String Int
-
--- | An aspect ID.
-newtype AspectId = AspectId UUID deriving (Eq, Random)
 
 -- | An aspect.
 data Aspect = Aspect
@@ -89,8 +100,6 @@ data Aspect = Aspect
       -- | The number of free invoke dice for the aspect.
     , aspectDice :: Int
     }
-
-newtype RollId = RollId UUID deriving (Eq, Random)
 
 data Event = RollResult RollId [Int]
 
@@ -121,29 +130,39 @@ data ClientResponse
     = UpdateWorld
     | NoResponse
 
-deriveBoth defaultOptions ''RollId
-deriveBoth defaultOptions ''Event
-deriveJSON (defaultOptionsDropLower 5) ''World
-deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
-deriveBoth defaultOptions ''EntityId
-deriveBoth defaultOptions ''StatId
-deriveBoth defaultOptions ''Stat
-deriveBoth defaultOptions ''StatGroupId
-deriveBoth defaultOptions ''StatGroup
-deriveBoth (defaultOptionsDropLower 6) ''Entity
 deriveBoth defaultOptions ''AspectId
+deriveBoth defaultOptions ''EntityId
+deriveBoth defaultOptions ''RollId
+deriveBoth defaultOptions ''StatGroupId
+deriveBoth defaultOptions ''StatId
 deriveBoth (defaultOptionsDropLower 6) ''Aspect
+deriveBoth (defaultOptionsDropLower 6) ''Entity
+deriveBoth (defaultOptionsDropLower 5) ''Scene
+deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
 deriveBoth defaultOptions ''ClientRequest
+deriveBoth defaultOptions ''Event
+deriveBoth defaultOptions ''Stat
+deriveBoth defaultOptions ''StatGroup
+deriveJSON (defaultOptionsDropLower 5) ''World
 
 emptyWorld :: World
 emptyWorld = World
-    { worldTimeline = Timeline.singleton []
+    { worldTimeline = Timeline.singleton emptyScene
     , worldEvents = []
+    }
+
+emptyScene :: Scene
+emptyScene = Scene
+    { sceneBoard = []
+    , sceneEntities = Map.empty
+    , sceneStatGroups = Map.empty
+    , sceneStats = Map.empty
+    , sceneAspects = Map.empty
     }
 
 worldSnapshot :: World -> WorldSnapshot
 worldSnapshot World { worldTimeline = timeline, worldEvents = events } = WorldSnapshot
-    { snapshotEntities = Timeline.value timeline
+    { snapshotScene = Timeline.value timeline
     , snapshotEvents = events
     }
 
@@ -202,153 +221,151 @@ addEntity world@World { worldTimeline = timeline } = do
             , entityAspects = []
             , entityCollapsed = False
             }
-    return world { worldTimeline = Timeline.modify timeline $ flip snoc entity }
+    return world
+        { worldTimeline = Timeline.modify timeline $ \scene -> scene
+            { sceneEntities = Map.insert newId entity $ sceneEntities scene
+            , sceneBoard = snoc (sceneBoard scene) newId
+            }
+        }
 
-modifyEntity :: (Entity -> Maybe Entity) -> EntityId -> World -> World
-modifyEntity f eid world@World { worldTimeline = timeline } =
-    world { worldTimeline = Timeline.modify timeline $ mapMaybe modify }
-  where
-    modify entity@Entity { entityId = eid' }
-        | eid == eid' = f entity
-        | otherwise   = Just entity
+modifyScene :: (Scene -> Scene) -> World -> World
+modifyScene f world = world { worldTimeline = Timeline.modify (worldTimeline world) f }
+
+modifyEntity :: (Entity -> Entity) -> EntityId -> World -> World
+modifyEntity f eid = modifyScene $ \scene ->
+    scene { sceneEntities = Map.adjust f eid $ sceneEntities scene }
 
 toggleEntity :: EntityId -> World -> World
-toggleEntity = modifyEntity $ \entity@Entity { entityCollapsed = collapsed } ->
-    Just $ entity { entityCollapsed = not collapsed }
+toggleEntity = modifyEntity $ \entity -> entity { entityCollapsed = not $ entityCollapsed entity }
 
 setEntityName :: String -> EntityId -> World -> World
-setEntityName name = modifyEntity $ \entity -> Just $ entity { entityName = name }
+setEntityName name = modifyEntity $ \entity -> entity { entityName = name }
 
 moveEntity :: Int -> EntityId -> World -> World
-moveEntity index eid world@World { worldTimeline = timeline } =
-    case find ((==) eid . entityId) $ Timeline.value timeline of
-        Just entity -> world { worldTimeline = Timeline.modify timeline $ move entity }
-        Nothing -> world
-  where
-    move entity entities = take index removed ++ entity : drop index removed
-      where
-        removed = filter ((/=) eid . entityId) entities
+moveEntity index eid = modifyScene $ \scene ->
+    let removed = delete eid $ sceneBoard scene
+    in  scene { sceneBoard = take index removed ++ eid : drop index removed }
 
 removeEntity :: EntityId -> World -> World
-removeEntity = modifyEntity $ const Nothing
+removeEntity eid = modifyScene $ \scene -> scene
+    { sceneBoard = delete eid $ sceneBoard scene
+    , sceneEntities = Map.delete eid $ sceneEntities scene
+    }
 
 addStatGroup :: RandomGen r => EntityId -> World -> Rand r World
 addStatGroup eid world = do
     newId <- getRandom
     let statGroup = StatGroup newId "" []
-    return $ modifyEntity (add statGroup) eid world
+    return $ modifyScene (addToScene statGroup) world
   where
-    add statGroup entity@Entity { entityStatGroups = statGroups } =
-        Just $ entity { entityStatGroups = snoc statGroups statGroup }
-
-modifyStatGroup :: (StatGroup -> Maybe StatGroup) -> StatGroupId -> World -> World
-modifyStatGroup f sgid world@World { worldTimeline = timeline } = world
-    { worldTimeline = Timeline.modify timeline $ map $
-        \entity@Entity { entityStatGroups = statGroups } ->
-            entity { entityStatGroups = mapMaybe modify statGroups }
-    }
-  where
-    modify statGroup@(StatGroup sgid' _ _)
-        | sgid == sgid' = f statGroup
-        | otherwise     = Just $ statGroup
+    addToScene statGroup@(StatGroup sgid _ _) scene = scene
+        { sceneEntities = Map.adjust (addToEntity sgid) eid $ sceneEntities scene
+        , sceneStatGroups = Map.insert sgid statGroup $ sceneStatGroups scene
+        }
+    addToEntity sgid entity@Entity { entityStatGroups = statGroups } =
+        entity { entityStatGroups = snoc statGroups sgid }
 
 setStatGroupName :: String -> StatGroupId -> World -> World
-setStatGroupName name = modifyStatGroup $ \(StatGroup sgid _ stats) ->
-    Just $ StatGroup sgid name stats
+setStatGroupName name sgid = modifyScene $ \scene ->
+    scene { sceneStatGroups = Map.adjust adjust sgid $ sceneStatGroups scene }
+  where
+    adjust (StatGroup sgid' _ stats) = StatGroup sgid' name stats
 
 removeStatGroup :: StatGroupId -> World -> World
-removeStatGroup = modifyStatGroup $ const Nothing
+removeStatGroup sgid = modifyScene $ \scene -> scene
+    { sceneEntities = Map.map updateEntity $ sceneEntities scene
+    , sceneStatGroups = Map.delete sgid $ sceneStatGroups scene
+    }
+  where
+    updateEntity entity = entity { entityStatGroups = delete sgid $ entityStatGroups entity }
 
 addStat :: RandomGen r => StatGroupId -> World -> Rand r World
 addStat sgid world = do
     newId <- getRandom
     let stat = Stat newId "" 0
-    return $ modifyStatGroup (add stat) sgid world
+    return $ modifyScene (addToScene stat) world
   where
-    add stat (StatGroup sgid' name stats) = Just $ StatGroup sgid' name $ snoc stats stat
+    addToScene stat@(Stat sid _ _) scene = scene
+        { sceneStatGroups = Map.adjust (addToGroup sid) sgid $ sceneStatGroups scene
+        , sceneStats = Map.insert sid stat $ sceneStats scene
+        }
+    addToGroup sid (StatGroup sgid' name stats) = StatGroup sgid' name $ snoc stats sid
 
-modifyStat :: (Stat -> Maybe Stat) -> StatId -> World -> World
-modifyStat f sid world@World { worldTimeline = timeline } = world
-    { worldTimeline = Timeline.modify timeline $ map $
-        \entity@Entity { entityStatGroups = statGroups } -> entity
-            { entityStatGroups = flip map statGroups $ \(StatGroup name sgid stats) ->
-                StatGroup name sgid $ mapMaybe modify stats
-            }
-    }
-  where
-    modify stat@(Stat sid' _ _)
-        | sid == sid' = f stat
-        | otherwise   = Just $ stat
+modifyStat :: (Stat -> Stat) -> StatId -> World -> World
+modifyStat f sid = modifyScene $ \scene ->
+    scene { sceneStats = Map.adjust f sid $ sceneStats scene }
 
 setStatName :: String -> StatId -> World -> World
-setStatName name = modifyStat $ \(Stat sid _ score) -> Just $ Stat sid name score
+setStatName name = modifyStat $ \(Stat sid' _ score) -> Stat sid' name score
 
 setStatScore :: Int -> StatId -> World -> World
-setStatScore score = modifyStat $ \(Stat sid name _) -> Just $ Stat sid name score
+setStatScore score = modifyStat $ \(Stat sid' name _) -> Stat sid' name score
 
 removeStat :: StatId -> World -> World
-removeStat = modifyStat $ const Nothing
+removeStat sid = modifyScene $ \scene -> scene
+    { sceneStatGroups = Map.map updateGroup $ sceneStatGroups scene
+    , sceneStats = Map.delete sid $ sceneStats scene
+    }
+  where
+    updateGroup (StatGroup sgid name stats) = StatGroup sgid name $ delete sid stats
 
 addAspect :: RandomGen r => EntityId -> World -> Rand r World
 addAspect eid world = do
     newId <- getRandom
     let aspect = Aspect { aspectId = newId, aspectText = "", aspectDice = 0 }
-    return $ modifyEntity (add aspect) eid world
+    return $ modifyScene (addToScene aspect) world
   where
-    add aspect entity@Entity { entityAspects = aspects } =
-        Just $ entity { entityAspects = snoc aspects aspect }
+    addToScene aspect@Aspect { aspectId = aid } scene = scene
+        { sceneEntities = Map.adjust (addToEntity aid) eid $ sceneEntities scene
+        , sceneAspects = Map.insert aid aspect $ sceneAspects scene
+        }
+    addToEntity aid entity@Entity { entityAspects = aspects } =
+        entity { entityAspects = snoc aspects aid }
 
-modifyAspect :: (Aspect -> Maybe Aspect) -> AspectId -> World -> World
-modifyAspect f aid world@World { worldTimeline = timeline } = world
-    { worldTimeline = Timeline.modify timeline $ map $
-        \entity@Entity { entityAspects = aspects } ->
-            entity { entityAspects = mapMaybe modify aspects }
-    }
-  where
-    modify aspect@Aspect { aspectId = aid' }
-        | aid == aid' = f aspect
-        | otherwise   = Just aspect
+modifyAspect :: (Aspect -> Aspect) -> AspectId -> World -> World
+modifyAspect f aid = modifyScene $ \scene ->
+    scene { sceneAspects = Map.adjust f aid $ sceneAspects scene }
 
 setAspectText :: String -> AspectId -> World -> World
-setAspectText text = modifyAspect $ \aspect -> Just $ aspect { aspectText = text }
+setAspectText text = modifyAspect $ \aspect -> aspect { aspectText = text }
 
 removeAspect :: AspectId -> World -> World
-removeAspect = modifyAspect $ const Nothing
+removeAspect aid = modifyScene $ \scene -> scene
+    { sceneEntities = Map.map updateEntity $ sceneEntities scene
+    , sceneAspects = Map.delete aid $ sceneAspects scene
+    }
+  where
+    updateEntity entity = entity { entityAspects = delete aid $ entityAspects entity }
 
 addDie :: AspectId -> World -> World
-addDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
-    Just $ aspect { aspectDice = dice + 1 }
+addDie = modifyAspect $ \aspect -> aspect { aspectDice = aspectDice aspect + 1 }
 
 removeDie :: AspectId -> World -> World
 removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
     if dice >= 1
-        then Just $ aspect { aspectDice = dice - 1 }
-        else Just $ aspect
+        then aspect { aspectDice = dice - 1 }
+        else aspect
 
 rollStat :: RandomGen r => RollId -> StatId -> World -> Rand r World
-rollStat rid sid world@World { worldTimeline = timeline, worldEvents = events } = case stats of
-    [Stat _ _ score] -> do
+rollStat rid sid world@(World timeline events) = case Map.lookup sid stats of
+    Just (Stat _ _ score) -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
         roll <- getRandomR (1, 6)
         return $ world { worldEvents = snoc events $ RollResult rid [roll, score] }
-    _ -> return world
+    Nothing -> return world
   where
-    stats = concatMap (filter ((==) sid . statId) . concatMap statGroupStats . entityStatGroups) $
-        Timeline.value timeline
-    statGroupStats (StatGroup _ _ stats') = stats'
-    statId (Stat sid' _ _) = sid'
+    stats = sceneStats $ Timeline.value timeline
 
 rollAspect :: RandomGen r => RollId -> AspectId -> World -> Rand r World
-rollAspect rid aid world@World { worldTimeline = timeline, worldEvents = events } = case aspects of
-    [Aspect { aspectDice = dice }] | dice >= 1 -> do
+rollAspect rid aid world@(World timeline events) = case Map.lookup aid aspects of
+    Just (Aspect { aspectDice = dice }) | dice >= 1 -> do
         roll <- getRandomR (1, 6)
         let world' = world { worldEvents = updateEvents roll }
-        return $ modifyAspect (setDice $ dice - 1) aid world'
+        return $ modifyAspect (\aspect -> aspect { aspectDice = dice - 1 }) aid world'
     _ -> return world
   where
-    aspects = concatMap (filter ((==) aid . aspectId) . entityAspects) $ Timeline.value timeline
-    setDice dice aspect = Just $ aspect { aspectDice = dice }
+    aspects = sceneAspects $ Timeline.value timeline
     updateEvents roll = case find requestedRoll events of
         Just _ -> map (amendRoll roll) events
         Nothing -> events

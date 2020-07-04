@@ -6,8 +6,10 @@ import Destiny.Generated.Model exposing
   , AspectId
   , ClientRequest (..)
   , Entity
+  , EntityId
   , Event (..)
   , RollId
+  , Scene
   , Stat (..)
   , StatGroup (..)
   , StatId
@@ -17,6 +19,8 @@ import Destiny.Generated.Model exposing
   , jsonEncClientRequest
   )
 import Dict
+import Dict.Any
+import Flip exposing (flip)
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
@@ -83,7 +87,7 @@ main : Program () ClientState Message
 main =
   Browser.element
     { init = always
-        ( { world = { entities = [], events = [] }
+        ( { world = emptyWorld
           , activeRoll = Nothing
           , dragObject = Nothing
           , dragOffset = Nothing
@@ -98,6 +102,18 @@ main =
         ]
     , view = view
     }
+
+emptyWorld : WorldSnapshot
+emptyWorld = { scene = emptyScene, events = [] }
+
+emptyScene : Scene
+emptyScene =
+  { board = []
+  , entities = Dict.Any.empty Uuid.toString
+  , statGroups = Dict.Any.empty Uuid.toString
+  , stats = Dict.Any.empty Uuid.toString
+  , aspects = Dict.Any.empty Uuid.toString
+  }
 
 decodeMessage : Decode.Decoder a -> (a -> Message) -> Decode.Value -> Message
 decodeMessage decoder toMessage value =
@@ -159,27 +175,29 @@ moveDragObject position draggables model =
         if newIndex /= currentIndex
         then
           update (MoveEntity entity.id index |> Request)
-            { model | world = moveEntity entity index newModel.world }
+            { model | world = moveEntity entity.id index newModel.world }
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
 
 modifyAspect : (Aspect -> Aspect) -> Uuid -> WorldSnapshot -> WorldSnapshot
 modifyAspect f id world =
-  let modify aspect = if id == aspect.id then f aspect else aspect
-  in
-    { world
-    | entities = List.map
-        (\entity -> { entity | aspects = List.map modify entity.aspects })
-        world.entities
-    }
-
-moveEntity : Entity -> Int -> WorldSnapshot -> WorldSnapshot
-moveEntity entity index world =
   let
-    removed = List.filter (\e -> e.id /= entity.id) world.entities
-    moved = List.take index removed ++ entity :: List.drop index removed
+    scene = world.scene
+    modify aspectId aspect = if aspectId == id then f aspect else aspect
   in
-    { world | entities = moved }
+    { world | scene = { scene | aspects = Dict.Any.map modify scene.aspects } }
+
+moveEntity : EntityId -> Int -> WorldSnapshot -> WorldSnapshot
+moveEntity id index world =
+  let
+    scene = world.scene
+    removed = List.filter ((/=) id) scene.board
+    moved = List.take index removed ++ id :: List.drop index removed
+  in
+    { world | scene = { scene | board = moved } }
+
+keyedMap : (k -> v -> a) -> (k -> Maybe v) -> List k -> List a
+keyedMap f get = List.filterMap (\k -> get k |> Maybe.map (f k))
 
 view : ClientState -> Html Message
 view model =
@@ -190,13 +208,16 @@ view model =
           if dragEntity.id == entity.id then DragRemoved else DragWaiting
         _ -> DragWaiting
     rolling = Maybe.Extra.isJust model.activeRoll
-    entityElement entity = (Uuid.toString entity.id, viewEntity rolling (dragStatus entity) entity)
+    entityElement id entity =
+      (Uuid.toString id, viewEntity model.world.scene rolling (dragStatus entity) entity)
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
     [ button [ onClick <| Request AddEntity ] [ text "+" ]
     , button [ onClick <| Request Undo ] [ text "Undo" ]
     , button [ onClick <| Request Redo ] [ text "Redo" ]
-    , Html.Keyed.node "div" [ class "entities" ] <| List.map entityElement model.world.entities
+    , Html.Keyed.node "div" [ class "entities" ] <| keyedMap entityElement
+        (flip Dict.Any.get model.world.scene.entities)
+        model.world.scene.board
     , div [ class "events" ] <| List.map viewEvent model.world.events
     ] ++
     (Maybe.Extra.toList <| viewDragBox model)
@@ -221,11 +242,11 @@ viewDragBox model =
         , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
         , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
         ]
-        [ viewEntity (Maybe.Extra.isJust model.activeRoll) DragDragging entity ]
+        [ viewEntity model.world.scene (Maybe.Extra.isJust model.activeRoll) DragDragging entity ]
     _ -> Nothing
 
-viewEntity : Bool -> DragStatus -> Entity -> Html Message
-viewEntity rolling dragStatus entity =
+viewEntity : Scene -> Bool -> DragStatus -> Entity -> Html Message
+viewEntity scene rolling dragStatus entity =
   let
     attributes =
       List.append
@@ -252,18 +273,23 @@ viewEntity rolling dragStatus entity =
       , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
       ] ++
       [ div [ class "stats"] <|
-          List.map (viewStatGroup rolling) entity.statGroups ++
+          keyedMap (\_ group -> viewStatGroup scene rolling group)
+            (flip Dict.Any.get scene.statGroups)
+            entity.statGroups ++
           [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
       , div [ class "aspects" ]
           ( if entity.collapsed
             then []
-            else List.map (viewAspect rolling) entity.aspects
+            else
+              keyedMap (\_ aspect -> viewAspect rolling aspect)
+                (flip Dict.Any.get scene.aspects)
+                entity.aspects
           )
       , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
 
-viewStatGroup : Bool -> StatGroup -> Html Message
-viewStatGroup rolling group = case group of
+viewStatGroup : Scene -> Bool -> StatGroup -> Html Message
+viewStatGroup scene rolling group = case group of
   StatGroup id name stats -> div [ class "stat-group" ] <|
     div [ class "stat-group-controls" ]
       [ input
@@ -275,7 +301,9 @@ viewStatGroup rolling group = case group of
       , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
       , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
       ]
-    :: List.map (viewStat rolling) stats
+    :: keyedMap (\_ stat -> viewStat rolling stat)
+         (flip Dict.Any.get scene.stats)
+         stats
 
 viewStat : Bool -> Stat -> Html Message
 viewStat rolling stat = case stat of
@@ -373,7 +401,7 @@ withinRectangle position rect =
 
 entityIndex : ClientState -> Uuid -> Maybe Int
 entityIndex model id =
-  model.world.entities
-  |> List.indexedMap (\index entity -> if entity.id == id then Just index else Nothing)
+  model.world.scene.board
+  |> List.indexedMap (\index entityId -> if entityId == id then Just index else Nothing)
   |> Maybe.Extra.values
   |> List.head

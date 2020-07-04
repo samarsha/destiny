@@ -35,6 +35,7 @@ defs =
     , DefineElm (Proxy :: Proxy EntityId)
     , DefineElm (Proxy :: Proxy Event)
     , DefineElm (Proxy :: Proxy RollId)
+    , DefineElm (Proxy :: Proxy Scene)
     , DefineElm (Proxy :: Proxy Stat)
     , DefineElm (Proxy :: Proxy StatGroup)
     , DefineElm (Proxy :: Proxy StatGroupId)
@@ -47,11 +48,14 @@ makeModule name defs = unlines
     [ moduleHeader Elm0p18 name
     , ""
     , "import Dict exposing (Dict)"
+    , "import Dict.Any exposing (AnyDict)"
     , "import Json.Decode exposing (Decoder)"
     , "import Json.Encode exposing (Value)"
     , "import Json.Helpers exposing (..)"
     , "import Set exposing (Set)"
     , "import Uuid exposing (Uuid)"
+    , ""
+    , "type alias UuidDict k v = AnyDict String k v"
     , ""
     , "jsonDecUuid : Decoder Uuid"
     , "jsonDecUuid = Uuid.decoder"
@@ -59,7 +63,27 @@ makeModule name defs = unlines
     , "jsonEncUuid : Uuid -> Value"
     , "jsonEncUuid = Uuid.encode"
     , ""
-    ] ++ makeModuleContentWithAlterations (renameType "UUID" "Uuid") defs
+    , "jsonDecUuidDict : a -> Decoder v -> Decoder (UuidDict Uuid v)"
+    , "jsonDecUuidDict _ valueDecoder ="
+    , "  let"
+    , "    insert key value dict = case Uuid.fromString key of"
+    , "      Just k -> dict |> Dict.Any.insert k value |> Json.Decode.succeed"
+    , "      Nothing -> \"Key '\" ++ key ++ \"' cannot be converted to a UUID.\" |> Json.Decode.fail"
+    , "    create key value acc = acc |> Json.Decode.andThen (insert key value)"
+    , "  in"
+    , "    Json.Decode.dict valueDecoder"
+    , "    |> Json.Decode.andThen (Dict.foldr create (Dict.Any.empty Uuid.toString |> Json.Decode.succeed))"
+    , ""
+    , "jsonEncUuidDict : (k -> Value) -> (v -> Value) -> UuidDict k v -> Value"
+    , "jsonEncUuidDict encodeKey encodeValue ="
+    , "  Dict.Any.encode (encodeKey >> Json.Encode.encode 0) encodeValue"
+    , ""
+    ] ++
+    makeModuleContentWithAlterations
+        ( renameType "UUID" "Uuid"
+        . renameType "Map" "UuidDict"
+        )
+        defs
 
 renameType :: String -> String -> ETypeDef -> ETypeDef
 renameType before after = \case
@@ -73,8 +97,11 @@ renameType before after = \case
     rename (ETyCon (ETCon name))
         | name == before = ETyCon $ ETCon after
         | otherwise      = ETyCon $ ETCon name
+    rename (ETyApp lhs rhs) = ETyApp (rename lhs) (rename rhs)
     rename eType = eType
+
     updateSumConstructor (constructor@STC { _stcFields = fields }) = constructor
         { _stcFields = updateSumFields fields }
+
     updateSumFields (Anonymous types) = Anonymous $ map rename types
     updateSumFields (Named fields) = Named $ map (second rename) fields
