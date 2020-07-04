@@ -40,6 +40,7 @@
         },
         {
             "label": "Run server",
+            "dependsOn": ["Build"],
             "type": "shell",
             "command": "stack run -- --storage .storage",
             "problemMatcher": []
