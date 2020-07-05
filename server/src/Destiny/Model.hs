@@ -10,6 +10,8 @@ module Destiny.Model
     , Entity
     , EntityId
     , Event
+    , Roll
+    , InvokeRoll
     , RollId
     , Scene
     , Stat
@@ -45,6 +47,8 @@ data World = World
       worldTimeline :: Timeline Scene
       -- | The events that have occurred.
     , worldEvents :: [Event]
+      -- | The rolls that hath been rolled.
+    , worldRolls :: Map RollId Roll
     }
 
 -- | A snapshot of the world.
@@ -53,6 +57,8 @@ data WorldSnapshot = WorldSnapshot
       snapshotScene :: Scene
       -- | The events that have occurred.
     , snapshotEvents :: [Event]
+      -- | The rolls that hath been rolled.
+    , snapshotRolls :: Map RollId Roll
     }
 
 data Scene = Scene
@@ -101,7 +107,20 @@ data Aspect = Aspect
     , aspectDice :: Int
     }
 
-data Event = RollResult RollId [Int]
+data Event = RollEvent RollId
+
+data Roll = Roll {
+    rollId :: RollId,
+    rollStatName :: String,
+    rollStatRollValue :: Int,
+    rollStatModifier :: Int,
+    rollInvokes :: [InvokeRoll]
+}
+
+data InvokeRoll = InvokeRoll {
+    invokeSource :: String,
+    invokeValue :: Int
+}
 
 data ClientRequest
     = AddEntity
@@ -140,7 +159,9 @@ deriveBoth (defaultOptionsDropLower 6) ''Entity
 deriveBoth (defaultOptionsDropLower 5) ''Scene
 deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
 deriveBoth defaultOptions ''ClientRequest
-deriveBoth defaultOptions ''Event
+deriveBoth (defaultOptionsDropLower 9) ''Event
+deriveBoth (defaultOptionsDropLower 4) ''Roll
+deriveBoth (defaultOptionsDropLower 6) ''InvokeRoll
 deriveBoth defaultOptions ''Stat
 deriveBoth defaultOptions ''StatGroup
 deriveJSON (defaultOptionsDropLower 5) ''World
@@ -149,6 +170,7 @@ emptyWorld :: World
 emptyWorld = World
     { worldTimeline = Timeline.singleton emptyScene
     , worldEvents = []
+    , worldRolls = Map.empty
     }
 
 emptyScene :: Scene
@@ -161,10 +183,11 @@ emptyScene = Scene
     }
 
 worldSnapshot :: World -> WorldSnapshot
-worldSnapshot World { worldTimeline = timeline, worldEvents = events } = WorldSnapshot
-    { snapshotScene = Timeline.value timeline
-    , snapshotEvents = events
-    }
+worldSnapshot world = WorldSnapshot {
+    snapshotScene = Timeline.value (worldTimeline world),
+    snapshotEvents = worldEvents world,
+    snapshotRolls = worldRolls world
+}
 
 updateWorld :: RandomGen r => ClientRequest -> World -> Rand r (World, ClientResponse)
 updateWorld request world = case request of
@@ -347,34 +370,46 @@ removeDie = modifyAspect $ \aspect@Aspect { aspectDice = dice } ->
         else aspect
 
 rollStat :: RandomGen r => RollId -> StatId -> World -> Rand r World
-rollStat rid sid world@(World timeline events) = case Map.lookup sid stats of
-    Just (Stat _ _ score) -> do
+rollStat rid sid world@(World timeline events rolls) = case Map.lookup sid stats of
+    Just (Stat _ name score) -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
-        roll <- getRandomR (1, 6)
-        return $ world { worldEvents = snoc events $ RollResult rid [roll, score] }
+        rollValue <- getRandomR (1, 6)
+        let roll = Roll {
+            rollId = rid,
+            rollStatName = name,
+            rollStatRollValue = rollValue,
+            rollStatModifier = score,
+            rollInvokes = []
+        }
+        return $ world {
+            worldEvents = snoc events $ RollEvent rid,
+            worldRolls = Map.insert rid roll rolls
+        }
     Nothing -> return world
   where
     stats = sceneStats $ Timeline.value timeline
 
 rollAspect :: RandomGen r => RollId -> AspectId -> World -> Rand r World
-rollAspect rid aid world@(World timeline events) = case Map.lookup aid aspects of
-    Just (Aspect { aspectDice = dice }) | dice >= 1 -> do
-        roll <- getRandomR (1, 6)
-        let world' = world { worldEvents = updateEvents roll }
-        return $ modifyAspect (\aspect -> aspect { aspectDice = dice - 1 }) aid world'
-    _ -> return world
+rollAspect rid aid world@(World timeline events rolls) =
+    case Map.lookup aid aspects of
+        Just (Aspect { aspectDice = dice, aspectText = name }) | dice >= 1 -> do
+            roll <- getRandomR (1, 6)
+            let invokeRoll = InvokeRoll {
+                invokeValue = roll,
+                invokeSource = name
+            }
+            let world' = world {
+                worldRolls = Map.adjust (appendInvoke invokeRoll) rid rolls
+            }
+            return $ modifyAspect (\aspect -> aspect { aspectDice = dice - 1 }) aid world'
+        _ -> return world
   where
     aspects = sceneAspects $ Timeline.value timeline
-    updateEvents roll = case find requestedRoll events of
-        Just _ -> map (amendRoll roll) events
-        Nothing -> events
-    amendRoll roll result@(RollResult rid' rolls)
-        | rid == rid' = RollResult rid $ snoc rolls roll
-        | otherwise   = result
-    requestedRoll (RollResult rid' _)
-        | rid == rid' = True
-        | otherwise   = False
+    appendInvoke :: InvokeRoll -> Roll -> Roll
+    appendInvoke invokeRoll roll = roll {
+        rollInvokes = snoc (rollInvokes roll) invokeRoll
+    }
 
 undo :: World -> World
 undo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.undo timeline }

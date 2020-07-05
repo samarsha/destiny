@@ -128,3 +128,35 @@ textarea {
 .drag-removed {
     visibility: hidden;
 }
+
+.die {
+    /* font-size: 16pt; */
+    margin-top: -3px;
+    display: inline-block;
+    text-align: center;
+    vertical-align: middle;
+    width: 24px;
+    line-height: 24px;
+    background-color: white;
+    border: black 2px solid;
+}
+.die-good {
+    border-color: lime;
+}
+.die-bad {
+    border-color: red;
+}
+
+.roll {
+    font-size: 16pt;
+    padding: .4em;
+}
+.roll-line {
+    padding-bottom: .2em;
+}
+
+.annotation {
+    font-size: 12pt;
+    padding-left: 1em;
+    color: rgb(50, 50, 50);
+}

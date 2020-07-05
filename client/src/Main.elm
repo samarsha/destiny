@@ -8,6 +8,8 @@ import Destiny.Generated.Model exposing
   , Entity
   , EntityId
   , Event (..)
+  , Roll
+  , InvokeRoll
   , RollId
   , Scene
   , Stat (..)
@@ -103,7 +105,7 @@ main =
     }
 
 emptyWorld : WorldSnapshot
-emptyWorld = { scene = emptyScene, events = [] }
+emptyWorld = { scene = emptyScene, events = [], rolls = Dict.Any.empty Uuid.toString }
 
 emptyScene : Scene
 emptyScene =
@@ -218,7 +220,7 @@ view model =
     , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
         model.world.scene.entities
         model.world.scene.board
-    , div [ class "events" ] <| List.map viewEvent model.world.events
+    , div [ class "events" ] <| List.map (viewEvent model.world) model.world.events
     ] ++
     (Maybe.Extra.toList <| viewDragBox model)
     |> div []
@@ -336,19 +338,44 @@ viewAspect rolling aspect =
       ]
     |> div [ class "aspect" ]
 
-viewEvent : Event -> Html Message
-viewEvent event =
-  case event of
-    RollResult _ rolls ->
-      div [] <|
-        [ rolls |> List.map String.fromInt |> String.join " + " |> text ] ++
-        ( if List.length rolls > 1
-          then
-            [ text " = "
-            , List.sum rolls |> String.fromInt |> text
-            ]
-          else []
-        )
+viewEvent : WorldSnapshot -> Event -> Html Message
+viewEvent world event = case event of
+  RollEvent rollId ->
+    case Dict.Any.get rollId world.rolls of
+      Just roll -> 
+        let
+          baseDiv = div [ class "roll-line" ] [
+            viewDie roll.statRollValue,
+            text (" + " ++ String.fromInt roll.statModifier),
+            viewAnnotation roll.statName ]
+          invokeDivs = roll.invokes |> List.map viewInvoke
+          total = roll.statRollValue + roll.statModifier
+                  + (roll.invokes |> List.map (\i -> i.value) |> List.foldl (+) 0)
+          totalDiv = div [] [text (" = " ++ String.fromInt total)]
+        in
+          div [ class "roll" ] ([baseDiv] ++ invokeDivs ++ [totalDiv])
+      Nothing -> div [] [text "O NOOOOO"]
+
+viewInvoke : InvokeRoll -> Html Message
+viewInvoke invokeRoll =
+  div [ class "roll-line" ] [
+    text " + ",
+    viewDie invokeRoll.value,
+    viewAnnotation invokeRoll.source
+  ]
+
+viewDie : Int -> Html Message
+viewDie die =
+  let
+    classes = case die of
+      1 -> [ class "die", class "die-bad" ]
+      6 -> [ class "die", class "die-good" ]
+      _ -> [ class "die" ]
+  in
+    [die |> String.fromInt |> text] |> Html.span classes
+
+viewAnnotation : String -> Html Message
+viewAnnotation name = Html.span [ class "annotation" ] [ text name ]
 
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
