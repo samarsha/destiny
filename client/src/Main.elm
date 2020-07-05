@@ -12,6 +12,7 @@ import Destiny.Generated.Model exposing
   , Scene
   , Stat (..)
   , StatGroup (..)
+  , StatGroupId
   , StatId
   , WorldSnapshot
   , jsonDecEntityId
@@ -139,13 +140,38 @@ update message model =
       in (model, cmd)
     EndRoll -> ({ model | activeRoll = Nothing }, Cmd.none)
 
+modifyScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
+modifyScene f world = { world | scene = f world.scene }
+
+modifyEntity : (Entity -> Entity) -> EntityId -> WorldSnapshot -> WorldSnapshot
+modifyEntity f id = modifyScene <| \scene ->
+  { scene | entities = Dict.Any.update id (Maybe.map f) scene.entities }
+
+modifyStatGroup : (StatGroup -> StatGroup) -> StatGroupId -> WorldSnapshot -> WorldSnapshot
+modifyStatGroup f id = modifyScene <| \scene ->
+  { scene | statGroups = Dict.Any.update id (Maybe.map f) scene.statGroups }
+
+modifyStat : (Stat -> Stat) -> StatId -> WorldSnapshot -> WorldSnapshot
+modifyStat f id = modifyScene <| \scene ->
+  { scene | stats = Dict.Any.update id (Maybe.map f) scene.stats }
+
+modifyAspect : (Aspect -> Aspect) -> AspectId -> WorldSnapshot -> WorldSnapshot
+modifyAspect f id = modifyScene <| \scene ->
+  { scene | aspects = Dict.Any.update id (Maybe.map f) scene.aspects }
+
 handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Message)
 handleRequest request model =
   let
-    newWorld =
-      case request of
-        SetAspectText id text -> modifyAspect (\aspect -> { aspect | text = text }) id model.world
-        _ -> model.world
+    newWorld = case request of
+      SetEntityName id name ->
+        modifyEntity (\entity -> { entity | name = name }) id model.world
+      SetStatGroupName id name ->
+        modifyStatGroup (\(StatGroup sgid _ stats) -> StatGroup sgid name stats) id model.world
+      SetStatName id name ->
+        modifyStat (\(Stat sid _ score) -> Stat sid name score) id model.world
+      SetAspectText id text ->
+        modifyAspect (\aspect -> { aspect | text = text }) id model.world
+      _ -> model.world
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
 
@@ -172,19 +198,11 @@ moveDragObject position draggables model =
     case (model.dragObject, newIndex) of
       (Just entityId, Just index) ->
         if newIndex /= currentIndex
-        then
-          update (MoveEntity entityId index |> Request)
-            { model | world = moveEntity entityId index newModel.world }
+        then update
+          (MoveEntity entityId index |> Request)
+          { model | world = moveEntity entityId index newModel.world }
         else (newModel, Cmd.none)
       _ -> (newModel, Cmd.none)
-
-modifyAspect : (Aspect -> Aspect) -> Uuid -> WorldSnapshot -> WorldSnapshot
-modifyAspect f id world =
-  let
-    scene = world.scene
-    modify aspectId aspect = if aspectId == id then f aspect else aspect
-  in
-    { world | scene = { scene | aspects = Dict.Any.map modify scene.aspects } }
 
 moveEntity : EntityId -> Int -> WorldSnapshot -> WorldSnapshot
 moveEntity id index world =

@@ -173,7 +173,7 @@ updateWorld request world = case request of
     ToggleEntity eid ->
         return (toggleEntity eid world, UpdateWorld)
     SetEntityName eid name ->
-        return (setEntityName name eid world, UpdateWorld)
+        return (setEntityName name eid world, NoResponse)
     MoveEntity eid index ->
         return (moveEntity index eid world, UpdateWorld)
     RemoveEntity eid ->
@@ -181,13 +181,13 @@ updateWorld request world = case request of
     AddStatGroup eid ->
         addStatGroup eid world <&> (, UpdateWorld)
     SetStatGroupName sgid name ->
-        return (setStatGroupName name sgid world, UpdateWorld)
+        return (setStatGroupName name sgid world, NoResponse)
     RemoveStatGroup sgid ->
         return (removeStatGroup sgid world, UpdateWorld)
     AddStat sgid ->
         addStat sgid world <&> (, UpdateWorld)
     SetStatName sid name ->
-        return (setStatName name sid world, UpdateWorld)
+        return (setStatName name sid world, NoResponse)
     SetStatScore sid score ->
         return (setStatScore score sid world, UpdateWorld)
     RemoveStat sid ->
