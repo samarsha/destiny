@@ -5,7 +5,6 @@ module Destiny.Request (ClientRequest, ClientResponse (..), updateWorld) where
 
 import Control.Monad.Random
 import Data.Functor
-import Destiny.Roll
 import Destiny.Scene
 import Destiny.World
 import Elm.Derive
