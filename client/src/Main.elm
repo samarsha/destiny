@@ -7,10 +7,10 @@ import Destiny.Generated.Model exposing
   , ClientRequest (..)
   , Entity
   , EntityId
-  , Event (..)
-  , Roll
-  , InvokeRoll
-  , RollId
+  , Invoke
+  , Message (..)
+  , MessageId
+  , MessageList
   , Scene
   , Stat (..)
   , StatGroup (..)
@@ -35,19 +35,19 @@ import Uuid exposing (Uuid)
 
 type alias ClientState =
   { world : WorldSnapshot
-  , activeRoll : Maybe RollId
+  , activeRoll : Maybe MessageId
   , dragObject : Maybe EntityId
   , dragOffset : Maybe Position
   , dragPosition : Maybe Position
   }
 
-type Message
+type Event
   = UpdateWorld WorldSnapshot
   | DecodeError Decode.Error
   | Request ClientRequest
   | Drag DragEvent
   | GenerateRollId StatId
-  | StartRoll StatId RollId
+  | StartRoll StatId MessageId
   | ContinueRoll AspectId
   | EndRoll
 
@@ -85,7 +85,7 @@ port send : Decode.Value -> Cmd msg
 
 port drag : (Decode.Value -> msg) -> Sub msg
 
-main : Program () ClientState Message
+main : Program () ClientState Event
 main =
   Browser.element
     { init = always
@@ -99,14 +99,17 @@ main =
         )
     , update = update
     , subscriptions = always <| Sub.batch
-        [ receive <| decodeMessage jsonDecWorldSnapshot UpdateWorld
-        , drag <| decodeMessage dragMessageDecoder Drag
+        [ receive <| decodeEvent jsonDecWorldSnapshot UpdateWorld
+        , drag <| decodeEvent dragMessageDecoder Drag
         ]
     , view = view
     }
 
 emptyWorld : WorldSnapshot
-emptyWorld = { scene = emptyScene, events = [], rolls = Dict.Any.empty Uuid.toString }
+emptyWorld =
+  { scene = emptyScene
+  , messages = emptyMessages
+  }
 
 emptyScene : Scene
 emptyScene =
@@ -117,13 +120,19 @@ emptyScene =
   , aspects = Dict.Any.empty Uuid.toString
   }
 
-decodeMessage : Decode.Decoder a -> (a -> Message) -> Decode.Value -> Message
-decodeMessage decoder toMessage value =
+emptyMessages : MessageList
+emptyMessages =
+  { list = []
+  , map = Dict.Any.empty Uuid.toString
+  }
+
+decodeEvent : Decode.Decoder a -> (a -> Event) -> Decode.Value -> Event
+decodeEvent decoder toEvent value =
   case Decode.decodeValue decoder value of
-    Ok result -> toMessage result
+    Ok result -> toEvent result
     Err error -> DecodeError error
 
-update : Message -> ClientState -> (ClientState, Cmd Message)
+update : Event -> ClientState -> (ClientState, Cmd Event)
 update message model =
   case message of
     UpdateWorld newWorld -> ({ model | world = newWorld }, Cmd.none)
@@ -161,7 +170,7 @@ modifyAspect : (Aspect -> Aspect) -> AspectId -> WorldSnapshot -> WorldSnapshot
 modifyAspect f id = modifyScene <| \scene ->
   { scene | aspects = Dict.Any.update id (Maybe.map f) scene.aspects }
 
-handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Message)
+handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Event)
 handleRequest request model =
   let
     newWorld = case request of
@@ -177,7 +186,7 @@ handleRequest request model =
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
 
-handleDrag : DragEvent -> ClientState -> (ClientState, Cmd Message)
+handleDrag : DragEvent -> ClientState -> (ClientState, Cmd Event)
 handleDrag event model =
   case event of
     DragPrepare entity -> ({ model | dragObject = Just entity }, Cmd.none)
@@ -186,7 +195,7 @@ handleDrag event model =
     DragEnd ->
       ({ model | dragObject = Nothing, dragOffset = Nothing, dragPosition = Nothing }, Cmd.none)
 
-moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Message)
+moveDragObject : Position -> List Draggable -> ClientState -> (ClientState, Cmd Event)
 moveDragObject position draggables model =
   let
     currentIndex = model.dragObject |> Maybe.andThen (entityIndex model)
@@ -218,7 +227,7 @@ moveEntity id index world =
 joinedMap : (v -> a) -> AnyDict comparable k v -> List k -> List a
 joinedMap f dict = List.filterMap (\key -> Dict.Any.get key dict |> Maybe.map f)
 
-view : ClientState -> Html Message
+view : ClientState -> Html Event
 view model =
   let
     dragStatus id =
@@ -238,12 +247,14 @@ view model =
     , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
         model.world.scene.entities
         model.world.scene.board
-    , div [ class "events" ] <| List.map (viewEvent model.world) model.world.events
+    , div [ class "events" ] <| joinedMap viewMessage
+        model.world.messages.map
+        model.world.messages.list
     ] ++
     (Maybe.Extra.toList <| viewDragBox model)
     |> div []
 
-viewRollBar : Bool -> Maybe (Html Message)
+viewRollBar : Bool -> Maybe (Html Event)
 viewRollBar rolling =
   if rolling
   then
@@ -252,7 +263,7 @@ viewRollBar rolling =
       [ text "You're on a roll!", button [ onClick EndRoll ] [ text "Finish" ] ]
   else Nothing
 
-viewDragBox : ClientState -> Maybe (Html Message)
+viewDragBox : ClientState -> Maybe (Html Event)
 viewDragBox model =
   let
     box position offset entity = div
@@ -268,7 +279,7 @@ viewDragBox model =
         Dict.Any.get entityId model.world.scene.entities |> Maybe.map (box position offset)
       _ -> Nothing
 
-viewEntity : Scene -> Bool -> DragStatus -> Entity -> Html Message
+viewEntity : Scene -> Bool -> DragStatus -> Entity -> Html Event
 viewEntity scene rolling dragStatus entity =
   let
     attributes =
@@ -306,7 +317,7 @@ viewEntity scene rolling dragStatus entity =
       , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
 
-viewStatGroup : Scene -> Bool -> StatGroup -> Html Message
+viewStatGroup : Scene -> Bool -> StatGroup -> Html Event
 viewStatGroup scene rolling group = case group of
   StatGroup id name stats -> div [ class "stat-group" ] <|
     div [ class "stat-group-controls" ]
@@ -321,7 +332,7 @@ viewStatGroup scene rolling group = case group of
       ]
     :: joinedMap (viewStat rolling) scene.stats stats
 
-viewStat : Bool -> Stat -> Html Message
+viewStat : Bool -> Stat -> Html Event
 viewStat rolling stat = case stat of
   Stat id name score -> div [ class "stat" ]
     [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
@@ -335,7 +346,7 @@ viewStat rolling stat = case stat of
     , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
     ]
 
-viewAspect : Bool -> Aspect -> Html Message
+viewAspect : Bool -> Aspect -> Html Event
 viewAspect rolling aspect =
   let
     edit text = SetAspectText aspect.id text |> Request
@@ -356,33 +367,29 @@ viewAspect rolling aspect =
       ]
     |> div [ class "aspect" ]
 
-viewEvent : WorldSnapshot -> Event -> Html Message
-viewEvent world event = case event of
-  RollEvent rollId ->
-    case Dict.Any.get rollId world.rolls of
-      Just roll -> 
-        let
-          baseDiv = div [ class "roll-line" ] [
-            viewDie roll.statRollValue,
-            text (" + " ++ String.fromInt roll.statModifier),
-            viewAnnotation roll.statName ]
-          invokeDivs = roll.invokes |> List.map viewInvoke
-          total = roll.statRollValue + roll.statModifier
-                  + (roll.invokes |> List.map (\i -> i.value) |> List.foldl (+) 0)
-          totalDiv = div [] [text (" = " ++ String.fromInt total)]
-        in
-          div [ class "roll" ] ([baseDiv] ++ invokeDivs ++ [totalDiv])
-      Nothing -> div [] [text "O NOOOOO"]
+viewMessage : Message -> Html Event
+viewMessage message = case message of
+  RollMessage roll -> 
+    let
+      baseDiv = div [ class "roll-line" ]
+        [ viewDie roll.statResult
+        , " + " ++ String.fromInt roll.statModifier |> text
+        , viewAnnotation roll.statName
+        ]
+      invokeDivs = roll.invokes |> List.map viewInvoke
+      total = roll.statResult + roll.statModifier + (roll.invokes |> List.map .result |> List.sum)
+      totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
+    in
+      div [ class "roll" ] <| [ baseDiv ] ++ invokeDivs ++ [ totalDiv ]
 
-viewInvoke : InvokeRoll -> Html Message
-viewInvoke invokeRoll =
-  div [ class "roll-line" ] [
-    text " + ",
-    viewDie invokeRoll.value,
-    viewAnnotation invokeRoll.source
+viewInvoke : Invoke -> Html Event
+viewInvoke invoke = div [ class "roll-line" ]
+  [ text " + "
+  , viewDie invoke.result
+  , viewAnnotation invoke.source
   ]
 
-viewDie : Int -> Html Message
+viewDie : Int -> Html Event
 viewDie die =
   let
     classes = case die of
@@ -392,7 +399,7 @@ viewDie die =
   in
     [die |> String.fromInt |> text] |> Html.span classes
 
-viewAnnotation : String -> Html Message
+viewAnnotation : String -> Html Event
 viewAnnotation name = Html.span [ class "annotation" ] [ text name ]
 
 dragMessageDecoder : Decode.Decoder DragEvent

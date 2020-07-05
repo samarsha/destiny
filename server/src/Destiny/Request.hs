@@ -5,6 +5,7 @@ module Destiny.Request (ClientRequest, ClientResponse (..), updateWorld) where
 
 import Control.Monad.Random
 import Data.Functor
+import Destiny.Message
 import Destiny.Scene
 import Destiny.World
 import Elm.Derive
@@ -29,8 +30,8 @@ data ClientRequest
     | RemoveAspect AspectId
     | AddDie AspectId
     | RemoveDie AspectId
-    | RollStat StatId RollId
-    | RollAspect AspectId RollId
+    | RollStat StatId MessageId
+    | RollAspect AspectId MessageId
     | Undo
     | Redo
 
@@ -76,10 +77,10 @@ updateWorld request world = case request of
         modifyScene (return . addDie aid) world <&> (, UpdateWorld)
     RemoveDie aid ->
         modifyScene (return . removeDie aid) world <&> (, UpdateWorld)
-    RollStat sid rid ->
-        rollStat rid sid world <&> (, UpdateWorld)
-    RollAspect aid rid ->
-        rollAspect rid aid world <&> (, UpdateWorld)
+    RollStat sid mid ->
+        rollStat sid mid world <&> (, UpdateWorld)
+    RollAspect aid mid ->
+        rollAspect aid mid world <&> (, UpdateWorld)
     Undo ->
         return (undo world, UpdateWorld)
     Redo ->

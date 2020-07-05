@@ -10,6 +10,7 @@
 
 import Control.Arrow
 import Data.Proxy
+import Destiny.Message
 import Destiny.Request
 import Destiny.Scene
 import Destiny.World
@@ -35,10 +36,11 @@ defs =
     , DefineElm (Proxy :: Proxy ClientRequest)
     , DefineElm (Proxy :: Proxy Entity)
     , DefineElm (Proxy :: Proxy EntityId)
-    , DefineElm (Proxy :: Proxy Event)
+    , DefineElm (Proxy :: Proxy Invoke)
+    , DefineElm (Proxy :: Proxy Message)
+    , DefineElm (Proxy :: Proxy MessageId)
+    , DefineElm (Proxy :: Proxy MessageList)
     , DefineElm (Proxy :: Proxy Roll)
-    , DefineElm (Proxy :: Proxy InvokeRoll)
-    , DefineElm (Proxy :: Proxy RollId)
     , DefineElm (Proxy :: Proxy Scene)
     , DefineElm (Proxy :: Proxy Stat)
     , DefineElm (Proxy :: Proxy StatGroup)
