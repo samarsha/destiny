@@ -20,7 +20,8 @@ import Data.Function
 import Data.List
 import Data.Maybe
 import Data.UUID
-import Destiny.Model
+import Destiny.Request
+import Destiny.World
 import Network.HTTP.Types
 import Network.Mime
 import Network.Wai
