@@ -10,7 +10,9 @@
 
 import Control.Arrow
 import Data.Proxy
-import Destiny.Model
+import Destiny.Request
+import Destiny.Scene
+import Destiny.World
 import Elm.Module
 import Elm.TyRep
 import Elm.Versions
