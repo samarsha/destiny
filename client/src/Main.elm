@@ -23,7 +23,7 @@ import Destiny.Generated.Model exposing
   )
 import Dict
 import Dict.Any exposing (AnyDict)
-import Html exposing (Html, button, div, input, text, textarea)
+import Html exposing (Html, button, div, input, span, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
 import Html.Keyed
@@ -380,7 +380,7 @@ viewMessage message = case message of
       total = roll.statResult + roll.statModifier + (roll.invokes |> List.map .result |> List.sum)
       totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
     in
-      div [ class "roll" ] <| [ baseDiv ] ++ invokeDivs ++ [ totalDiv ]
+      div [ class "roll" ] <| baseDiv :: invokeDivs ++ [ totalDiv ]
 
 viewInvoke : Invoke -> Html Event
 viewInvoke invoke = div [ class "roll-line" ]
@@ -397,10 +397,10 @@ viewDie die =
       6 -> [ class "die", class "die-good" ]
       _ -> [ class "die" ]
   in
-    [die |> String.fromInt |> text] |> Html.span classes
+    [ die |> String.fromInt |> text ] |> Html.span classes
 
 viewAnnotation : String -> Html Event
-viewAnnotation name = Html.span [ class "annotation" ] [ text name ]
+viewAnnotation name = span [ class "annotation" ] [ text name ]
 
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
