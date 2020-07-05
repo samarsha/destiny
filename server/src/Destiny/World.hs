@@ -16,10 +16,7 @@ where
 
 import Control.Monad.Random
 import Data.Aeson.TH (deriveJSON)
-import Data.Aeson.Types hiding (defaultOptions)
 import Data.List.Extra
-import Data.Map.Lazy (Map)
-import Data.UUID
 import Destiny.Message
 import Destiny.Scene
 import Destiny.Timeline (Timeline)
