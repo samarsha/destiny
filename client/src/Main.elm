@@ -3,28 +3,25 @@ port module Main exposing (main)
 import Browser
 import Destiny.Drag as Drag
 import Destiny.Generated.Model exposing
-  ( Aspect
-  , AspectId
-  , ClientRequest (..)
-  , Entity
+  ( ClientRequest (..)
   , EntityId
   , Message (..)
   , MessageId
-  , MessageList
   , Scene
   , Stat (..)
   , StatGroup (..)
-  , StatGroupId
   , StatId
   , WorldSnapshot
   , jsonDecWorldSnapshot
   , jsonEncClientRequest
   )
 import Destiny.Message as Message
-import Dict.Any exposing (AnyDict)
-import Html exposing (Html, button, div, input, text, textarea)
-import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
-import Html.Events exposing (on, onClick, onInput)
+import Destiny.Scene as Scene
+import Destiny.Utils exposing (joinedMap)
+import Dict.Any
+import Html exposing (Html, button, div, text)
+import Html.Attributes exposing (class)
+import Html.Events exposing (onClick)
 import Html.Keyed
 import Json.Decode
 import Maybe.Extra
@@ -40,12 +37,10 @@ type alias ClientState =
 type Event
   = UpdateWorld WorldSnapshot
   | DecodeError Json.Decode.Error
-  | Request ClientRequest
-  | Drag Drag.Event
-  | GenerateRollId StatId
   | StartRoll StatId MessageId
-  | ContinueRoll AspectId
   | EndRoll
+  | Request ClientRequest
+  | SceneEvent Scene.Event
 
 port receive : (Json.Decode.Value -> msg) -> Sub msg
 
@@ -62,30 +57,15 @@ main = Browser.element
   , update = update
   , subscriptions = always <| Sub.batch
       [ receive <| decodeEvent jsonDecWorldSnapshot UpdateWorld
-      , drag <| decodeEvent Drag.eventDecoder Drag
+      , drag <| decodeEvent Drag.eventDecoder (Scene.Drag >> SceneEvent)
       ]
   , view = view
   }
 
 emptyWorld : WorldSnapshot
 emptyWorld =
-  { scene = emptyScene
-  , messages = emptyMessages
-  }
-
-emptyScene : Scene
-emptyScene =
-  { board = []
-  , entities = Dict.Any.empty Uuid.toString
-  , statGroups = Dict.Any.empty Uuid.toString
-  , stats = Dict.Any.empty Uuid.toString
-  , aspects = Dict.Any.empty Uuid.toString
-  }
-
-emptyMessages : MessageList
-emptyMessages =
-  { list = []
-  , map = Dict.Any.empty Uuid.toString
+  { scene = Scene.empty
+  , messages = Message.empty
   }
 
 decodeEvent : Json.Decode.Decoder a -> (a -> Event) -> Json.Decode.Value -> Event
@@ -98,46 +78,56 @@ update : Event -> ClientState -> (ClientState, Cmd Event)
 update message model = case message of
   UpdateWorld newWorld -> ({ model | world = newWorld }, Cmd.none)
   DecodeError error -> "Decoding error: " ++ Json.Decode.errorToString error |> Debug.todo
-  Request request -> handleRequest request model
-  Drag event ->
-    let
-      dragState = Drag.update event model.drag
-      dragIndex = dragState.target |> Maybe.andThen (entityIndex model)
-      newModel = { model | drag = dragState }
-    in
-      case (dragState.dragging, dragIndex) of
-        (Just id, Just index) -> update (MoveEntity id index |> Request) newModel
-        _ -> (newModel, Cmd.none)
-  GenerateRollId statId -> (model, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
   StartRoll statId rollId ->
     let cmd = RollStat statId rollId |> jsonEncClientRequest |> send
     in ({ model | activeRoll = Just rollId }, cmd)
-  ContinueRoll aspectId ->
+  EndRoll -> ({ model | activeRoll = Nothing }, Cmd.none)
+  Request request -> handleRequest request model
+  SceneEvent sceneEvent -> handleSceneEvent sceneEvent model
+
+handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Event)
+handleRequest request model =
+  let
+    newWorld = case request of
+      SetEntityName id name -> updateScene
+        (Scene.updateEntity (\entity -> { entity | name = name }) id)
+        model.world
+      SetStatGroupName id name -> updateScene
+        (Scene.updateStatGroup (\(StatGroup sgid _ stats) -> StatGroup sgid name stats) id)
+        model.world
+      SetStatName id name -> updateScene
+        (Scene.updateStat (\(Stat sid _ score) -> Stat sid name score) id)
+        model.world
+      SetAspectText id text -> updateScene
+        (Scene.updateAspect (\aspect -> { aspect | text = text }) id)
+        model.world
+      MoveEntity id index -> moveEntity id index model.world
+      _ -> model.world
+  in
+    ({ model | world = newWorld }, jsonEncClientRequest request |> send)
+
+handleSceneEvent : Scene.Event -> ClientState -> (ClientState, Cmd Event)
+handleSceneEvent event state = case event of
+  Scene.Request request -> update (Request request) state
+  Scene.Drag dragEvent ->
     let
-      cmd = case model.activeRoll of
+      dragState = Drag.update dragEvent state.drag
+      dragIndex = dragState.target |> Maybe.andThen (entityIndex state)
+      newState = { state | drag = dragState }
+    in
+      case (dragState.dragging, dragIndex) of
+        (Just id, Just index) -> update (MoveEntity id index |> Request) newState
+        _ -> (newState, Cmd.none)
+  Scene.GenerateRollId statId -> (state, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
+  Scene.ContinueRoll aspectId ->
+    let
+      cmd = case state.activeRoll of
         Just rollId -> RollAspect aspectId rollId |> jsonEncClientRequest |> send
         Nothing -> Cmd.none
-    in (model, cmd)
-  EndRoll -> ({ model | activeRoll = Nothing }, Cmd.none)
+    in (state, cmd)
 
-modifyScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
-modifyScene f world = { world | scene = f world.scene }
-
-modifyEntity : (Entity -> Entity) -> EntityId -> WorldSnapshot -> WorldSnapshot
-modifyEntity f id = modifyScene <| \scene ->
-  { scene | entities = Dict.Any.update id (Maybe.map f) scene.entities }
-
-modifyStatGroup : (StatGroup -> StatGroup) -> StatGroupId -> WorldSnapshot -> WorldSnapshot
-modifyStatGroup f id = modifyScene <| \scene ->
-  { scene | statGroups = Dict.Any.update id (Maybe.map f) scene.statGroups }
-
-modifyStat : (Stat -> Stat) -> StatId -> WorldSnapshot -> WorldSnapshot
-modifyStat f id = modifyScene <| \scene ->
-  { scene | stats = Dict.Any.update id (Maybe.map f) scene.stats }
-
-modifyAspect : (Aspect -> Aspect) -> AspectId -> WorldSnapshot -> WorldSnapshot
-modifyAspect f id = modifyScene <| \scene ->
-  { scene | aspects = Dict.Any.update id (Maybe.map f) scene.aspects }
+updateScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
+updateScene f world = { world | scene = f world.scene }
 
 moveEntity : EntityId -> Int -> WorldSnapshot -> WorldSnapshot
 moveEntity id index world =
@@ -155,27 +145,6 @@ entityIndex model id =
   |> Maybe.Extra.values
   |> List.head
 
-handleRequest : ClientRequest -> ClientState -> (ClientState, Cmd Event)
-handleRequest request model =
-  let
-    newWorld = case request of
-      SetEntityName id name ->
-        modifyEntity (\entity -> { entity | name = name }) id model.world
-      SetStatGroupName id name ->
-        modifyStatGroup (\(StatGroup sgid _ stats) -> StatGroup sgid name stats) id model.world
-      SetStatName id name ->
-        modifyStat (\(Stat sid _ score) -> Stat sid name score) id model.world
-      SetAspectText id text ->
-        modifyAspect (\aspect -> { aspect | text = text }) id model.world
-      MoveEntity id index ->
-        moveEntity id index model.world
-      _ -> model.world
-  in
-    ({ model | world = newWorld }, jsonEncClientRequest request |> send)
-
-joinedMap : (v -> a) -> AnyDict comparable k v -> List k -> List a
-joinedMap f dict = List.filterMap (\key -> Dict.Any.get key dict |> Maybe.map f)
-
 view : ClientState -> Html Event
 view model =
   let
@@ -185,15 +154,17 @@ view model =
     rolling = Maybe.Extra.isJust model.activeRoll
     entityElement entity =
       ( Uuid.toString entity.id
-      , viewEntity model.world.scene rolling (dragStatus entity.id) entity
+      , Scene.viewEntity model.world.scene rolling (dragStatus entity.id) entity
+        |> Html.map SceneEvent
       )
     draggedEntity id = case Dict.Any.get id model.world.scene.entities of
       Just entity ->
-        viewEntity
+        Scene.viewEntity
           model.world.scene
           (Maybe.Extra.isJust model.activeRoll)
           Drag.Dragging
           entity
+        |> Html.map SceneEvent
       Nothing -> Debug.todo <| "Invalid entity ID " ++ Uuid.toString id ++ "."
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
@@ -221,90 +192,3 @@ viewRollBar rolling =
       [ class "active-roll" ]
       [ text "You're on a roll!", button [ onClick EndRoll ] [ text "Finish" ] ]
   else Nothing
-
-viewEntity : Scene -> Bool -> Drag.Status -> Entity -> Html Event
-viewEntity scene rolling dragStatus entity =
-  let
-    attributes =
-      List.append
-        [ class "entity"
-        , on "pointerdown" <| Json.Decode.succeed <| Drag <| Drag.Prepare entity.id
-        ]
-        <| case dragStatus of
-          Drag.Waiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
-          Drag.Removed -> [ class "drag-removed" ]
-          Drag.Dragging -> []
-  in
-    div attributes <|
-      [ input
-          [ class "name"
-          , placeholder "Name this entity"
-          , value entity.name
-          , onInput <| SetEntityName entity.id >> Request
-          ]
-          []
-      , button
-          [ onClick (ToggleEntity entity.id |> Request) ]
-          [ text <| if entity.collapsed then "Show" else "Hide" ]
-      , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
-      ] ++
-      [ div [ class "stats"] <|
-          joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++
-          [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
-      , div [ class "aspects" ]
-          ( if entity.collapsed
-            then []
-            else joinedMap (viewAspect rolling) scene.aspects entity.aspects
-          )
-      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
-      ]
-
-viewStatGroup : Scene -> Bool -> StatGroup -> Html Event
-viewStatGroup scene rolling group = case group of
-  StatGroup id name stats -> div [ class "stat-group" ] <|
-    div [ class "stat-group-controls" ]
-      [ input
-          [ onInput <| SetStatGroupName id >> Request
-          , placeholder "Name this stat group"
-          , value name
-          ]
-          []
-      , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
-      , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
-      ]
-    :: joinedMap (viewStat rolling) scene.stats stats
-
-viewStat : Bool -> Stat -> Html Event
-viewStat rolling stat = case stat of
-  Stat id name score -> div [ class "stat" ]
-    [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
-    , input
-        [ type_ "number"
-        , onInput <| String.toInt >> Maybe.withDefault score >> SetStatScore id >> Request
-        , value <| String.fromInt score
-        ]
-        []
-    , button [ disabled rolling, id |> GenerateRollId |> onClick ] [ text "🎲" ]
-    , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
-    ]
-
-viewAspect : Bool -> Aspect -> Html Event
-viewAspect rolling aspect =
-  let
-    edit text = SetAspectText aspect.id text |> Request
-  in
-    List.concat
-      [ [ div
-            [ attribute "data-autoexpand" aspect.text ]
-            [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
-        , button [ onClick (RemoveAspect aspect.id |> Request) ] [ text "✖" ]
-        , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
-        , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
-        ]
-      , List.repeat aspect.dice <| button
-          [ disabled <| not rolling
-          , onClick <| ContinueRoll aspect.id
-          ]
-          [ text "🎲" ]
-      ]
-    |> div [ class "aspect" ]

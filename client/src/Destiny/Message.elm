@@ -1,8 +1,16 @@
-module Destiny.Message exposing (view)
+module Destiny.Message exposing (empty, view)
 
-import Destiny.Generated.Model exposing (Invoke, Message (..))
+import Destiny.Generated.Model exposing (Invoke, Message (..), MessageList)
+import Dict.Any
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
+import Uuid
+
+empty : MessageList
+empty =
+  { list = []
+  , map = Dict.Any.empty Uuid.toString
+  }
 
 view : Message -> Html msg
 view message = case message of
