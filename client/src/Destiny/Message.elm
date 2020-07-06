@@ -1,11 +1,11 @@
-module Destiny.Message exposing (viewMessage)
+module Destiny.Message exposing (view)
 
 import Destiny.Generated.Model exposing (Invoke, Message (..))
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
 
-viewMessage : Message -> Html msg
-viewMessage message = case message of
+view : Message -> Html msg
+view message = case message of
   RollMessage roll -> 
     let
       baseDiv = div [ class "roll-line" ]
