@@ -1,6 +1,8 @@
 module Destiny.Scene exposing
   ( Event (..)
   , empty
+  , entityIndex
+  , moveEntity
   , updateAspect
   , updateEntity
   , updateStat
@@ -27,6 +29,7 @@ import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode
+import Maybe.Extra
 import Uuid
 
 type Event
@@ -56,6 +59,21 @@ updateStat f id scene = { scene | stats = Dict.Any.update id (Maybe.map f) scene
 
 updateAspect : (Aspect -> Aspect) -> AspectId -> Scene -> Scene
 updateAspect f id scene = { scene | aspects = Dict.Any.update id (Maybe.map f) scene.aspects }
+
+entityIndex : Scene -> EntityId -> Maybe Int
+entityIndex scene id =
+  scene.board
+  |> List.indexedMap (\index entityId -> if entityId == id then Just index else Nothing)
+  |> Maybe.Extra.values
+  |> List.head
+
+moveEntity : EntityId -> Int -> Scene -> Scene
+moveEntity id index scene =
+  let
+    removed = List.filter ((/=) id) scene.board
+    moved = List.take index removed ++ id :: List.drop index removed
+  in
+    { scene | board = moved }
 
 viewEntity : Scene -> Bool -> Drag.Status -> Entity -> Html Event
 viewEntity scene rolling dragging entity =

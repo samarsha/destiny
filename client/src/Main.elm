@@ -4,7 +4,6 @@ import Browser
 import Destiny.Drag as Drag
 import Destiny.Generated.Model exposing
   ( ClientRequest (..)
-  , EntityId
   , Message (..)
   , MessageId
   , Scene
@@ -26,7 +25,7 @@ import Html.Keyed
 import Json.Decode
 import Maybe.Extra
 import Random
-import Uuid exposing (Uuid)
+import Uuid
 
 type alias ClientState =
   { world : WorldSnapshot
@@ -101,7 +100,7 @@ handleRequest request model =
       SetAspectText id text -> updateScene
         (Scene.updateAspect (\aspect -> { aspect | text = text }) id)
         model.world
-      MoveEntity id index -> moveEntity id index model.world
+      MoveEntity id index -> updateScene (Scene.moveEntity id index) model.world
       _ -> model.world
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
@@ -112,7 +111,7 @@ handleSceneEvent event state = case event of
   Scene.Drag dragEvent ->
     let
       dragState = Drag.update dragEvent state.drag
-      dragIndex = dragState.target |> Maybe.andThen (entityIndex state)
+      dragIndex = dragState.target |> Maybe.andThen (Scene.entityIndex state.world.scene)
       newState = { state | drag = dragState }
     in
       case (dragState.dragging, dragIndex) of
@@ -128,22 +127,6 @@ handleSceneEvent event state = case event of
 
 updateScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
 updateScene f world = { world | scene = f world.scene }
-
-moveEntity : EntityId -> Int -> WorldSnapshot -> WorldSnapshot
-moveEntity id index world =
-  let
-    scene = world.scene
-    removed = List.filter ((/=) id) scene.board
-    moved = List.take index removed ++ id :: List.drop index removed
-  in
-    { world | scene = { scene | board = moved } }
-
-entityIndex : ClientState -> Uuid -> Maybe Int
-entityIndex model id =
-  model.world.scene.board
-  |> List.indexedMap (\index entityId -> if entityId == id then Just index else Nothing)
-  |> Maybe.Extra.values
-  |> List.head
 
 view : ClientState -> Html Event
 view model =
