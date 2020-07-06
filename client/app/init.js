@@ -1,7 +1,7 @@
 "use strict";
 
 const app = Elm.Main.init({
-  node: document.getElementById("main")
+  node: document.getElementById("app")
 });
 
 // WebSocket

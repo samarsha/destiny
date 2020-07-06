@@ -241,18 +241,21 @@ view model =
       )
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
-    [ button [ onClick <| Request AddEntity ] [ text "+" ]
-    , button [ onClick <| Request Undo ] [ text "Undo" ]
-    , button [ onClick <| Request Redo ] [ text "Redo" ]
-    , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
-        model.world.scene.entities
-        model.world.scene.board
-    , div [ class "events" ] <| joinedMap viewMessage
-        model.world.messages.map
-        model.world.messages.list
-    ] ++
-    (Maybe.Extra.toList <| viewDragBox model)
-    |> div []
+    div [ class "main" ]
+      [ div [ class "board" ]
+          [ button [ onClick <| Request AddEntity ] [ text "+" ]
+          , button [ onClick <| Request Undo ] [ text "Undo" ]
+          , button [ onClick <| Request Redo ] [ text "Redo" ]
+          , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
+              model.world.scene.entities
+              model.world.scene.board
+          ]
+      , div [ class "messages" ] <| joinedMap viewMessage
+          model.world.messages.map
+          model.world.messages.list
+      ]
+    :: (viewDragBox model |> Maybe.Extra.toList)
+    |> div [ class "app" ]
 
 viewRollBar : Bool -> Maybe (Html Event)
 viewRollBar rolling =
