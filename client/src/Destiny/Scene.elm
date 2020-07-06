@@ -87,6 +87,17 @@ viewEntity scene rolling dragging entity =
           Drag.Waiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
           Drag.Removed -> [ class "drag-removed" ]
           Drag.Dragging -> []
+    content =
+      [ div [ class "stats" ] <|
+          joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++
+          [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
+      , div [ class "aspects" ]
+          ( if entity.collapsed
+            then []
+            else joinedMap (viewAspect rolling) scene.aspects entity.aspects
+          )
+      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
+      ]
   in
     div attributes <|
       [ input
@@ -101,16 +112,7 @@ viewEntity scene rolling dragging entity =
           [ text <| if entity.collapsed then "Show" else "Hide" ]
       , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
       ] ++
-      [ div [ class "stats"] <|
-          joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++
-          [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
-      , div [ class "aspects" ]
-          ( if entity.collapsed
-            then []
-            else joinedMap (viewAspect rolling) scene.aspects entity.aspects
-          )
-      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
-      ]
+      (if entity.collapsed then [] else content)
 
 viewStatGroup : Scene -> Bool -> StatGroup -> Html Event
 viewStatGroup scene rolling group = case group of
