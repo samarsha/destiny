@@ -7,7 +7,6 @@ import Destiny.Generated.Model exposing
   , ClientRequest (..)
   , Entity
   , EntityId
-  , Invoke
   , Message (..)
   , MessageId
   , MessageList
@@ -21,9 +20,10 @@ import Destiny.Generated.Model exposing
   , jsonDecWorldSnapshot
   , jsonEncClientRequest
   )
+import Destiny.Message exposing (viewMessage)
 import Dict
 import Dict.Any exposing (AnyDict)
-import Html exposing (Html, button, div, input, span, text, textarea)
+import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, style, type_, value)
 import Html.Events exposing (on, onClick, onInput)
 import Html.Keyed
@@ -369,41 +369,6 @@ viewAspect rolling aspect =
           [ text "🎲" ]
       ]
     |> div [ class "aspect" ]
-
-viewMessage : Message -> Html Event
-viewMessage message = case message of
-  RollMessage roll -> 
-    let
-      baseDiv = div [ class "roll-line" ]
-        [ viewDie roll.statResult
-        , " + " ++ String.fromInt roll.statModifier |> text
-        , viewAnnotation roll.statName
-        ]
-      invokeDivs = roll.invokes |> List.map viewInvoke
-      total = roll.statResult + roll.statModifier + (roll.invokes |> List.map .result |> List.sum)
-      totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
-    in
-      div [ class "roll" ] <| baseDiv :: invokeDivs ++ [ totalDiv ]
-
-viewInvoke : Invoke -> Html Event
-viewInvoke invoke = div [ class "roll-line" ]
-  [ text " + "
-  , viewDie invoke.result
-  , viewAnnotation invoke.source
-  ]
-
-viewDie : Int -> Html Event
-viewDie die =
-  let
-    classes = case die of
-      1 -> [ class "die", class "die-bad" ]
-      6 -> [ class "die", class "die-good" ]
-      _ -> [ class "die" ]
-  in
-    [ die |> String.fromInt |> text ] |> Html.span classes
-
-viewAnnotation : String -> Html Event
-viewAnnotation name = span [ class "annotation" ] [ text name ]
 
 dragMessageDecoder : Decode.Decoder DragEvent
 dragMessageDecoder =
