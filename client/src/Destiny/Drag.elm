@@ -1,7 +1,6 @@
 module Destiny.Drag exposing
   ( Event (..)
   , State
-  , Status (..)
   , emptyState
   , eventDecoder
   , update
@@ -31,11 +30,6 @@ type alias Draggable =
   { id : Uuid
   , region : Rectangle
   }
-
-type Status
-  = Waiting
-  | Removed
-  | Dragging
 
 type alias Position =
   { x : Float
@@ -69,8 +63,10 @@ move position draggables model =
     target =
       draggables
       |> List.filter (.region >> withinRectangle position)
-      |> List.map .id
+      -- If there are overlapping regions, choose the smallest one since it is the most specific.
+      |> List.sortBy (.region >> area)
       |> List.head
+      |> Maybe.map .id
   in
     { model
     | target = if target == model.dragging then Nothing else target
@@ -78,7 +74,7 @@ move position draggables model =
     }
 
 view : (Uuid -> Html msg) -> State -> Maybe (Html msg)
-view viewId state =
+view viewById state =
   let
     box position offset id = div
       [ class "dragging"
@@ -86,7 +82,7 @@ view viewId state =
       , style "left" <| String.fromFloat (position.x - offset.x) ++ "px"
       , style "top" <| String.fromFloat (position.y - offset.y) ++ "px"
       ]
-      [ viewId id ]
+      [ viewById id ]
   in
     case (state.dragging, state.offset, state.position) of
       (Just id, Just offset, Just position) -> Just <| box position offset id
@@ -136,3 +132,6 @@ withinRectangle position rect =
   position.x <= rect.x + rect.width &&
   rect.y <= position.y &&
   position.y <= rect.y + rect.height
+
+area : Rectangle -> Float
+area rect = rect.width * rect.height

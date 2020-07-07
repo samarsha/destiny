@@ -25,7 +25,7 @@ import Html.Keyed
 import Json.Decode
 import Maybe.Extra
 import Random
-import Uuid
+import Uuid exposing (Uuid)
 
 type alias ClientState =
   { world : WorldSnapshot
@@ -113,10 +113,9 @@ handleSceneEvent event state = case event of
       dragState = Drag.update dragEvent state.drag
       dragIndex = dragState.target |> Maybe.andThen (Scene.entityIndex state.world.scene)
       newState = { state | drag = dragState }
-    in
-      case (dragState.dragging, dragIndex) of
-        (Just id, Just index) -> update (MoveEntity id index |> Request) newState
-        _ -> (newState, Cmd.none)
+    in case (dragState.dragging, dragIndex) of
+      (Just id, Just index) -> update (MoveEntity id index |> Request) newState
+      _ -> (newState, Cmd.none)
   Scene.GenerateRollId statId -> (state, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
   Scene.ContinueRoll aspectId ->
     let
@@ -131,24 +130,12 @@ updateScene f world = { world | scene = f world.scene }
 view : ClientState -> Html Event
 view model =
   let
-    dragStatus id = case (model.drag.dragging, model.drag.position) of
-      (Just dragId, Just _) -> if dragId == id then Drag.Removed else Drag.Waiting
-      _ -> Drag.Waiting
     rolling = Maybe.Extra.isJust model.activeRoll
     entityElement entity =
       ( Uuid.toString entity.id
-      , Scene.viewEntity model.world.scene rolling (dragStatus entity.id) entity
+      , Scene.viewEntity model.world.scene rolling model.drag.dragging entity
         |> Html.map SceneEvent
       )
-    draggedEntity id = case Dict.Any.get id model.world.scene.entities of
-      Just entity ->
-        Scene.viewEntity
-          model.world.scene
-          (Maybe.Extra.isJust model.activeRoll)
-          Drag.Dragging
-          entity
-        |> Html.map SceneEvent
-      Nothing -> Debug.todo <| "Invalid entity ID " ++ Uuid.toString id ++ "."
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
     div [ class "main" ]
@@ -164,7 +151,9 @@ view model =
           model.world.messages.map
           model.world.messages.list
       ]
-    :: (Drag.view draggedEntity model.drag |> Maybe.Extra.toList)
+    :: (model.drag
+        |> Drag.view (viewDrag model.world.scene rolling)
+        |> Maybe.Extra.toList)
     |> div [ class "app" ]
 
 viewRollBar : Bool -> Maybe (Html Event)
@@ -175,3 +164,11 @@ viewRollBar rolling =
       [ class "active-roll" ]
       [ text "You're on a roll!", button [ onClick EndRoll ] [ text "Finish" ] ]
   else Nothing
+
+viewDrag : Scene -> Bool -> Uuid -> Html Event
+viewDrag scene rolling id =
+  case Dict.Any.get id scene.entities of
+    Just entity -> Scene.viewEntity scene rolling Nothing entity |> Html.map SceneEvent
+    Nothing -> case Dict.Any.get id scene.aspects of
+      Just aspect -> Scene.viewAspect rolling Nothing aspect |> Html.map SceneEvent
+      Nothing -> "Invalid ID: " ++ Uuid.toString id |> Debug.todo

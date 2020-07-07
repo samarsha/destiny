@@ -7,6 +7,7 @@ module Destiny.Scene exposing
   , updateEntity
   , updateStat
   , updateStatGroup
+  , viewAspect
   , viewEntity
   )
 
@@ -25,11 +26,11 @@ import Destiny.Generated.Model exposing
   )
 import Destiny.Utils exposing (joinedMap)
 import Dict.Any
-import Html exposing (Html, button, div, input, text, textarea)
+import Html exposing (Attribute, Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
-import Uuid
+import Uuid exposing (Uuid)
 
 type Event
   = Request ClientRequest
@@ -74,13 +75,17 @@ moveEntity id index scene =
   in
     { scene | board = moved }
 
-viewEntity : Scene -> Bool -> Drag.Status -> Entity -> Html Event
+dragAttributes : Uuid -> Maybe Uuid -> List (Attribute msg)
+dragAttributes id dragging =
+  let draggable = attribute "data-draggable" <| Uuid.toString id
+  in case dragging of
+    Just dragId -> if id == dragId then [ class "drag-removed" ] else [ draggable ]
+    Nothing -> [ draggable ]
+
+viewEntity : Scene -> Bool -> Maybe Uuid -> Entity -> Html Event
 viewEntity scene rolling dragging entity =
   let
-    attributes = List.append [ class "entity" ] <| case dragging of
-      Drag.Waiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
-      Drag.Removed -> [ class "drag-removed" ]
-      Drag.Dragging -> []
+    attributes = List.append [ class "entity" ] <| dragAttributes entity.id dragging
     content =
       [ div [ class "stats" ] <|
           joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++
@@ -88,7 +93,7 @@ viewEntity scene rolling dragging entity =
       , div [ class "aspects" ]
           ( if entity.collapsed
             then []
-            else joinedMap (viewAspect rolling) scene.aspects entity.aspects
+            else joinedMap (viewAspect rolling dragging) scene.aspects entity.aspects
           )
       , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
       ]
@@ -137,10 +142,9 @@ viewStat rolling stat = case stat of
     , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
     ]
 
-viewAspect : Bool -> Aspect -> Html Event
-viewAspect rolling aspect =
-  let
-    edit text = SetAspectText aspect.id text |> Request
+viewAspect : Bool -> Maybe Uuid -> Aspect -> Html Event
+viewAspect rolling dragging aspect =
+  let edit text = SetAspectText aspect.id text |> Request
   in
     List.concat
       [ [ div
@@ -156,4 +160,4 @@ viewAspect rolling aspect =
           ]
           [ text "🎲" ]
       ]
-    |> div [ class "aspect" ]
+    |> div (List.append [ class "aspect" ] <| dragAttributes aspect.id dragging)
