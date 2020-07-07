@@ -28,9 +28,9 @@ const prepareDrag = downEvent => {
   const expectDragStart = moveEvent => {
     if (distance(mousePosition(downEvent))(mousePosition(moveEvent)) >= dragThreshold) {
       cancelDragStart();
-      const draggablePosition = elementPosition(downEvent.target.closest("[data-draggable]"));
-      const offset = subtract(mousePosition(moveEvent))(draggablePosition);
-      app.ports.drag.send({ dragStart: offset });
+      const draggable = downEvent.target.closest("[data-draggable]");
+      const offset = subtract(mousePosition(moveEvent))(elementPosition(draggable));
+      app.ports.drag.send({ dragStart: [draggable.dataset.draggable, offset] });
       app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
       document.addEventListener("pointermove", dragMove);
       document.addEventListener("pointerup", dragEnd);

@@ -27,8 +27,7 @@ import Destiny.Utils exposing (joinedMap)
 import Dict.Any
 import Html exposing (Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
-import Html.Events exposing (on, onClick, onInput)
-import Json.Decode
+import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
 import Uuid
 
@@ -78,15 +77,10 @@ moveEntity id index scene =
 viewEntity : Scene -> Bool -> Drag.Status -> Entity -> Html Event
 viewEntity scene rolling dragging entity =
   let
-    attributes =
-      List.append
-        [ class "entity"
-        , on "pointerdown" <| Json.Decode.succeed <| Drag <| Drag.Prepare entity.id
-        ]
-        <| case dragging of
-          Drag.Waiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
-          Drag.Removed -> [ class "drag-removed" ]
-          Drag.Dragging -> []
+    attributes = List.append [ class "entity" ] <| case dragging of
+      Drag.Waiting -> [ attribute "data-draggable" <| Uuid.toString entity.id ]
+      Drag.Removed -> [ class "drag-removed" ]
+      Drag.Dragging -> []
     content =
       [ div [ class "stats" ] <|
           joinedMap (viewStatGroup scene rolling) scene.statGroups entity.statGroups ++

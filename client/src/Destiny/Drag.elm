@@ -23,8 +23,7 @@ type alias State =
   }
 
 type Event
-  = Prepare Uuid
-  | Start Position
+  = Start Uuid Position
   | Move Position (List Draggable)
   | End
 
@@ -60,8 +59,7 @@ emptyState =
 
 update : Event -> State -> State
 update event state = case event of
-  Prepare id -> { state | dragging = Just id, target = Nothing }
-  Start offset -> { state | target = Nothing, offset = Just offset }
+  Start id offset -> { state | dragging = Just id, target = Nothing, offset = Just offset }
   Move position draggables -> move position draggables state
   End -> { state | dragging = Nothing, offset = Nothing, position = Nothing }
 
@@ -97,16 +95,16 @@ view viewId state =
 eventDecoder : Json.Decode.Decoder Event
 eventDecoder =
   let
-    prepareDecoder = Json.Decode.map Prepare Uuid.decoder
-    startDecoder = Json.Decode.map Start positionDecoder
+    startDecoder = Json.Decode.map2 Start
+      (Json.Decode.index 0 Uuid.decoder)
+      (Json.Decode.index 1 positionDecoder)
     moveDecoder = Json.Decode.map2 Move
       (Json.Decode.index 0 positionDecoder)
       (Json.Decode.index 1 <| Json.Decode.list draggableDecoder)
     endDecoder = Json.Decode.succeed End
   in
     Dict.fromList
-      [ ("dragPrepare", prepareDecoder)
-      , ("dragStart", startDecoder)
+      [ ("dragStart", startDecoder)
       , ("dragMove", moveDecoder)
       , ("dragEnd", endDecoder)
       ]
