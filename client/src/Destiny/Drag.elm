@@ -104,11 +104,11 @@ eventDecoder =
     endDecoder = Json.Decode.succeed End
   in
     Dict.fromList
-      [ ("dragStart", startDecoder)
-      , ("dragMove", moveDecoder)
-      , ("dragEnd", endDecoder)
+      [ ("start", startDecoder)
+      , ("move", moveDecoder)
+      , ("end", endDecoder)
       ]
-    |> Json.Helpers.decodeSumObjectWithSingleField "DragEvent"
+    |> Json.Helpers.decodeSumObjectWithSingleField "Event"
 
 draggableDecoder : Json.Decode.Decoder Draggable
 draggableDecoder =

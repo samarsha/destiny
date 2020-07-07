@@ -30,8 +30,8 @@ const prepareDrag = downEvent => {
       cancelDragStart();
       const draggable = downEvent.target.closest("[data-draggable]");
       const offset = subtract(mousePosition(moveEvent))(elementPosition(draggable));
-      app.ports.drag.send({ dragStart: [draggable.dataset.draggable, offset] });
-      app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
+      app.ports.drag.send({ start: [draggable.dataset.draggable, offset] });
+      app.ports.drag.send({ move: [mousePosition(moveEvent), draggables()] });
       document.addEventListener("pointermove", dragMove);
       document.addEventListener("pointerup", dragEnd);
     }
@@ -68,11 +68,11 @@ const distance = p1 => p2 => {
 };
 
 const dragMove = moveEvent =>
-  app.ports.drag.send({ dragMove: [mousePosition(moveEvent), draggables()] });
+  app.ports.drag.send({ move: [mousePosition(moveEvent), draggables()] });
 
 const dragEnd = _ => {
   document.removeEventListener("pointermove", dragMove);
-  app.ports.drag.send({ dragEnd: [] });
+  app.ports.drag.send({ end: [] });
 };
 
 const draggables = () => Array
