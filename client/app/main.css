@@ -188,8 +188,8 @@ textarea {
     position: relative;
 }
 
-.dragging .entity,
-.dragging .aspect {
+.dragging > .entity,
+.dragging > .aspect {
     background-color: #fff;
     box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
     margin: 0;
