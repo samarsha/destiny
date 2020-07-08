@@ -3,9 +3,7 @@ port module Main exposing (main)
 import Browser
 import Destiny.Drag as Drag
 import Destiny.Generated.Model exposing
-  ( AspectId
-  , ClientRequest (..)
-  , EntityId
+  ( ClientRequest (..)
   , Message (..)
   , MessageId
   , Scene
