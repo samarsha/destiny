@@ -124,23 +124,23 @@ handleDragEvent : Drag.Event -> ClientState -> (ClientState, Cmd Event)
 handleDragEvent event state =
   let newDrag = Drag.update event state.drag
   in case newDrag.dragging |> Maybe.andThen (Scene.get state.world.scene) of
-    Just (Scene.EntityObject entity) -> dragEntity entity.id { state | drag = newDrag }
-    Just (Scene.AspectObject aspect) -> dragAspect aspect.id { state | drag = newDrag }
+    Just (Scene.EntityObject _) -> dragEntity { state | drag = newDrag }
+    Just (Scene.AspectObject _) -> dragAspect { state | drag = newDrag }
     _ -> ({ state | drag = newDrag }, Cmd.none)
 
-dragEntity : EntityId -> ClientState -> (ClientState, Cmd Event)
-dragEntity id state =
+dragEntity : ClientState -> (ClientState, Cmd Event)
+dragEntity state =
   let
     targetIndex =
       state.drag.targets
       |> List.filterMap (Scene.entityIndex state.world.scene)
       |> List.head
-  in case targetIndex of
-    Just index -> update (MoveEntity id index |> Request) state
-    Nothing -> (state, Cmd.none)
+  in case (state.drag.dragging, targetIndex) of
+    (Just id, Just index) -> update (MoveEntity id index |> Request) state
+    _ -> (state, Cmd.none)
 
-dragAspect : AspectId -> ClientState -> (ClientState, Cmd Event)
-dragAspect id state =
+dragAspect : ClientState -> (ClientState, Cmd Event)
+dragAspect state =
   let
     aspectTarget =
       state.drag.targets
@@ -150,17 +150,17 @@ dragAspect id state =
       state.drag.targets
       |> List.filterMap (flip Dict.Any.get state.world.scene.entities)
       |> List.head
-  in case (aspectTarget, entityTarget) of
-    (Just target, Just parent) ->
+  in case (state.drag.dragging, aspectTarget, entityTarget) of
+    (Just id, Just target, Just parent) ->
       case Scene.aspectIndex state.world.scene parent.id target.id of
         Just index ->
           -- TODO: Move to index.
           (state, Cmd.none)
         Nothing -> (state, Cmd.none)
-    (Nothing, Just parent) ->
+    (Just id, Nothing, Just parent) ->
       -- TODO: Move to index 0.
       (state, Cmd.none)
-    (_, Nothing) -> (state, Cmd.none)
+    _ -> (state, Cmd.none)
 
 updateScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
 updateScene f world = { world | scene = f world.scene }
