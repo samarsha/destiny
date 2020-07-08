@@ -1,7 +1,10 @@
 module Destiny.Scene exposing
   ( Event (..)
+  , Object (..)
+  , aspectIndex
   , empty
   , entityIndex
+  , get
   , moveEntity
   , updateAspect
   , updateEntity
@@ -29,6 +32,7 @@ import Dict.Any
 import Html exposing (Attribute, Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
+import List.Extra
 import Maybe.Extra
 import Uuid exposing (Uuid)
 
@@ -38,6 +42,12 @@ type Event
   | GenerateRollId StatId
   | ContinueRoll AspectId
 
+type Object
+  = EntityObject Entity
+  | StatGroupObject StatGroup
+  | StatObject Stat
+  | AspectObject Aspect
+
 empty : Scene
 empty =
   { board = []
@@ -46,6 +56,14 @@ empty =
   , stats = Dict.Any.empty Uuid.toString
   , aspects = Dict.Any.empty Uuid.toString
   }
+
+get : Scene -> Uuid -> Maybe Object
+get scene id =
+  Dict.Any.get id scene.entities
+  |> Maybe.map EntityObject
+  |> Maybe.Extra.orElse (Dict.Any.get id scene.statGroups |> Maybe.map StatGroupObject)
+  |> Maybe.Extra.orElse (Dict.Any.get id scene.stats |> Maybe.map StatObject)
+  |> Maybe.Extra.orElse (Dict.Any.get id scene.aspects |> Maybe.map AspectObject)
 
 updateEntity : (Entity -> Entity) -> EntityId -> Scene -> Scene
 updateEntity f id scene = { scene | entities = Dict.Any.update id (Maybe.map f) scene.entities }
@@ -61,11 +79,12 @@ updateAspect : (Aspect -> Aspect) -> AspectId -> Scene -> Scene
 updateAspect f id scene = { scene | aspects = Dict.Any.update id (Maybe.map f) scene.aspects }
 
 entityIndex : Scene -> EntityId -> Maybe Int
-entityIndex scene id =
-  scene.board
-  |> List.indexedMap (\index entityId -> if entityId == id then Just index else Nothing)
-  |> Maybe.Extra.values
-  |> List.head
+entityIndex scene id = List.Extra.elemIndex id scene.board
+
+aspectIndex : Scene -> EntityId -> AspectId -> Maybe Int
+aspectIndex scene entityId aspectId =
+  Dict.Any.get entityId scene.entities
+  |> Maybe.andThen (\entity -> List.Extra.elemIndex aspectId entity.aspects)
 
 moveEntity : EntityId -> Int -> Scene -> Scene
 moveEntity id index scene =

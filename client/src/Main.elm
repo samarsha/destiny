@@ -3,7 +3,9 @@ port module Main exposing (main)
 import Browser
 import Destiny.Drag as Drag
 import Destiny.Generated.Model exposing
-  ( ClientRequest (..)
+  ( AspectId
+  , ClientRequest (..)
+  , EntityId
   , Message (..)
   , MessageId
   , Scene
@@ -18,6 +20,7 @@ import Destiny.Message as Message
 import Destiny.Scene as Scene
 import Destiny.Utils exposing (joinedMap)
 import Dict.Any
+import Flip exposing (flip)
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
@@ -108,14 +111,7 @@ handleRequest request model =
 handleSceneEvent : Scene.Event -> ClientState -> (ClientState, Cmd Event)
 handleSceneEvent event state = case event of
   Scene.Request request -> update (Request request) state
-  Scene.Drag dragEvent ->
-    let
-      dragState = Drag.update dragEvent state.drag
-      dragIndex = dragState.target |> Maybe.andThen (Scene.entityIndex state.world.scene)
-      newState = { state | drag = dragState }
-    in case (dragState.dragging, dragIndex) of
-      (Just id, Just index) -> update (MoveEntity id index |> Request) newState
-      _ -> (newState, Cmd.none)
+  Scene.Drag dragEvent -> handleDragEvent dragEvent state
   Scene.GenerateRollId statId -> (state, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
   Scene.ContinueRoll aspectId ->
     let
@@ -123,6 +119,48 @@ handleSceneEvent event state = case event of
         Just rollId -> RollAspect aspectId rollId |> jsonEncClientRequest |> send
         Nothing -> Cmd.none
     in (state, cmd)
+
+handleDragEvent : Drag.Event -> ClientState -> (ClientState, Cmd Event)
+handleDragEvent event state =
+  let newDrag = Drag.update event state.drag
+  in case newDrag.dragging |> Maybe.andThen (Scene.get state.world.scene) of
+    Just (Scene.EntityObject entity) -> dragEntity entity.id { state | drag = newDrag }
+    Just (Scene.AspectObject aspect) -> dragAspect aspect.id { state | drag = newDrag }
+    _ -> ({ state | drag = newDrag }, Cmd.none)
+
+dragEntity : EntityId -> ClientState -> (ClientState, Cmd Event)
+dragEntity id state =
+  let
+    targetIndex =
+      state.drag.targets
+      |> List.filterMap (Scene.entityIndex state.world.scene)
+      |> List.head
+  in case targetIndex of
+    Just index -> update (MoveEntity id index |> Request) state
+    Nothing -> (state, Cmd.none)
+
+dragAspect : AspectId -> ClientState -> (ClientState, Cmd Event)
+dragAspect id state =
+  let
+    aspectTarget =
+      state.drag.targets
+      |> List.filterMap (flip Dict.Any.get state.world.scene.aspects)
+      |> List.head
+    entityTarget =
+      state.drag.targets
+      |> List.filterMap (flip Dict.Any.get state.world.scene.entities)
+      |> List.head
+  in case (aspectTarget, entityTarget) of
+    (Just target, Just parent) ->
+      case Scene.aspectIndex state.world.scene parent.id target.id of
+        Just index ->
+          -- TODO: Move to index.
+          (state, Cmd.none)
+        Nothing -> (state, Cmd.none)
+    (Nothing, Just parent) ->
+      -- TODO: Move to index 0.
+      (state, Cmd.none)
+    (_, Nothing) -> (state, Cmd.none)
 
 updateScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot
 updateScene f world = { world | scene = f world.scene }

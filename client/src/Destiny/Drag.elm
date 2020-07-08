@@ -16,7 +16,7 @@ import Uuid exposing (Uuid)
 
 type alias State =
   { dragging : Maybe Uuid
-  , target : Maybe Uuid
+  , targets : List Uuid
   , offset : Maybe Position
   , position : Maybe Position
   }
@@ -46,32 +46,26 @@ type alias Rectangle =
 emptyState : State
 emptyState =
   { dragging = Nothing
-  , target = Nothing
+  , targets = []
   , offset = Nothing
   , position = Nothing
   }
 
 update : Event -> State -> State
 update event state = case event of
-  Start id offset -> { state | dragging = Just id, target = Nothing, offset = Just offset }
+  Start id offset -> { state | dragging = Just id, targets = [], offset = Just offset }
   Move position draggables -> move position draggables state
   End -> { state | dragging = Nothing, offset = Nothing, position = Nothing }
 
 move : Position -> List Draggable -> State -> State
 move position draggables model =
   let
-    target =
+    targets =
       draggables
       |> List.filter (.region >> withinRectangle position)
-      -- If there are overlapping regions, choose the smallest one since it is the most specific.
-      |> List.sortBy (.region >> area)
-      |> List.head
-      |> Maybe.map .id
-  in
-    { model
-    | target = if target == model.dragging then Nothing else target
-    , position = Just position
-    }
+      |> List.map .id
+      |> List.filter (\id -> Just id /= model.dragging)
+  in { model | targets = targets, position = Just position }
 
 view : (Uuid -> Html msg) -> State -> Maybe (Html msg)
 view viewById state =
@@ -132,6 +126,3 @@ withinRectangle position rect =
   position.x <= rect.x + rect.width &&
   rect.y <= position.y &&
   position.y <= rect.y + rect.height
-
-area : Rectangle -> Float
-area rect = rect.width * rect.height
