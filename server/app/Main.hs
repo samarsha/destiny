@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 module Main (main) where
 
 import Data.Functor
@@ -7,6 +5,7 @@ import Data.Maybe
 import Destiny.Server
 import Options.Applicative
 import System.Directory
+import System.Info
 
 import qualified Network.Wai.Handler.Warp as Warp
 
@@ -22,9 +21,7 @@ serverOptions :: FilePath -> Parser ServerOptions
 serverOptions defaultStorage = ServerOptions
     <$> (optional portOption <&> fromMaybe 3000)
     <*> (optional storageOption <&> fromMaybe defaultStorage)
-#ifndef mingw32_HOST_OS
-    <*> optional userOption
-#endif
+    <*> if os == "mingw32" then pure Nothing else optional userOption
 
 portOption :: Parser Warp.Port
 portOption = option auto
@@ -41,11 +38,9 @@ storageOption = strOption
    <> help "Directory to use for persistent storage"
     )
 
-#ifndef mingw32_HOST_OS
 userOption :: Parser String
 userOption = strOption
     ( long "user"
    <> metavar "NAME"
    <> help "User to run as after binding to the port"
     )
-#endif

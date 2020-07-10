@@ -31,11 +31,6 @@ dependencies:
 - warp
 - websockets
 
-when:
-- condition: "!os(windows)"
-  dependencies:
-  - unix
-
 ghc-options:
 - -Wall
 
@@ -48,3 +43,11 @@ executables:
     source-dirs: server/app
     dependencies:
     - destiny
+
+when:
+- condition: "!os(windows)"
+  dependencies:
+  - unix
+  source-dirs: server/unix
+- condition: os(windows)
+  source-dirs: server/win

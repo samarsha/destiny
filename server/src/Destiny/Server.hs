@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -21,6 +20,7 @@ import Data.List
 import Data.Maybe
 import Data.UUID
 import Destiny.Request
+import Destiny.System
 import Destiny.World
 import Network.HTTP.Types
 import Network.Mime
@@ -28,11 +28,9 @@ import Network.Wai
 import Network.Wai.Handler.WebSockets
 import System.Directory
 import System.FilePath
+import System.Info
 import System.IO
 import System.IO.Error
-#ifndef mingw32_HOST_OS
-import System.Posix.User
-#endif
 import System.Signal
 import Text.Printf
 import Time.Rational
@@ -47,9 +45,7 @@ import qualified Network.WebSockets as WS
 data ServerOptions = ServerOptions
     { serverPort :: Warp.Port
     , serverStorage :: FilePath
-#ifndef mingw32_HOST_OS
     , serverUser :: Maybe String
-#endif
     }
 
 data ServerState = ServerState
@@ -82,9 +78,7 @@ serverSettings
         ServerOptions
             { serverPort = port
             , serverStorage = storage
-#ifndef mingw32_HOST_OS
             , serverUser = user
-#endif
             }
         stateVar = Warp.defaultSettings
     & Warp.setPort port
@@ -94,13 +88,13 @@ serverSettings
   where
     beforeMainLoop = do
         putStrLn $ printf "Listening on port %d." port
-#ifndef mingw32_HOST_OS
         case user of
-            Just user' -> do
-                putStrLn $ printf "Switching to user %s." user'
-                setUserID =<< userID <$> getUserEntryForName user'
+            Just name | os == "mingw32" ->
+                putStrLn $ printf "Switching to user %s is not supported on Windows." name
+            Just name -> do
+                putStrLn $ printf "Switching to user %s." name
+                setUserName name
             Nothing -> return ()
-#endif
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
         world <- serverWorld <$> readMVar stateVar
