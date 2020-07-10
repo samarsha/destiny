@@ -207,8 +207,11 @@ viewRollBar rolling =
 
 viewDrag : Scene -> Bool -> Uuid -> Html Event
 viewDrag scene rolling id =
-  case Dict.Any.get id scene.entities of
-    Just entity -> Scene.viewEntity scene rolling Nothing entity |> Html.map SceneEvent
-    Nothing -> case Dict.Any.get id scene.aspects of
-      Just aspect -> Scene.viewAspect rolling Nothing aspect |> Html.map SceneEvent
-      Nothing -> "Invalid ID: " ++ Uuid.toString id |> Debug.todo
+  let
+    entity = Dict.Any.get id scene.entities |> Maybe.map (Scene.viewEntity scene rolling Nothing)
+    aspect = Dict.Any.get id scene.aspects |> Maybe.map (Scene.viewAspect rolling Nothing)
+    invalid () = "Invalid ID: " ++ Uuid.toString id |> Debug.todo
+  in
+    entity
+    |> Maybe.Extra.orElse aspect
+    |> Maybe.Extra.unpack invalid (Html.map SceneEvent)
