@@ -19,6 +19,7 @@ module Destiny.Scene
     , addStatGroup
     , emptyScene
     , modifyAspect
+    , moveAspect
     , moveEntity
     , removeAspect
     , removeDie
@@ -38,6 +39,7 @@ import Control.Monad.Random
 import Data.Aeson.Types hiding (defaultOptions)
 import Data.List
 import Data.List.Extra
+import Data.List.Index
 import Data.Map.Lazy (Map)
 import Data.UUID
 import Elm.Derive
@@ -202,18 +204,25 @@ addAspect eid scene = do
     aid <- getRandom
     let aspect = Aspect { aspectId = aid, aspectText = "", aspectDice = 0 }
     return scene
-        { sceneEntities = Map.adjust (addToEntity aid) eid $ sceneEntities scene
+        { sceneEntities = Map.adjust (append aid) eid $ sceneEntities scene
         , sceneAspects = Map.insert aid aspect $ sceneAspects scene
         }
   where
-    addToEntity aid entity@Entity { entityAspects = aspects } =
-        entity { entityAspects = snoc aspects aid }
+    append aid entity = entity { entityAspects = snoc (entityAspects entity) aid }
 
 modifyAspect :: (Aspect -> Aspect) -> AspectId -> Scene -> Scene
 modifyAspect f aid scene = scene { sceneAspects = Map.adjust f aid $ sceneAspects scene }
 
 setAspectText :: String -> AspectId -> Scene -> Scene
 setAspectText text = modifyAspect $ \aspect -> aspect { aspectText = text }
+
+moveAspect :: AspectId -> EntityId -> Int -> Scene -> Scene
+moveAspect aid eid index scene = scene
+    { sceneEntities = Map.adjust add eid $ Map.map remove $ sceneEntities scene
+    }
+  where
+    remove entity = entity { entityAspects = delete aid $ entityAspects entity }
+    add entity = entity { entityAspects = insertAt index aid $ entityAspects entity }
 
 removeAspect :: AspectId -> Scene -> Scene
 removeAspect aid scene = scene

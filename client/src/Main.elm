@@ -92,6 +92,9 @@ handleRequest request model =
       SetEntityName id name -> updateScene
         (Scene.updateEntity (\entity -> { entity | name = name }) id)
         model.world
+      MoveEntity id index -> updateScene
+        (Scene.moveEntity id index)
+        model.world
       SetStatGroupName id name -> updateScene
         (Scene.updateStatGroup (\(StatGroup sgid _ stats) -> StatGroup sgid name stats) id)
         model.world
@@ -101,7 +104,9 @@ handleRequest request model =
       SetAspectText id text -> updateScene
         (Scene.updateAspect (\aspect -> { aspect | text = text }) id)
         model.world
-      MoveEntity id index -> updateScene (Scene.moveEntity id index) model.world
+      MoveAspect aspectId entityId index -> updateScene
+        (Scene.moveAspect aspectId entityId index)
+        model.world
       _ -> model.world
   in
     ({ model | world = newWorld }, jsonEncClientRequest request |> send)
@@ -151,13 +156,12 @@ dragAspect state =
   in case (state.drag.dragging, aspectTarget, entityTarget) of
     (Just id, Just target, Just parent) ->
       case Scene.aspectIndex state.world.scene parent.id target.id of
-        Just index ->
-          -- TODO: Move to index.
-          (state, Cmd.none)
+        Just index -> update (MoveAspect id parent.id index |> Request) state
         Nothing -> (state, Cmd.none)
     (Just id, Nothing, Just parent) ->
-      -- TODO: Move to index 0.
-      (state, Cmd.none)
+      if List.isEmpty parent.aspects
+      then update (MoveAspect id parent.id 0 |> Request) state
+      else (state, Cmd.none)
     _ -> (state, Cmd.none)
 
 updateScene : (Scene -> Scene) -> WorldSnapshot -> WorldSnapshot

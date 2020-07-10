@@ -27,6 +27,7 @@ data ClientRequest
     | RemoveStat StatId
     | AddAspect EntityId
     | SetAspectText AspectId String
+    | MoveAspect AspectId EntityId Int
     | RemoveAspect AspectId
     | AddDie AspectId
     | RemoveDie AspectId
@@ -71,6 +72,8 @@ updateWorld request world = case request of
         modifyScene (addAspect eid) world <&> (, UpdateWorld)
     SetAspectText aid text ->
         modifyScene (return . setAspectText text aid) world <&> (, NoResponse)
+    MoveAspect aid eid index ->
+        modifyScene (return . moveAspect aid eid index) world <&> (, UpdateWorld)
     RemoveAspect aid ->
         modifyScene (return . removeAspect aid) world <&> (, UpdateWorld)
     AddDie aid ->

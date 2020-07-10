@@ -17,6 +17,7 @@ dependencies:
 - file-embed
 - filepath
 - http-types
+- ilist
 - mime-types
 - MonadRandom
 - o-clock

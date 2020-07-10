@@ -5,6 +5,7 @@ module Destiny.Scene exposing
   , empty
   , entityIndex
   , get
+  , moveAspect
   , moveEntity
   , updateAspect
   , updateEntity
@@ -93,6 +94,20 @@ moveEntity id index scene =
     moved = List.take index removed ++ id :: List.drop index removed
   in
     { scene | board = moved }
+
+moveAspect : AspectId -> EntityId -> Int -> Scene -> Scene
+moveAspect aspectId entityId index scene =
+  let
+    remove entity = { entity | aspects = List.filter ((/=) aspectId) entity.aspects }
+    add entity =
+      let (xs, ys) = List.Extra.splitAt index entity.aspects
+      in { entity | aspects = xs ++ aspectId :: ys }
+  in
+    { scene | entities =
+        scene.entities
+        |> Dict.Any.map (\_ -> remove)
+        |> Dict.Any.update entityId (Maybe.map add)
+    }
 
 dragAttributes : Uuid -> Maybe Uuid -> List (Attribute msg)
 dragAttributes id dragging =
