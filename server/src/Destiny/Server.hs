@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -8,6 +11,7 @@ module Destiny.Server (ServerOptions (..), run) where
 
 import Control.Concurrent hiding (threadDelay)
 import Control.Exception
+import Control.Lens
 import Control.Monad
 import Control.Monad.Random
 import Data.Aeson
@@ -15,13 +19,14 @@ import Data.Aeson.Encode.Pretty
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder
 import Data.FileEmbed
-import Data.Function
+import Data.Generics.Labels ()
 import Data.List
 import Data.Maybe
 import Data.UUID
 import Destiny.Request
 import Destiny.System
 import Destiny.World
+import GHC.Generics
 import Network.HTTP.Types
 import Network.Mime
 import Network.Wai
@@ -43,29 +48,31 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
 
 data ServerOptions = ServerOptions
-    { serverPort :: Warp.Port
-    , serverStorage :: FilePath
-    , serverUser :: Maybe String
+    { port :: Warp.Port
+    , storage :: FilePath
+    , user :: Maybe String
     }
 
 data ServerState = ServerState
-    { serverWorld :: World
-    , serverClients :: [Client]
+    { world :: World
+    , clients :: [Client]
     }
+    deriving Generic
 
 data Client = Client
-    { clientId :: UUID
-    , clientConnection :: WS.Connection
+    { id :: UUID
+    , connection :: WS.Connection
     }
+    deriving Generic
 
 instance Eq Client where
-    a == b = clientId a == clientId b
+    a == b = a ^. #id == b ^. #id
 
 run :: ServerOptions -> IO ()
-run options@ServerOptions { serverStorage = storage } = do
-    savedWorld <- readSavedWorld storage
+run options = do
+    savedWorld <- readSavedWorld $ storage options
     stateVar <- newMVar $ newState $ fromMaybe emptyWorld savedWorld
-    _ <- forkIO $ saveWorldEvery saveInterval storage stateVar
+    _ <- forkIO $ saveWorldEvery saveInterval (storage options) stateVar
     let settings = serverSettings options stateVar
     Warp.runSettings settings $ websocketsOr WS.defaultConnectionOptions
         (webSocketsApp stateVar)
@@ -74,21 +81,15 @@ run options@ServerOptions { serverStorage = storage } = do
     saveInterval = sec 30
 
 serverSettings :: ServerOptions -> MVar ServerState -> Warp.Settings
-serverSettings
-        ServerOptions
-            { serverPort = port
-            , serverStorage = storage
-            , serverUser = user
-            }
-        stateVar = Warp.defaultSettings
-    & Warp.setPort port
+serverSettings options stateVar = Warp.defaultSettings
+    & Warp.setPort (port options)
     & Warp.setBeforeMainLoop beforeMainLoop
     & Warp.setInstallShutdownHandler installShutdownHandler
     & Warp.setGracefulShutdownTimeout (Just 5)
   where
     beforeMainLoop = do
-        putStrLn $ printf "Listening on port %d." port
-        case user of
+        putStrLn $ printf "Listening on port %d." $ port options
+        case user options of
             Just name | os == "mingw32" ->
                 putStrLn $ printf "Switching to user %s is not supported on Windows." name
             Just name -> do
@@ -97,38 +98,38 @@ serverSettings
             Nothing -> return ()
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
-        world <- serverWorld <$> readMVar stateVar
-        catchIOError (saveWorld storage world) $ hPutStrLn stderr . show
+        state <- readMVar stateVar
+        catchIOError (saveWorld (storage options) $ world state) $ hPutStrLn stderr . show
         closeSocket
 
 newState :: World -> ServerState
-newState world = ServerState { serverWorld = world, serverClients = [] }
+newState world' = ServerState { world = world', clients = [] }
 
 clientAppDir :: [(FilePath, ByteString)]
 clientAppDir = $(embedDir $ "client" </> "app")
 
 worldSavePath :: FilePath -> FilePath
-worldSavePath storage = storage </> "world.json"
+worldSavePath storage' = storage' </> "world.json"
 
 saveWorld :: FilePath -> World -> IO ()
-saveWorld storage world = do
-    createDirectoryIfMissing True storage
-    LBS.writeFile path $ encodePretty' format world
+saveWorld storage' world' = do
+    createDirectoryIfMissing True storage'
+    LBS.writeFile path $ encodePretty' format world'
   where
-    path = worldSavePath storage
+    path = worldSavePath storage'
     format = defConfig { confIndent = Spaces 2 }
 
 saveWorldEvery :: KnownDivRat unit Microsecond => Time unit -> FilePath -> MVar ServerState -> IO ()
-saveWorldEvery interval storage stateVar = forever $ do
+saveWorldEvery interval storage' stateVar = forever $ do
     threadDelay interval
-    world <- modifyMVar stateVar $ \state ->
-        let state' = state { serverWorld = commit $ serverWorld state }
-        in  return (state', serverWorld state')
-    catchIOError (saveWorld storage world) $ hPutStrLn stderr . show
+    world' <- modifyMVar stateVar $ \state ->
+        let state' = state & over #world commit
+        in return (state', world state')
+    catchIOError (saveWorld storage' world') $ hPutStrLn stderr . show
 
 readSavedWorld :: FilePath -> IO (Maybe World)
-readSavedWorld storage =
-    catchIOError (decodeStrict <$> BS.readFile (worldSavePath storage)) $ \err ->
+readSavedWorld storage' =
+    catchIOError (decodeStrict <$> BS.readFile (worldSavePath storage')) $ \err ->
         if isDoesNotExistError err
         then return Nothing
         else ioError err
@@ -146,39 +147,38 @@ httpApp request respond = respond $ case rawPathInfo request of
 
 webSocketsApp :: MVar ServerState -> WS.ServerApp
 webSocketsApp stateVar pending = do
-    connection <- WS.acceptRequest pending
-    WS.withPingThread connection (toNum @Second pingInterval) (return ()) $ do
-        client <- modifyMVar stateVar $ \state@ServerState { serverWorld = world } -> do
-            WS.sendTextData connection $ encode $ worldSnapshot world
-            evalRandIO $ addClient connection state
+    connection' <- WS.acceptRequest pending
+    WS.withPingThread connection' (toNum @Second pingInterval) (return ()) $ do
+        client <- modifyMVar stateVar $ \state -> do
+            WS.sendTextData connection' $ encode $ worldSnapshot $ world state
+            evalRandIO $ addClient connection' state
         finally
             (forever $ handleMessage client stateVar)
-            (modifyMVar_ stateVar $ return . removeClient (clientId client))
+            (modifyMVar_ stateVar $ return . removeClient client)
   where
     pingInterval = sec 30
 
 addClient :: RandomGen g => WS.Connection -> ServerState -> Rand g (ServerState, Client)
-addClient connection state@ServerState { serverClients = clients } = do
-    newId <- getRandom
-    let client = Client { clientId = newId, clientConnection = connection }
-    return (state { serverClients = client : clients }, client)
+addClient connection' state = do
+    clientId <- getRandom
+    let client = Client { id = clientId, connection = connection' }
+    return (state & over #clients (client :), client)
 
-removeClient :: UUID -> ServerState -> ServerState
-removeClient uuid state@ServerState { serverClients = clients } = state
-    { serverClients = filter (\client -> clientId client /= uuid) clients }
+removeClient :: Client -> ServerState -> ServerState
+removeClient client = over #clients $ delete client
 
 handleMessage :: Client -> MVar ServerState -> IO ()
-handleMessage client stateVar = decode <$> WS.receiveData (clientConnection client) >>= \case
+handleMessage client stateVar = decode <$> WS.receiveData (connection client) >>= \case
     Just message -> modifyMVar_ stateVar $ \state -> do
-        (world', response) <- evalRandIO $ updateWorld message $ serverWorld state
-        let clients = case response of
-                UpdateWorld -> serverClients state
-                NoResponse -> delete client $ serverClients state
-        broadcast (worldSnapshot world') clients
-        return state { serverWorld = world' }
+        (world', response) <- evalRandIO $ updateWorld message $ world state
+        let clients' = case response of
+                UpdateWorld -> clients state
+                NoResponse -> delete client $ clients state
+        broadcast (worldSnapshot world') clients'
+        return state { world = world' }
     Nothing -> return ()
 
 broadcast :: ToJSON a => a -> [Client] -> IO ()
-broadcast message clients = forM_ connections $ flip WS.sendTextData $ encode message
+broadcast message clients' = forM_ connections $ flip WS.sendTextData $ encode message
   where
-    connections = map clientConnection clients
+    connections = map connection clients'
