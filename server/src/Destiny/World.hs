@@ -67,36 +67,36 @@ commit :: World -> World
 commit = timeline %~ Timeline.commit
 
 rollStat :: RandomGen r => StatId -> MessageId -> World -> Rand r World
-rollStat sid mid world = case Map.lookup sid stats' of
-    Just (Stat _ name score) -> do
+rollStat statId messageId world = case Map.lookup statId stats' of
+    Just stat -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
         result <- getRandomR (1, 6)
         let roll = Roll
-                { _id = mid
-                , _statName = name
+                { _id = messageId
+                , _statName = stat^.name
                 , _statResult = result
-                , _statModifier = score
+                , _statModifier = stat^.score
                 , _invokes = []
                 }
-        return $ world & messages %~ \case
-            MessageList ids msgs -> MessageList
-                (snoc ids mid)
-                (Map.insert mid (RollMessage roll) msgs)
+        return $ world & messages %~ \(MessageList ids msgs) -> MessageList
+            (snoc ids messageId)
+            (Map.insert messageId (RollMessage roll) msgs)
     Nothing -> return world
   where
-    stats' = Timeline.value (world ^. timeline) ^. stats
+    stats' = (Timeline.value $ world^.timeline)^.stats
 
 rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
-rollAspect aid mid world = case Map.lookup aid aspects' of
-    Just aspect | aspect ^. dice >= 1 -> do
+rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
+    Just aspect | aspect^.dice >= 1 -> do
         result <- getRandomR (1, 6)
-        let invoke = Invoke (aspect ^. text) result
+        let invoke = Invoke (aspect^.text) result
         return $ world
-            & timeline %~ Timeline.modify (removeDie aid)
-            & messages %~ \case
-                MessageList ids msgs -> MessageList ids $ Map.adjust (append invoke) mid msgs
+            & timeline %~ Timeline.modify (removeDie aspectId)
+            & messages %~ \(MessageList ids msgs) -> MessageList
+                ids
+                (Map.adjust (append invoke) messageId msgs)
     _ -> return world
   where
-    aspects' = Timeline.value (world ^. timeline) ^. aspects
+    aspects' = (Timeline.value $ world^.timeline)^.aspects
     append invoke (RollMessage roll) = RollMessage $ roll & invokes %~ flip snoc invoke

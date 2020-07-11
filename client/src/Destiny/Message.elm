@@ -10,22 +10,21 @@ empty : MessageList
 empty = MessageList [] <| Dict.Any.empty Uuid.toString
 
 view : Message -> Html msg
-view message = case message of
-  RollMessage roll -> 
-    let
-      baseDiv = div [ class "roll-line" ]
-        [ viewDie roll.statResult
-        , " + " ++ String.fromInt roll.statModifier |> text
-        , viewAnnotation roll.statName
-        ]
-      invokeDivs = roll.invokes |> List.map viewInvoke
-      total =
-        roll.statResult +
-        roll.statModifier +
-        (roll.invokes |> List.map (\(Invoke _ result) -> result) |> List.sum)
-      totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
-    in
-      div [ class "roll" ] <| baseDiv :: invokeDivs ++ [ totalDiv ]
+view (RollMessage roll) =
+  let
+    baseDiv = div [ class "roll-line" ]
+      [ viewDie roll.statResult
+      , " + " ++ String.fromInt roll.statModifier |> text
+      , viewAnnotation roll.statName
+      ]
+    invokeDivs = roll.invokes |> List.map viewInvoke
+    total =
+      roll.statResult +
+      roll.statModifier +
+      (roll.invokes |> List.map (\(Invoke _ result) -> result) |> List.sum)
+    totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
+  in
+    div [ class "roll" ] <| baseDiv :: invokeDivs ++ [ totalDiv ]
 
 viewInvoke : Invoke -> Html msg
 viewInvoke (Invoke source result) =

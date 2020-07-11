@@ -68,10 +68,9 @@ emptyWorld =
   }
 
 decodeEvent : Json.Decode.Decoder a -> (a -> Event) -> Json.Decode.Value -> Event
-decodeEvent decoder toEvent value =
-  case Json.Decode.decodeValue decoder value of
-    Ok result -> toEvent result
-    Err error -> DecodeError error
+decodeEvent decoder toEvent value = case Json.Decode.decodeValue decoder value of
+  Ok result -> toEvent result
+  Err error -> DecodeError error
 
 update : Event -> ClientState -> (ClientState, Cmd Event)
 update message model = case message of

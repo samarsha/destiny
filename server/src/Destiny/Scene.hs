@@ -28,11 +28,13 @@ module Destiny.Scene
     , modifyAspect
     , moveAspect
     , moveEntity
+    , name
     , removeAspect
     , removeDie
     , removeEntity
     , removeStat
     , removeStatGroup
+    , score
     , setAspectText
     , setEntityName
     , setStatGroupName
@@ -136,20 +138,20 @@ emptyScene = Scene
 
 addEntity :: RandomGen r => Scene -> Rand r Scene
 addEntity scene = do
-    newId <- getRandom
+    entityId <- getRandom
     let entity = Entity
-            { _id = newId
+            { _id = entityId
             , _name = ""
             , _statGroups = []
             , _aspects = []
             , _collapsed = False
             }
     return $ scene
-        & entities %~ Map.insert newId entity
-        & board %~ flip snoc newId
+        & entities %~ Map.insert entityId entity
+        & board %~ flip snoc entityId
 
 modifyEntity :: (Entity -> Entity) -> EntityId -> Scene -> Scene
-modifyEntity f eid = entities %~ Map.adjust f eid
+modifyEntity f entityId = entities %~ Map.adjust f entityId
 
 toggleEntity :: EntityId -> Scene -> Scene
 toggleEntity = modifyEntity $ collapsed %~ not
@@ -158,42 +160,42 @@ setEntityName :: String -> EntityId -> Scene -> Scene
 setEntityName = modifyEntity . set name
 
 moveEntity :: Int -> EntityId -> Scene -> Scene
-moveEntity i eid scene = scene & board .~ moved
+moveEntity i entityId scene = scene & board .~ moved
   where
-    removed = delete eid $ scene ^. board
-    moved = take i removed ++ eid : drop i removed
+    removed = delete entityId $ scene^.board
+    moved = take i removed ++ entityId : drop i removed
 
 removeEntity :: EntityId -> Scene -> Scene
-removeEntity eid scene = scene
-    & board %~ delete eid
-    & entities %~ Map.delete eid
+removeEntity entityId scene = scene
+    & board %~ delete entityId
+    & entities %~ Map.delete entityId
 
 addStatGroup :: RandomGen r => EntityId -> Scene -> Rand r Scene
-addStatGroup eid scene = do
-    sgid <- getRandom
-    let group' = StatGroup sgid "" []
+addStatGroup entityId scene = do
+    groupId <- getRandom
+    let group' = StatGroup groupId "" []
     return $ scene
-        & entities %~ Map.adjust (statGroups %~ flip snoc sgid) eid
-        & statGroups %~ Map.insert sgid group'
+        & entities %~ Map.adjust (statGroups %~ flip snoc groupId) entityId
+        & statGroups %~ Map.insert groupId group'
 
 setStatGroupName :: String -> StatGroupId -> Scene -> Scene
-setStatGroupName name' sgid = statGroups %~ Map.adjust (name .~ name') sgid
+setStatGroupName name' groupId = statGroups %~ Map.adjust (name .~ name') groupId
 
 removeStatGroup :: StatGroupId -> Scene -> Scene
-removeStatGroup sgid scene = scene
-    & entities %~ Map.map (statGroups %~ delete sgid)
-    & statGroups %~ Map.delete sgid
+removeStatGroup groupId scene = scene
+    & entities %~ Map.map (statGroups %~ delete groupId)
+    & statGroups %~ Map.delete groupId
 
 addStat :: RandomGen r => StatGroupId -> Scene -> Rand r Scene
-addStat sgid scene = do
-    sid <- getRandom
-    let stat = Stat sid "" 0
+addStat groupId scene = do
+    statId <- getRandom
+    let stat = Stat { _id = statId, _name = "", _score = 0 }
     return $ scene
-        & statGroups %~ Map.adjust (stats %~ flip snoc sid) sgid
-        & stats %~ Map.insert sid stat
+        & statGroups %~ Map.adjust (stats %~ flip snoc statId) groupId
+        & stats %~ Map.insert statId stat
 
 modifyStat :: (Stat -> Stat) -> StatId -> Scene -> Scene
-modifyStat f sid = stats %~ Map.adjust f sid
+modifyStat f statId = stats %~ Map.adjust f statId
 
 setStatName :: String -> StatId -> Scene -> Scene
 setStatName = modifyStat . set name
@@ -202,39 +204,39 @@ setStatScore :: Int -> StatId -> Scene -> Scene
 setStatScore = modifyStat . set score
 
 removeStat :: StatId -> Scene -> Scene
-removeStat sid scene = scene
-    & statGroups %~ Map.map (stats %~ delete sid)
-    & stats %~ Map.delete sid
+removeStat statId scene = scene
+    & statGroups %~ Map.map (stats %~ delete statId)
+    & stats %~ Map.delete statId
 
 addAspect :: RandomGen r => EntityId -> Scene -> Rand r Scene
-addAspect eid scene = do
-    aid <- getRandom
-    let aspect = Aspect { _id = aid, _text = "", _dice = 0 }
+addAspect entityId scene = do
+    aspectId <- getRandom
+    let aspect = Aspect { _id = aspectId, _text = "", _dice = 0 }
     return $ scene
-        & entities %~ Map.adjust (aspects %~ flip snoc aid) eid
-        & aspects %~ Map.insert aid aspect
+        & entities %~ Map.adjust (aspects %~ flip snoc aspectId) entityId
+        & aspects %~ Map.insert aspectId aspect
 
 modifyAspect :: (Aspect -> Aspect) -> AspectId -> Scene -> Scene
-modifyAspect f aid = aspects %~ Map.adjust f aid
+modifyAspect f aspectId = aspects %~ Map.adjust f aspectId
 
 setAspectText :: String -> AspectId -> Scene -> Scene
 setAspectText = modifyAspect . set text
 
 moveAspect :: AspectId -> EntityId -> Int -> Scene -> Scene
-moveAspect aid eid i = entities
-    %~ Map.adjust (aspects %~ insertAt i aid) eid
-    .  Map.map (aspects %~ delete aid)
+moveAspect aspectId entityId i = entities
+    %~ Map.adjust (aspects %~ insertAt i aspectId) entityId
+    .  Map.map (aspects %~ delete aspectId)
 
 removeAspect :: AspectId -> Scene -> Scene
-removeAspect aid scene = scene
-    & entities %~ Map.map (aspects %~ delete aid)
-    & aspects %~ Map.delete aid
+removeAspect aspectId scene = scene
+    & entities %~ Map.map (aspects %~ delete aspectId)
+    & aspects %~ Map.delete aspectId
 
 addDie :: AspectId -> Scene -> Scene
 addDie = modifyAspect $ dice +~ 1
 
 removeDie :: AspectId -> Scene -> Scene
 removeDie = modifyAspect $ \aspect ->
-    if aspect ^. dice >= 1
+    if aspect^.dice >= 1
         then aspect & dice -~ 1
         else aspect
