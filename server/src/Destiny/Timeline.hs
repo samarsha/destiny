@@ -1,80 +1,64 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Destiny.Timeline (Timeline, commit, modify, redo, singleton, undo, update, value) where
+module Destiny.Timeline (Timeline (present), commit, modify, redo, singleton, undo, update) where
 
-import Data.Aeson.TH
+import Data.Aeson.TH (deriveJSON)
 import Elm.Derive
 
 data Timeline a = Timeline
-    { timelinePast :: [a]
-    , timelinePresent :: a
-    , timelineFuture :: [a]
-    , timelineCommitted :: Bool
+    { past :: [a]
+    , present :: a
+    , future :: [a]
+    , committed :: Bool
     }
+deriveJSON defaultOptions ''Timeline
 
 instance Foldable Timeline where
-    foldr f z Timeline { timelinePast = past
-                       , timelinePresent = present
-                       , timelineFuture = future
-                       } =
-        foldr f z $ reverse future ++ present : past
-
-deriveJSON (defaultOptionsDropLower 8) ''Timeline
+    foldr f z timeline = foldr f z $
+        reverse (future timeline) ++ present timeline : past timeline
 
 singleton :: a -> Timeline a
 singleton x = Timeline
-    { timelinePast = []
-    , timelinePresent = x
-    , timelineFuture = []
-    , timelineCommitted = True
+    { past = []
+    , present = x
+    , future = []
+    , committed = True
     }
 
-value :: Timeline a -> a
-value = timelinePresent
-
 undo :: Timeline a -> Timeline a
-undo timeline@Timeline { timelinePast = present' : past'
-                       , timelinePresent = present
-                       , timelineFuture = future
-                       } = timeline
-    { timelinePast = past'
-    , timelinePresent = present'
-    , timelineFuture = present : future
-    , timelineCommitted = True
+undo timeline@Timeline { past = present' : past' } = timeline
+    { past = past'
+    , present = present'
+    , future = present timeline : future timeline
+    , committed = True
     }
 undo timeline = timeline
 
 redo :: Timeline a -> Timeline a
-redo timeline@Timeline { timelinePast = past
-                       , timelinePresent = present
-                       , timelineFuture = present' : future'
-                       } = timeline
-    { timelinePast = present : past
-    , timelinePresent = present'
-    , timelineFuture = future'
-    , timelineCommitted = True
+redo timeline@Timeline { future = present' : future' } = timeline
+    { past = present timeline : past timeline
+    , present = present'
+    , future = future'
+    , committed = True
     }
 redo timeline = timeline
 
 commit :: Timeline a -> Timeline a
-commit timeline = timeline { timelineCommitted = True }
+commit timeline = timeline { committed = True }
 
 update :: a -> Timeline a -> Timeline a
-update x timeline@Timeline { timelinePast = past
-                           , timelinePresent = present
-                           , timelineCommitted = committed
-                           }
-    | committed && length timeline == maxLength =
-        timeline' { timelinePast = present : init past }
-    | committed = timeline' { timelinePast = present : past }
+update x timeline
+    | committed timeline && length timeline == maxLength =
+        timeline' { past = present timeline : init (past timeline) }
+    | committed timeline = timeline' { past = present timeline : past timeline }
     | otherwise = timeline'
   where
     timeline' = timeline
-        { timelinePresent = x
-        , timelineFuture = []
-        , timelineCommitted = False
+        { present = x
+        , future = []
+        , committed = False
         }
     maxLength = 50
 
 modify :: (a -> a) -> Timeline a -> Timeline a
-modify f timeline@Timeline { timelinePresent = present } = update (f present) timeline
+modify f timeline = update (f $ present timeline) timeline

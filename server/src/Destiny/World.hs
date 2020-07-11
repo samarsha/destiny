@@ -52,7 +52,7 @@ emptyWorld = World
 
 worldSnapshot :: World -> WorldSnapshot
 worldSnapshot world = WorldSnapshot
-    { scene = Timeline.value $ world ^. #timeline
+    { scene = Timeline.present $ world ^. #timeline
     , messages = world ^. #messages
     }
 
@@ -83,7 +83,7 @@ rollStat statId messageId world = case Map.lookup statId stats' of
             (Map.insert messageId (RollMessage roll) msgs))
     Nothing -> return world
   where
-    stats' = Timeline.value (world ^. #timeline) ^. #stats
+    stats' = Timeline.present (world ^. #timeline) ^. #stats
 
 rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
 rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
@@ -97,5 +97,5 @@ rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
                 (Map.adjust (append invoke) messageId msgs))
     _ -> return world
   where
-    aspects' = Timeline.value (world ^. #timeline) ^. #aspects
+    aspects' = Timeline.present (world ^. #timeline) ^. #aspects
     append invoke (RollMessage roll) = RollMessage $ roll & over #invokes (flip snoc invoke)

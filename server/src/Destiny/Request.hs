@@ -91,5 +91,5 @@ updateWorld request world = case request of
 
 modifyScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
 modifyScene f world = do
-    scene' <- f $ Timeline.value $ world ^. #timeline
+    scene' <- f $ Timeline.present $ world ^. #timeline
     return $ world & over #timeline (Timeline.update scene')
