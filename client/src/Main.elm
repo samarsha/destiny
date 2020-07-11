@@ -6,6 +6,7 @@ import Destiny.Generated.Model exposing
   ( ClientRequest (..)
   , Message (..)
   , MessageId
+  , MessageList (..)
   , Scene
   , Stat (..)
   , StatGroup (..)
@@ -176,6 +177,8 @@ view model =
       , Scene.viewEntity model.world.scene rolling model.drag.dragging entity
         |> Html.map SceneEvent
       )
+    (messageIds, messageMap) = case model.world.messages of
+      MessageList ids map -> (ids, map)
   in
     (Maybe.Extra.toList <| viewRollBar rolling) ++
     div [ class "main" ]
@@ -187,9 +190,7 @@ view model =
               model.world.scene.entities
               model.world.scene.board
           ]
-      , div [ class "messages" ] <| joinedMap Message.view
-          model.world.messages.messages
-          model.world.messages.ids
+      , div [ class "messages" ] <| joinedMap Message.view messageMap messageIds
       ]
     :: (model.drag
         |> Drag.view (viewDrag model.world.scene rolling)

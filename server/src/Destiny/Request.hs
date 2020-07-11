@@ -3,8 +3,8 @@
 
 module Destiny.Request (ClientRequest, ClientResponse (..), updateWorld) where
 
+import Control.Lens.Operators
 import Control.Monad.Random
-import Data.Functor
 import Destiny.Message
 import Destiny.Scene
 import Destiny.World
@@ -91,7 +91,5 @@ updateWorld request world = case request of
 
 modifyScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
 modifyScene f world = do
-    scene' <- f scene
-    return world { timeline = Timeline.update scene' $ timeline world }
-  where
-    scene = Timeline.value $ timeline world
+    scene' <- f $ Timeline.value $ world ^. timeline
+    return $ world & timeline %~ Timeline.update scene'

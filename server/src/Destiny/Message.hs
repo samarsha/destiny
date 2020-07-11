@@ -19,12 +19,10 @@ import Elm.Derive
 
 import qualified Data.Map.Lazy as Map
 
-data MessageList = MessageList
-    { ids :: [MessageId]
-    , messages :: Map MessageId Message
-    }
+data MessageList = MessageList [MessageId] (Map MessageId Message)
 
-newtype MessageId = MessageId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+newtype MessageId = MessageId UUID
+    deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 
 data Message = RollMessage Roll
 
@@ -49,4 +47,4 @@ deriveBoth defaultOptions ''Message
 deriveBoth defaultOptions ''MessageList
 
 emptyMessages :: MessageList
-emptyMessages = MessageList { ids = [], messages = Map.empty }
+emptyMessages = MessageList [] Map.empty
