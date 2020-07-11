@@ -1,6 +1,6 @@
 module Destiny.Message exposing (empty, view)
 
-import Destiny.Generated.Model exposing (Invoke, Message (..), MessageList (..))
+import Destiny.Generated.Model exposing (Invoke (..), Message (..), MessageList (..))
 import Dict.Any
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
@@ -19,17 +19,17 @@ view message = case message of
         , viewAnnotation roll.statName
         ]
       invokeDivs = roll.invokes |> List.map viewInvoke
-      total = roll.statResult + roll.statModifier + (roll.invokes |> List.map .result |> List.sum)
+      total =
+        roll.statResult +
+        roll.statModifier +
+        (roll.invokes |> List.map (\(Invoke _ result) -> result) |> List.sum)
       totalDiv = div [] [ " = " ++ String.fromInt total |> text ]
     in
       div [ class "roll" ] <| baseDiv :: invokeDivs ++ [ totalDiv ]
 
 viewInvoke : Invoke -> Html msg
-viewInvoke invoke = div [ class "roll-line" ]
-  [ text " + "
-  , viewDie invoke.result
-  , viewAnnotation invoke.source
-  ]
+viewInvoke (Invoke source result) =
+  div [ class "roll-line" ] [ text " + ", viewDie result, viewAnnotation source ]
 
 viewDie : Int -> Html msg
 viewDie die =

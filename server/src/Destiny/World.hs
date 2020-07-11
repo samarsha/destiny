@@ -71,13 +71,13 @@ rollStat sid mid world = case Map.lookup sid stats' of
     Just (Stat _ name score) -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
-        result' <- getRandomR (1, 6)
+        result <- getRandomR (1, 6)
         let roll = Roll
-                { id = mid
-                , statName = name
-                , statResult = result'
-                , statModifier = score
-                , invokes = []
+                { _id = mid
+                , _statName = name
+                , _statResult = result
+                , _statModifier = score
+                , _invokes = []
                 }
         return $ world & messages %~ \case
             MessageList ids msgs -> MessageList
@@ -90,8 +90,8 @@ rollStat sid mid world = case Map.lookup sid stats' of
 rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
 rollAspect aid mid world = case Map.lookup aid aspects' of
     Just aspect | aspect ^. dice >= 1 -> do
-        result' <- getRandomR (1, 6)
-        let invoke = Invoke (aspect ^. text) result'
+        result <- getRandomR (1, 6)
+        let invoke = Invoke (aspect ^. text) result
         return $ world
             & timeline %~ Timeline.modify (removeDie aid)
             & messages %~ \case
@@ -99,6 +99,4 @@ rollAspect aid mid world = case Map.lookup aid aspects' of
     _ -> return world
   where
     aspects' = Timeline.value (world ^. timeline) ^. aspects
-    append invoke (RollMessage roll) = RollMessage roll
-        { invokes = snoc (invokes roll) invoke
-        }
+    append invoke (RollMessage roll) = RollMessage $ roll & invokes %~ flip snoc invoke

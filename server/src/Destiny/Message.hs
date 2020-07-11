@@ -1,16 +1,25 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.Message
-    ( Invoke (..)
+    ( Destiny.Message.id
+    , Invoke (..)
     , Message (..)
     , MessageId
     , MessageList (..)
     , Roll (..)
     , emptyMessages
+    , invokes
+    , statModifier
+    , statName
+    , statResult
     )
 where
 
+import Control.Lens
 import Control.Monad.Random
 import Data.Aeson.Types hiding (defaultOptions)
 import Data.Map.Lazy (Map)
@@ -19,31 +28,27 @@ import Elm.Derive
 
 import qualified Data.Map.Lazy as Map
 
-data MessageList = MessageList [MessageId] (Map MessageId Message)
-
 newtype MessageId = MessageId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
-
-data Message = RollMessage Roll
-
-data Roll = Roll
-    { id :: MessageId
-    , statName :: String
-    , statResult :: Int
-    , statModifier :: Int
-    , invokes :: [Invoke]
-    }
-
-data Invoke = Invoke
-    { source :: String
-    , result :: Int
-    }
-
 deriveBoth defaultOptions ''MessageId
 
+data Invoke = Invoke String Int
 deriveBoth defaultOptions ''Invoke
-deriveBoth defaultOptions ''Roll
+
+data Roll = Roll
+    { _id :: MessageId
+    , _statName :: String
+    , _statResult :: Int
+    , _statModifier :: Int
+    , _invokes :: [Invoke]
+    }
+deriveBoth (defaultOptionsDropLower 1) ''Roll
+makeFieldsNoPrefix ''Roll
+
+data Message = RollMessage Roll
 deriveBoth defaultOptions ''Message
+
+data MessageList = MessageList [MessageId] (Map MessageId Message)
 deriveBoth defaultOptions ''MessageList
 
 emptyMessages :: MessageList
