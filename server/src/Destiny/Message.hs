@@ -20,8 +20,8 @@ import Elm.Derive
 import qualified Data.Map.Lazy as Map
 
 data MessageList = MessageList
-    { messageList :: [MessageId]
-    , messageMap :: Map MessageId Message
+    { ids :: [MessageId]
+    , messages :: Map MessageId Message
     }
 
 newtype MessageId = MessageId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
@@ -29,27 +29,24 @@ newtype MessageId = MessageId UUID deriving (Eq, Ord, Random, FromJSONKey, ToJSO
 data Message = RollMessage Roll
 
 data Roll = Roll
-    { rollId :: MessageId
-    , rollStatName :: String
-    , rollStatResult :: Int
-    , rollStatModifier :: Int
-    , rollInvokes :: [Invoke]
+    { id :: MessageId
+    , statName :: String
+    , statResult :: Int
+    , statModifier :: Int
+    , invokes :: [Invoke]
     }
 
 data Invoke = Invoke
-    { invokeSource :: String
-    , invokeResult :: Int
+    { source :: String
+    , result :: Int
     }
 
 deriveBoth defaultOptions ''MessageId
 
-deriveBoth (defaultOptionsDropLower 6) ''Invoke
-deriveBoth (defaultOptionsDropLower 4) ''Roll
+deriveBoth defaultOptions ''Invoke
+deriveBoth defaultOptions ''Roll
 deriveBoth defaultOptions ''Message
-deriveBoth (defaultOptionsDropLower 7) ''MessageList
+deriveBoth defaultOptions ''MessageList
 
 emptyMessages :: MessageList
-emptyMessages = MessageList
-    { messageList = []
-    , messageMap = Map.empty
-    }
+emptyMessages = MessageList { ids = [], messages = Map.empty }

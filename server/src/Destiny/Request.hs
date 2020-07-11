@@ -70,8 +70,8 @@ updateWorld request world = case request of
         modifyScene (return . removeStat sid) world <&> (, UpdateWorld)
     AddAspect eid ->
         modifyScene (addAspect eid) world <&> (, UpdateWorld)
-    SetAspectText aid text ->
-        modifyScene (return . setAspectText text aid) world <&> (, NoResponse)
+    SetAspectText aid text' ->
+        modifyScene (return . setAspectText text' aid) world <&> (, NoResponse)
     MoveAspect aid eid index ->
         modifyScene (return . moveAspect aid eid index) world <&> (, UpdateWorld)
     RemoveAspect aid ->
@@ -90,8 +90,8 @@ updateWorld request world = case request of
         return (redo world, UpdateWorld)
 
 modifyScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
-modifyScene f world@World { worldTimeline = timeline } = do
+modifyScene f world = do
     scene' <- f scene
-    return world { worldTimeline = Timeline.update scene' timeline }
+    return world { timeline = Timeline.update scene' $ timeline world }
   where
-    scene = Timeline.value timeline
+    scene = Timeline.value $ timeline world

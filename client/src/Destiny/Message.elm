@@ -8,8 +8,8 @@ import Uuid
 
 empty : MessageList
 empty =
-  { list = []
-  , map = Dict.Any.empty Uuid.toString
+  { ids = []
+  , messages = Dict.Any.empty Uuid.toString
   }
 
 view : Message -> Html msg

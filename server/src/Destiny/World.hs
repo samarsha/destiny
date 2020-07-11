@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.World
@@ -25,76 +26,78 @@ import qualified Data.Map.Lazy as Map
 import qualified Destiny.Timeline as Timeline
 
 data World = World
-    { worldTimeline :: Timeline Scene
-    , worldMessages :: MessageList
+    { timeline :: Timeline Scene
+    , messages :: MessageList
     }
 
 data WorldSnapshot = WorldSnapshot
-    { snapshotScene :: Scene
-    , snapshotMessages :: MessageList
+    { scene :: Scene
+    , messages :: MessageList
     }
 
-deriveJSON (defaultOptionsDropLower 5) ''World
-deriveBoth (defaultOptionsDropLower 8) ''WorldSnapshot
+deriveJSON defaultOptions ''World
+deriveBoth defaultOptions ''WorldSnapshot
 
 emptyWorld :: World
 emptyWorld = World
-    { worldTimeline = Timeline.singleton emptyScene
-    , worldMessages = emptyMessages
+    { timeline = Timeline.singleton emptyScene
+    , messages = emptyMessages
     }
 
 worldSnapshot :: World -> WorldSnapshot
 worldSnapshot world = WorldSnapshot
-    { snapshotScene = Timeline.value (worldTimeline world)
-    , snapshotMessages = worldMessages world
+    { scene = Timeline.value $ timeline world
+    , messages = messages (world :: World)
     }
 
 undo :: World -> World
-undo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.undo timeline }
+undo world = world { timeline = Timeline.undo $ timeline world }
 
 redo :: World -> World
-redo world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.redo timeline }
+redo world = world { timeline = Timeline.redo $ timeline world }
 
 commit :: World -> World
-commit world@World { worldTimeline = timeline } = world { worldTimeline = Timeline.commit timeline }
+commit world = world { timeline = Timeline.commit $ timeline world }
 
 rollStat :: RandomGen r => StatId -> MessageId -> World -> Rand r World
-rollStat sid mid world@(World timeline messages) = case Map.lookup sid stats of
+rollStat sid mid world = case Map.lookup sid stats' of
     Just (Stat _ name score) -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
-        result <- getRandomR (1, 6)
+        result' <- getRandomR (1, 6)
         let roll = Roll
-                { rollId = mid
-                , rollStatName = name
-                , rollStatResult = result
-                , rollStatModifier = score
-                , rollInvokes = []
+                { id = mid
+                , statName = name
+                , statResult = result'
+                , statModifier = score
+                , invokes = []
                 }
-        let messages' = messages
-                { messageList = snoc (messageList messages) mid
-                , messageMap = Map.insert mid (RollMessage roll) $ messageMap messages
+        let messages' = (messages (world :: World))
+                { ids = snoc (ids $ messages (world :: World)) mid
+                , messages = Map.insert mid (RollMessage roll) $
+                    messages (messages (world :: World) :: MessageList)
                 }
-        return world { worldMessages = messages' }
+        return (world :: World) { messages = messages' }
     Nothing -> return world
   where
-    stats = sceneStats $ Timeline.value timeline
+    stats' = stats $ Timeline.value $ timeline world
 
 rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
-rollAspect aid mid world@(World timeline messages) = case Map.lookup aid aspects of
-    Just Aspect { aspectText = text, aspectDice = dice } | dice >= 1 -> do
-        result <- getRandomR (1, 6)
-        let invoke = Invoke text result
-        let messages' = messages
-                { messageMap = Map.adjust (append invoke) mid $ messageMap messages
+rollAspect aid mid world = case Map.lookup aid aspects' of
+    Just aspect | dice aspect >= 1 -> do
+        result' <- getRandomR (1, 6)
+        let invoke = Invoke (text aspect) result'
+        let messages' = (messages (world :: World) :: MessageList)
+                { messages = Map.adjust (append invoke) mid $
+                    messages (messages (world :: World) :: MessageList)
                 }
         return world
-            { worldTimeline = Timeline.modify timeline $ removeDie aid
-            , worldMessages = messages'
+            { timeline = Timeline.modify (timeline world) $ removeDie aid
+            , messages = messages'
             }
     _ -> return world
   where
-    aspects = sceneAspects $ Timeline.value timeline
+    aspects' = aspects $ Timeline.value $ timeline world
     append invoke (RollMessage roll) = RollMessage roll
-        { rollInvokes = snoc (rollInvokes roll) invoke
+        { invokes = snoc (invokes roll) invoke
         }

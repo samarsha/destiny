@@ -188,8 +188,8 @@ view model =
               model.world.scene.board
           ]
       , div [ class "messages" ] <| joinedMap Message.view
-          model.world.messages.map
-          model.world.messages.list
+          model.world.messages.messages
+          model.world.messages.ids
       ]
     :: (model.drag
         |> Drag.view (viewDrag model.world.scene rolling)
