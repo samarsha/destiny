@@ -75,11 +75,11 @@ rollStat statId messageId world = case Map.lookup statId stats' of
         -- roll.
         result <- getRandomR (1, 6)
         let roll = Roll
-                { _id = messageId
-                , _statName = stat ^. #name
-                , _statResult = result
-                , _statModifier = stat ^. #score
-                , _invokes = []
+                { id = messageId
+                , statName = stat ^. #name
+                , statResult = result
+                , statModifier = stat ^. #score
+                , invokes = []
                 }
         return $ world & messages %~ \(MessageList ids msgs) -> MessageList
             (snoc ids messageId)
@@ -101,4 +101,4 @@ rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
     _ -> return world
   where
     aspects' = Timeline.value (world ^. timeline) ^. #aspects
-    append invoke (RollMessage roll) = RollMessage $ roll & invokes %~ flip snoc invoke
+    append invoke (RollMessage roll) = RollMessage $ roll & over #invokes (flip snoc invoke)
