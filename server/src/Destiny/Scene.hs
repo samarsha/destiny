@@ -44,6 +44,7 @@ import Data.Generics.Labels ()
 import Data.List
 import Data.List.Index
 import Data.Map.Lazy (Map)
+import Data.Maybe
 import Data.UUID
 import Elm.Derive
 import GHC.Generics
@@ -162,6 +163,12 @@ removeEntity :: EntityId -> Scene -> Scene
 removeEntity entityId scene = scene
     & over #board (delete entityId)
     & over #entities (Map.delete entityId)
+    & flip (foldl $ flip removeStatGroup) statGroups'
+    & flip (foldl $ flip removeAspect) aspects'
+  where
+    entity = Map.lookup entityId $ scene ^. #entities
+    statGroups' = fromMaybe [] $ view #statGroups <$> entity
+    aspects' = fromMaybe [] $ view #aspects <$> entity
 
 addStatGroup :: RandomGen r => EntityId -> Scene -> Rand r Scene
 addStatGroup entityId scene = do
@@ -178,6 +185,10 @@ removeStatGroup :: StatGroupId -> Scene -> Scene
 removeStatGroup groupId scene = scene
     & over #entities (Map.map $ over #statGroups $ delete groupId)
     & over #statGroups (Map.delete groupId)
+    & flip (foldl $ flip removeStat) stats'
+  where
+    statGroup' = Map.lookup groupId $ scene ^. #statGroups
+    stats' = fromMaybe [] $ view #stats <$> statGroup'
 
 addStat :: RandomGen r => StatGroupId -> Scene -> Rand r Scene
 addStat groupId scene = do
