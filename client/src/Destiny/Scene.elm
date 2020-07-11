@@ -23,9 +23,9 @@ import Destiny.Generated.Model exposing
   , Entity
   , EntityId
   , Scene
-  , Stat (..)
+  , Stat
   , StatId
-  , StatGroup (..)
+  , StatGroup
   , StatGroupId
   )
 import Destiny.Utils exposing (joinedMap)
@@ -148,33 +148,35 @@ viewEntity scene rolling dragging entity =
       (if entity.collapsed then [] else content)
 
 viewStatGroup : Scene -> Bool -> StatGroup -> Html Event
-viewStatGroup scene rolling group = case group of
-  StatGroup id name stats -> div [ class "stat-group" ] <|
-    div [ class "stat-group-controls" ]
-      [ input
-          [ onInput <| SetStatGroupName id >> Request
-          , placeholder "Name this stat group"
-          , value name
-          ]
-          []
-      , button [ id |> AddStat |> Request |> onClick ] [ text "+" ]
-      , button [ id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
-      ]
-    :: joinedMap (viewStat rolling) scene.stats stats
-
-viewStat : Bool -> Stat -> Html Event
-viewStat rolling stat = case stat of
-  Stat id name score -> div [ class "stat" ]
-    [ input [ onInput <| SetStatName id >> Request, placeholder "Name this stat", value name ] []
-    , input
-        [ type_ "number"
-        , onInput <| String.toInt >> Maybe.withDefault score >> SetStatScore id >> Request
-        , value <| String.fromInt score
+viewStatGroup scene rolling group = div [ class "stat-group" ] <|
+  div [ class "stat-group-controls" ]
+    [ input
+        [ onInput <| SetStatGroupName group.id >> Request
+        , placeholder "Name this stat group"
+        , value group.name
         ]
         []
-    , button [ disabled rolling, id |> GenerateRollId |> onClick ] [ text "🎲" ]
-    , button [ id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
+    , button [ group.id |> AddStat |> Request |> onClick ] [ text "+" ]
+    , button [ group.id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
     ]
+  :: joinedMap (viewStat rolling) scene.stats group.stats
+
+viewStat : Bool -> Stat -> Html Event
+viewStat rolling stat = div [ class "stat" ]
+  [ input
+      [ onInput <| SetStatName stat.id >> Request
+      , placeholder "Name this stat", value stat.name
+      ]
+      []
+  , input
+      [ type_ "number"
+      , onInput <| String.toInt >> Maybe.withDefault stat.score >> SetStatScore stat.id >> Request
+      , value <| String.fromInt stat.score
+      ]
+      []
+  , button [ disabled rolling, stat.id |> GenerateRollId |> onClick ] [ text "🎲" ]
+  , button [ stat.id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
+  ]
 
 viewAspect : Bool -> Maybe Uuid -> Aspect -> Html Event
 viewAspect rolling dragging aspect =

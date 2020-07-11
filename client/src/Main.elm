@@ -8,8 +8,6 @@ import Destiny.Generated.Model exposing
   , MessageId
   , MessageList (..)
   , Scene
-  , Stat (..)
-  , StatGroup (..)
   , StatId
   , WorldSnapshot
   , jsonDecWorldSnapshot
@@ -97,10 +95,10 @@ handleRequest request model =
         (Scene.moveEntity id index)
         model.world
       SetStatGroupName id name -> updateScene
-        (Scene.updateStatGroup (\(StatGroup sgid _ stats) -> StatGroup sgid name stats) id)
+        (Scene.updateStatGroup (\group -> { group | name = name }) id)
         model.world
       SetStatName id name -> updateScene
-        (Scene.updateStat (\(Stat sid _ score) -> Stat sid name score) id)
+        (Scene.updateStat (\stat -> { stat | name = name }) id)
         model.world
       SetAspectText id text -> updateScene
         (Scene.updateAspect (\aspect -> { aspect | text = text }) id)

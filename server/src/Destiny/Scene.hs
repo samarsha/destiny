@@ -59,15 +59,25 @@ newtype StatId = StatId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 deriveBoth defaultOptions ''StatId
 
-data Stat = Stat StatId String Int
-deriveBoth defaultOptions ''Stat
+data Stat = Stat
+    { _id :: StatId
+    , _name :: String
+    , _score :: Int
+    }
+deriveBoth (defaultOptionsDropLower 1) ''Stat
+makeFieldsNoPrefix ''Stat
 
 newtype StatGroupId = StatGroupId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 deriveBoth defaultOptions ''StatGroupId
 
-data StatGroup = StatGroup StatGroupId String [StatId]
-deriveBoth defaultOptions ''StatGroup
+data StatGroup = StatGroup
+    { _id :: StatGroupId
+    , _name :: String
+    , _stats :: [StatId]
+    }
+deriveBoth (defaultOptionsDropLower 1) ''StatGroup
+makeFieldsNoPrefix ''StatGroup
 
 newtype AspectId = AspectId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
@@ -167,9 +177,7 @@ addStatGroup eid scene = do
         & statGroups %~ Map.insert sgid group'
 
 setStatGroupName :: String -> StatGroupId -> Scene -> Scene
-setStatGroupName name' sgid = statGroups %~ Map.adjust update sgid
-  where
-    update (StatGroup sgid' _ stats') = StatGroup sgid' name' stats'
+setStatGroupName name' sgid = statGroups %~ Map.adjust (name .~ name') sgid
 
 removeStatGroup :: StatGroupId -> Scene -> Scene
 removeStatGroup sgid scene = scene
@@ -181,26 +189,22 @@ addStat sgid scene = do
     sid <- getRandom
     let stat = Stat sid "" 0
     return $ scene
-        & statGroups %~ Map.adjust (addToGroup sid) sgid
+        & statGroups %~ Map.adjust (stats %~ flip snoc sid) sgid
         & stats %~ Map.insert sid stat
-  where
-    addToGroup sid (StatGroup sgid' name' stats') = StatGroup sgid' name' $ snoc stats' sid
 
 modifyStat :: (Stat -> Stat) -> StatId -> Scene -> Scene
 modifyStat f sid = stats %~ Map.adjust f sid
 
 setStatName :: String -> StatId -> Scene -> Scene
-setStatName name' = modifyStat $ \(Stat sid _ score) -> Stat sid name' score
+setStatName = modifyStat . set name
 
 setStatScore :: Int -> StatId -> Scene -> Scene
-setStatScore score = modifyStat $ \(Stat sid name' _) -> Stat sid name' score
+setStatScore = modifyStat . set score
 
 removeStat :: StatId -> Scene -> Scene
 removeStat sid scene = scene
-    & statGroups %~ Map.map updateGroup
+    & statGroups %~ Map.map (stats %~ delete sid)
     & stats %~ Map.delete sid
-  where
-    updateGroup (StatGroup sgid name' stats') = StatGroup sgid name' $ delete sid stats'
 
 addAspect :: RandomGen r => EntityId -> Scene -> Rand r Scene
 addAspect eid scene = do
