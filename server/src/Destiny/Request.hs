@@ -1,9 +1,10 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
 module Destiny.Request (ClientRequest, ClientResponse (..), updateWorld) where
 
-import Control.Lens.Operators
+import Control.Lens
 import Control.Monad.Random
 import Destiny.Message
 import Destiny.Scene
@@ -35,12 +36,11 @@ data ClientRequest
     | RollAspect AspectId MessageId
     | Undo
     | Redo
+deriveBoth defaultOptions ''ClientRequest
 
 data ClientResponse
     = UpdateWorld
     | NoResponse
-
-deriveBoth defaultOptions ''ClientRequest
 
 updateWorld :: RandomGen r => ClientRequest -> World -> Rand r (World, ClientResponse)
 updateWorld request world = case request of
@@ -48,32 +48,32 @@ updateWorld request world = case request of
         modifyScene addEntity world <&> (, UpdateWorld)
     ToggleEntity entityId ->
         modifyScene (return . toggleEntity entityId) world <&> (, UpdateWorld)
-    SetEntityName entityId name ->
-        modifyScene (return . setEntityName name entityId) world <&> (, NoResponse)
-    MoveEntity entityId index ->
-        modifyScene (return . moveEntity index entityId) world <&> (, UpdateWorld)
+    SetEntityName entityId name' ->
+        modifyScene (return . setEntityName name' entityId) world <&> (, NoResponse)
+    MoveEntity entityId i ->
+        modifyScene (return . moveEntity i entityId) world <&> (, UpdateWorld)
     RemoveEntity entityId ->
         modifyScene (return . removeEntity entityId) world <&> (, UpdateWorld)
     AddStatGroup entityId ->
         modifyScene (addStatGroup entityId) world <&> (, UpdateWorld)
-    SetStatGroupName groupId name ->
-        modifyScene (return . setStatGroupName name groupId) world <&> (, NoResponse)
+    SetStatGroupName groupId name' ->
+        modifyScene (return . setStatGroupName name' groupId) world <&> (, NoResponse)
     RemoveStatGroup groupId ->
         modifyScene (return . removeStatGroup groupId) world <&> (, UpdateWorld)
     AddStat groupId ->
         modifyScene (addStat groupId) world <&> (, UpdateWorld)
-    SetStatName statId name ->
-        modifyScene (return . setStatName name statId) world <&> (, NoResponse)
-    SetStatScore statId score ->
-        modifyScene (return . setStatScore score statId) world <&> (, UpdateWorld)
+    SetStatName statId name' ->
+        modifyScene (return . setStatName name' statId) world <&> (, NoResponse)
+    SetStatScore statId score' ->
+        modifyScene (return . setStatScore score' statId) world <&> (, UpdateWorld)
     RemoveStat statId ->
         modifyScene (return . removeStat statId) world <&> (, UpdateWorld)
     AddAspect entityId ->
         modifyScene (addAspect entityId) world <&> (, UpdateWorld)
     SetAspectText aspectId text' ->
         modifyScene (return . setAspectText text' aspectId) world <&> (, NoResponse)
-    MoveAspect aspectId entityId index ->
-        modifyScene (return . moveAspect aspectId entityId index) world <&> (, UpdateWorld)
+    MoveAspect aspectId entityId i ->
+        modifyScene (return . moveAspect aspectId entityId i) world <&> (, UpdateWorld)
     RemoveAspect aspectId ->
         modifyScene (return . removeAspect aspectId) world <&> (, UpdateWorld)
     AddDie aspectId ->
@@ -91,5 +91,5 @@ updateWorld request world = case request of
 
 modifyScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
 modifyScene f world = do
-    scene' <- f $ Timeline.value $ world^.timeline
-    return $ world & timeline %~ Timeline.update scene'
+    scene' <- f $ Timeline.value $ world ^. #timeline
+    return $ world & over #timeline (Timeline.update scene')
