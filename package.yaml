@@ -16,6 +16,7 @@ dependencies:
 - extra
 - file-embed
 - filepath
+- generic-lens
 - http-types
 - ilist
 - lens

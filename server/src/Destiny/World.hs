@@ -3,6 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Destiny.World
@@ -23,6 +24,7 @@ where
 import Control.Lens
 import Control.Monad.Random
 import Data.Aeson.TH (deriveJSON)
+import Data.Generics.Labels ()
 import Destiny.Message
 import Destiny.Scene
 import Destiny.Timeline (Timeline)
@@ -74,9 +76,9 @@ rollStat statId messageId world = case Map.lookup statId stats' of
         result <- getRandomR (1, 6)
         let roll = Roll
                 { _id = messageId
-                , _statName = stat^.name
+                , _statName = stat ^. #name
                 , _statResult = result
-                , _statModifier = stat^.score
+                , _statModifier = stat ^. #score
                 , _invokes = []
                 }
         return $ world & messages %~ \(MessageList ids msgs) -> MessageList
@@ -84,13 +86,13 @@ rollStat statId messageId world = case Map.lookup statId stats' of
             (Map.insert messageId (RollMessage roll) msgs)
     Nothing -> return world
   where
-    stats' = (Timeline.value $ world^.timeline)^.stats
+    stats' = Timeline.value (world ^. timeline) ^. #stats
 
 rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
 rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
-    Just aspect | aspect^.dice >= 1 -> do
+    Just aspect | aspect ^. #dice >= 1 -> do
         result <- getRandomR (1, 6)
-        let invoke = Invoke (aspect^.text) result
+        let invoke = Invoke (aspect ^. #text) result
         return $ world
             & timeline %~ Timeline.modify (removeDie aspectId)
             & messages %~ \(MessageList ids msgs) -> MessageList
@@ -98,5 +100,5 @@ rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
                 (Map.adjust (append invoke) messageId msgs)
     _ -> return world
   where
-    aspects' = (Timeline.value $ world^.timeline)^.aspects
+    aspects' = Timeline.value (world ^. timeline) ^. #aspects
     append invoke (RollMessage roll) = RollMessage $ roll & invokes %~ flip snoc invoke

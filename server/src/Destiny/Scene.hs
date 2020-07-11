@@ -1,15 +1,12 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module Destiny.Scene
     ( Aspect
     , AspectId
-    , Destiny.Scene.id
     , Entity
     , EntityId
     , Scene
@@ -22,26 +19,20 @@ module Destiny.Scene
     , addEntity
     , addStat
     , addStatGroup
-    , aspects
-    , dice
     , emptyScene
     , modifyAspect
     , moveAspect
     , moveEntity
-    , name
     , removeAspect
     , removeDie
     , removeEntity
     , removeStat
     , removeStatGroup
-    , score
     , setAspectText
     , setEntityName
     , setStatGroupName
     , setStatName
     , setStatScore
-    , stats
-    , text
     , toggleEntity
     )
 where
@@ -49,11 +40,13 @@ where
 import Control.Lens
 import Control.Monad.Random
 import Data.Aeson.Types hiding (defaultOptions)
+import Data.Generics.Labels ()
 import Data.List
 import Data.List.Index
 import Data.Map.Lazy (Map)
 import Data.UUID
 import Elm.Derive
+import GHC.Generics
 
 import qualified Data.Map.Lazy as Map
 
@@ -62,24 +55,24 @@ newtype StatId = StatId UUID
 deriveBoth defaultOptions ''StatId
 
 data Stat = Stat
-    { _id :: StatId
-    , _name :: String
-    , _score :: Int
+    { id :: StatId
+    , name :: String
+    , score :: Int
     }
-deriveBoth (defaultOptionsDropLower 1) ''Stat
-makeFieldsNoPrefix ''Stat
+    deriving Generic
+deriveBoth defaultOptions ''Stat
 
 newtype StatGroupId = StatGroupId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 deriveBoth defaultOptions ''StatGroupId
 
 data StatGroup = StatGroup
-    { _id :: StatGroupId
-    , _name :: String
-    , _stats :: [StatId]
+    { id :: StatGroupId
+    , name :: String
+    , stats :: [StatId]
     }
-deriveBoth (defaultOptionsDropLower 1) ''StatGroup
-makeFieldsNoPrefix ''StatGroup
+    deriving Generic
+deriveBoth defaultOptions ''StatGroup
 
 newtype AspectId = AspectId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
@@ -88,14 +81,14 @@ deriveBoth defaultOptions ''AspectId
 -- | An aspect.
 data Aspect = Aspect
     { -- | The aspect ID.
-      _id :: AspectId
+      id :: AspectId
       -- | The description of the aspect.
-    , _text :: String
+    , text :: String
       -- | The number of free invoke dice for the aspect.
-    , _dice :: Int
+    , dice :: Int
     }
-deriveBoth (defaultOptionsDropLower 1) ''Aspect
-makeFieldsNoPrefix ''Aspect
+    deriving Generic
+deriveBoth defaultOptions ''Aspect
 
 newtype EntityId = EntityId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
@@ -104,139 +97,139 @@ deriveBoth defaultOptions ''EntityId
 -- | An entity.
 data Entity = Entity
     { -- | The entity ID.
-      _id :: EntityId
+      id :: EntityId
       -- | The entity name.
-    , _name :: String
+    , name :: String
       -- | The entity stat groups.
-    , _statGroups :: [StatGroupId]
+    , statGroups :: [StatGroupId]
       -- | The aspects that belong to the entity.
-    , _aspects :: [AspectId]
+    , aspects :: [AspectId]
       -- | True if the entity is collapsed.
-    , _collapsed :: Bool
+    , collapsed :: Bool
     }
-deriveBoth (defaultOptionsDropLower 1) ''Entity
-makeFieldsNoPrefix ''Entity
+    deriving Generic
+deriveBoth defaultOptions ''Entity
 
 data Scene = Scene
-    { _board :: [EntityId]
-    , _entities :: Map EntityId Entity
-    , _statGroups :: Map StatGroupId StatGroup
-    , _stats :: Map StatId Stat
-    , _aspects :: Map AspectId Aspect
+    { board :: [EntityId]
+    , entities :: Map EntityId Entity
+    , statGroups :: Map StatGroupId StatGroup
+    , stats :: Map StatId Stat
+    , aspects :: Map AspectId Aspect
     }
-deriveBoth (defaultOptionsDropLower 1) ''Scene
-makeFieldsNoPrefix ''Scene
+    deriving Generic
+deriveBoth defaultOptions ''Scene
 
 emptyScene :: Scene
 emptyScene = Scene
-    { _board = []
-    , _entities = Map.empty
-    , _statGroups = Map.empty
-    , _stats = Map.empty
-    , _aspects = Map.empty
+    { board = []
+    , entities = Map.empty
+    , statGroups = Map.empty
+    , stats = Map.empty
+    , aspects = Map.empty
     }
 
 addEntity :: RandomGen r => Scene -> Rand r Scene
 addEntity scene = do
     entityId <- getRandom
     let entity = Entity
-            { _id = entityId
-            , _name = ""
-            , _statGroups = []
-            , _aspects = []
-            , _collapsed = False
+            { id = entityId
+            , name = ""
+            , statGroups = []
+            , aspects = []
+            , collapsed = False
             }
     return $ scene
-        & entities %~ Map.insert entityId entity
-        & board %~ flip snoc entityId
+        & over #entities (Map.insert entityId entity)
+        & over #board (flip snoc entityId)
 
 modifyEntity :: (Entity -> Entity) -> EntityId -> Scene -> Scene
-modifyEntity f entityId = entities %~ Map.adjust f entityId
+modifyEntity f entityId = over #entities $ Map.adjust f entityId
 
 toggleEntity :: EntityId -> Scene -> Scene
-toggleEntity = modifyEntity $ collapsed %~ not
+toggleEntity = modifyEntity $ over #collapsed not
 
 setEntityName :: String -> EntityId -> Scene -> Scene
-setEntityName = modifyEntity . set name
+setEntityName = modifyEntity . set #name
 
 moveEntity :: Int -> EntityId -> Scene -> Scene
-moveEntity i entityId scene = scene & board .~ moved
+moveEntity i entityId scene = scene & #board .~ moved
   where
-    removed = delete entityId $ scene^.board
+    removed = delete entityId $ scene ^. #board
     moved = take i removed ++ entityId : drop i removed
 
 removeEntity :: EntityId -> Scene -> Scene
 removeEntity entityId scene = scene
-    & board %~ delete entityId
-    & entities %~ Map.delete entityId
+    & over #board (delete entityId)
+    & over #entities (Map.delete entityId)
 
 addStatGroup :: RandomGen r => EntityId -> Scene -> Rand r Scene
 addStatGroup entityId scene = do
     groupId <- getRandom
     let group' = StatGroup groupId "" []
     return $ scene
-        & entities %~ Map.adjust (statGroups %~ flip snoc groupId) entityId
-        & statGroups %~ Map.insert groupId group'
+        & over #entities (Map.adjust (over #statGroups $ flip snoc groupId) entityId)
+        & over #statGroups (Map.insert groupId group')
 
 setStatGroupName :: String -> StatGroupId -> Scene -> Scene
-setStatGroupName name' groupId = statGroups %~ Map.adjust (name .~ name') groupId
+setStatGroupName name' groupId = over #statGroups $ Map.adjust (#name .~ name') groupId
 
 removeStatGroup :: StatGroupId -> Scene -> Scene
 removeStatGroup groupId scene = scene
-    & entities %~ Map.map (statGroups %~ delete groupId)
-    & statGroups %~ Map.delete groupId
+    & over #entities (Map.map $ over #statGroups $ delete groupId)
+    & over #statGroups (Map.delete groupId)
 
 addStat :: RandomGen r => StatGroupId -> Scene -> Rand r Scene
 addStat groupId scene = do
     statId <- getRandom
-    let stat = Stat { _id = statId, _name = "", _score = 0 }
+    let stat = Stat { id = statId, name = "", score = 0 }
     return $ scene
-        & statGroups %~ Map.adjust (stats %~ flip snoc statId) groupId
-        & stats %~ Map.insert statId stat
+        & over #statGroups (Map.adjust (over #stats $ flip snoc statId) groupId)
+        & over #stats (Map.insert statId stat)
 
 modifyStat :: (Stat -> Stat) -> StatId -> Scene -> Scene
-modifyStat f statId = stats %~ Map.adjust f statId
+modifyStat f statId = over #stats $ Map.adjust f statId
 
 setStatName :: String -> StatId -> Scene -> Scene
-setStatName = modifyStat . set name
+setStatName = modifyStat . set #name
 
 setStatScore :: Int -> StatId -> Scene -> Scene
-setStatScore = modifyStat . set score
+setStatScore = modifyStat . set #score
 
 removeStat :: StatId -> Scene -> Scene
 removeStat statId scene = scene
-    & statGroups %~ Map.map (stats %~ delete statId)
-    & stats %~ Map.delete statId
+    & over #statGroups (Map.map $ over #stats $ delete statId)
+    & over #stats (Map.delete statId)
 
 addAspect :: RandomGen r => EntityId -> Scene -> Rand r Scene
 addAspect entityId scene = do
     aspectId <- getRandom
-    let aspect = Aspect { _id = aspectId, _text = "", _dice = 0 }
+    let aspect = Aspect { id = aspectId, text = "", dice = 0 }
     return $ scene
-        & entities %~ Map.adjust (aspects %~ flip snoc aspectId) entityId
-        & aspects %~ Map.insert aspectId aspect
+        & over #entities (Map.adjust (over #aspects $ flip snoc aspectId) entityId)
+        & over #aspects (Map.insert aspectId aspect)
 
 modifyAspect :: (Aspect -> Aspect) -> AspectId -> Scene -> Scene
-modifyAspect f aspectId = aspects %~ Map.adjust f aspectId
+modifyAspect f aspectId = over #aspects $ Map.adjust f aspectId
 
 setAspectText :: String -> AspectId -> Scene -> Scene
-setAspectText = modifyAspect . set text
+setAspectText = modifyAspect . set #text
 
 moveAspect :: AspectId -> EntityId -> Int -> Scene -> Scene
-moveAspect aspectId entityId i = entities
-    %~ Map.adjust (aspects %~ insertAt i aspectId) entityId
-    .  Map.map (aspects %~ delete aspectId)
+moveAspect aspectId entityId i = over #entities
+    $ Map.adjust (over #aspects $ insertAt i aspectId) entityId
+    . Map.map (over #aspects $ delete aspectId)
 
 removeAspect :: AspectId -> Scene -> Scene
 removeAspect aspectId scene = scene
-    & entities %~ Map.map (aspects %~ delete aspectId)
-    & aspects %~ Map.delete aspectId
+    & over #entities (Map.map $ over #aspects $ delete aspectId)
+    & over #aspects (Map.delete aspectId)
 
 addDie :: AspectId -> Scene -> Scene
-addDie = modifyAspect $ dice +~ 1
+addDie = modifyAspect $ #dice +~ 1
 
 removeDie :: AspectId -> Scene -> Scene
 removeDie = modifyAspect $ \aspect ->
-    if aspect^.dice >= 1
-        then aspect & dice -~ 1
+    if aspect ^. #dice >= 1
+        then aspect & #dice -~ 1
         else aspect
