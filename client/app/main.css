@@ -153,8 +153,9 @@ textarea {
 }
 
 .die {
-    background-color: white;
-    border: black 2px solid;
+    border-radius: 2px;
+    border: #00010081 2px solid;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.25);
     display: inline-block;
     line-height: 24px;
     text-align: center;
@@ -162,11 +163,13 @@ textarea {
 }
 
 .die-good {
-    border-color: lime;
+    border-color: #62da627a;
+    color: #33c033;
 }
 
 .die-bad {
-    border-color: red;
+    border-color: #da627c81;
+    color: #b9304e;
 }
 
 .roll {
@@ -175,7 +178,7 @@ textarea {
 }
 
 .roll-line {
-    padding-bottom: 2px;
+    padding: 2px 0;
 }
 
 .annotation {
