@@ -1,7 +1,7 @@
 module Destiny.Drag exposing
   ( Event (..)
   , State
-  , emptyState
+  , empty
   , eventDecoder
   , update
   , view
@@ -43,8 +43,8 @@ type alias Rectangle =
   , height : Float
   }
 
-emptyState : State
-emptyState =
+empty : State
+empty =
   { dragging = Nothing
   , targets = []
   , offset = Nothing
