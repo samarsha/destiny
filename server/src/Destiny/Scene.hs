@@ -7,8 +7,10 @@
 module Destiny.Scene
     ( Aspect
     , AspectId
+    , Die (..)
     , Entity
     , EntityId
+    , Role (..)
     , Scene
     , Stat (..)
     , StatGroup
@@ -45,14 +47,17 @@ import Data.List
 import Data.List.Index
 import Data.Map.Lazy (Map)
 import Data.Maybe
+import Data.MultiSet (MultiSet)
 import Data.UUID
+import Destiny.MultiSet ()
 import Elm.Derive
 import GHC.Generics
 
 import qualified Data.Map.Lazy as Map
+import qualified Data.MultiSet as MultiSet
 
 newtype StatId = StatId UUID
-    deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+    deriving (Eq, Ord, Random, ToJSONKey, FromJSONKey)
 deriveBoth defaultOptions ''StatId
 
 data Stat = Stat
@@ -64,7 +69,7 @@ data Stat = Stat
 deriveBoth defaultOptions ''Stat
 
 newtype StatGroupId = StatGroupId UUID
-    deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+    deriving (Eq, Ord, Random, ToJSONKey, FromJSONKey)
 deriveBoth defaultOptions ''StatGroupId
 
 data StatGroup = StatGroup
@@ -75,8 +80,24 @@ data StatGroup = StatGroup
     deriving Generic
 deriveBoth defaultOptions ''StatGroup
 
+data Role
+    = Player
+    | DM
+    deriving (Eq, Ord, Generic)
+deriveBoth defaultOptions ''Role
+
+instance ToJSONKey Role where
+    toJSONKey = genericToJSONKey defaultJSONKeyOptions
+
+instance FromJSONKey Role where
+    fromJSONKey = genericFromJSONKey defaultJSONKeyOptions
+
+newtype Die = Die Role
+    deriving (Eq, Ord, ToJSONKey, FromJSONKey)
+deriveBoth defaultOptions ''Die
+
 newtype AspectId = AspectId UUID
-    deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
+    deriving (Eq, Ord, Random, ToJSONKey, FromJSONKey)
 deriveBoth defaultOptions ''AspectId
 
 -- | An aspect.
@@ -85,8 +106,8 @@ data Aspect = Aspect
       id :: AspectId
       -- | The description of the aspect.
     , text :: String
-      -- | The number of free invoke dice for the aspect.
-    , dice :: Int
+      -- | The free invoke dice for the aspect.
+    , dice :: MultiSet Die
     }
     deriving Generic
 deriveBoth defaultOptions ''Aspect
@@ -215,7 +236,7 @@ removeStat statId scene = scene
 addAspect :: RandomGen r => EntityId -> Scene -> Rand r Scene
 addAspect entityId scene = do
     aspectId <- getRandom
-    let aspect = Aspect { id = aspectId, text = "", dice = 0 }
+    let aspect = Aspect { id = aspectId, text = "", dice = MultiSet.empty }
     return $ scene
         & over #entities (Map.adjust (over #aspects $ flip snoc aspectId) entityId)
         & over #aspects (Map.insert aspectId aspect)
@@ -236,11 +257,8 @@ removeAspect aspectId scene = scene
     & over #entities (Map.map $ over #aspects $ delete aspectId)
     & over #aspects (Map.delete aspectId)
 
-addDie :: AspectId -> Scene -> Scene
-addDie = modifyAspect $ #dice +~ 1
+addDie :: Die -> AspectId -> Scene -> Scene
+addDie die = modifyAspect $ over #dice (MultiSet.insert die)
 
-removeDie :: AspectId -> Scene -> Scene
-removeDie = modifyAspect $ \aspect ->
-    if aspect ^. #dice >= 1
-        then aspect & #dice -~ 1
-        else aspect
+removeDie :: Die -> AspectId -> Scene -> Scene
+removeDie die = modifyAspect $ over #dice (MultiSet.delete die)

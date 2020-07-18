@@ -33,9 +33,9 @@ main = do
     outputDir <- generatedDir <$> getProgPath
     createDirectoryIfMissing True outputDir
     mapM_ (writeModule outputDir)
-        [ Module "Message" [] messageDefs
+        [ Module "Message" ["Scene"] messageDefs
         , Module "Scene" [] sceneDefs
-        , Module "Server" ["World"] serverDefs
+        , Module "Server" ["Scene", "World"] serverDefs
         , Module "World" ["Message", "Scene"] worldDefs
         ]
   where
@@ -62,8 +62,10 @@ sceneDefs :: [DefineElm]
 sceneDefs =
     [ DefineElm (Proxy :: Proxy Scene.Aspect)
     , DefineElm (Proxy :: Proxy Scene.AspectId)
+    , DefineElm (Proxy :: Proxy Scene.Die)
     , DefineElm (Proxy :: Proxy Scene.Entity)
     , DefineElm (Proxy :: Proxy Scene.EntityId)
+    , DefineElm (Proxy :: Proxy Scene.Role)
     , DefineElm (Proxy :: Proxy Scene.Scene)
     , DefineElm (Proxy :: Proxy Scene.Stat)
     , DefineElm (Proxy :: Proxy Scene.StatGroup)
@@ -89,6 +91,8 @@ makeModule mod = standardHeader ++ extraImports ++ uuidDict ++ content
     standardHeader = unlines
         [ moduleHeader Elm0p18 $ fullName $ name mod
         , ""
+        , "import Destiny.AnyBag as AnyBag exposing (AnyBag)"
+        , "import Destiny.Utils exposing (decodeAnyDict)"
         , "import Dict exposing (Dict)"
         , "import Dict.Any exposing (AnyDict)"
         , "import Json.Decode exposing (Decoder)"
@@ -104,6 +108,8 @@ makeModule mod = standardHeader ++ extraImports ++ uuidDict ++ content
         [ ""
         , "type alias UuidDict k v = AnyDict String k v"
         , ""
+        , "type alias DiceBag a = AnyBag String a"
+        , ""
         , "jsonDecUuid : Decoder Uuid"
         , "jsonDecUuid = Uuid.decoder"
         , ""
@@ -112,23 +118,28 @@ makeModule mod = standardHeader ++ extraImports ++ uuidDict ++ content
         , ""
         , "jsonDecUuidDict : a -> Decoder v -> Decoder (UuidDict Uuid v)"
         , "jsonDecUuidDict _ valueDecoder ="
-        , "  let"
-        , "    insert key value dict = case Uuid.fromString key of"
-        , "      Just k -> dict |> Dict.Any.insert k value |> Json.Decode.succeed"
-        , "      Nothing -> \"Key '\" ++ key ++ \"' cannot be converted to a UUID.\" |> Json.Decode.fail"
-        , "    create key value acc = acc |> Json.Decode.andThen (insert key value)"
-        , "  in"
-        , "    Json.Decode.dict valueDecoder"
-        , "    |> Json.Decode.andThen (Dict.foldr create (Dict.Any.empty Uuid.toString |> Json.Decode.succeed))"
+        , "  decodeAnyDict (\\k _ -> Uuid.fromString k) Uuid.toString valueDecoder"
         , ""
         , "jsonEncUuidDict : (k -> Value) -> (v -> Value) -> UuidDict k v -> Value"
         , "jsonEncUuidDict encodeKey encodeValue ="
         , "  Dict.Any.encode (encodeKey >> Json.Encode.encode 0) encodeValue"
         , ""
+        , "jsonDecDiceBag : Decoder a -> Decoder (DiceBag Die)"
+        , "jsonDecDiceBag _ ="
+        , "  let quote s = \"\\\"\" ++ s ++ \"\\\"\""
+        , "  in"
+        , "    AnyBag.decode"
+        , "      (quote >> Json.Decode.decodeString jsonDecDie >> Result.toMaybe)"
+        , "      (jsonEncDie >> Json.Encode.encode 0)"
+        , ""
+        , "jsonEncDiceBag : (a -> Value) -> DiceBag a -> Value"
+        , "jsonEncDiceBag encode = AnyBag.encode (encode >> Json.Encode.encode 0)"
+        , ""
         ]
     content = makeModuleContentWithAlterations
         ( renameType "UUID" "Uuid"
         . renameType "Map" "UuidDict"
+        . renameType "MultiSet" "DiceBag"
         )
         (definitions mod)
 

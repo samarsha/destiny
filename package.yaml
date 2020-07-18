@@ -22,6 +22,7 @@ dependencies:
 - lens
 - mime-types
 - MonadRandom
+- multiset
 - o-clock
 - optparse-applicative
 - safe

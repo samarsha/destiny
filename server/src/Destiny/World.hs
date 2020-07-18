@@ -32,6 +32,7 @@ import Elm.Derive
 import GHC.Generics
 
 import qualified Data.Map.Lazy as Map
+import qualified Data.MultiSet as MultiSet
 import qualified Destiny.Timeline as Timeline
 
 data World = World
@@ -89,8 +90,8 @@ snapshot world = Snapshot
     , messages = world ^. #messages
     }
 
-update :: RandomGen r => Command -> World -> Rand r (World, Reply)
-update request world = case request of
+update :: RandomGen r => Role -> Command -> World -> Rand r (World, Reply)
+update role command world = case command of
     AddEntity ->
         updateScene addEntity world <&> (, All)
     ToggleEntity entityId ->
@@ -124,13 +125,13 @@ update request world = case request of
     RemoveAspect aspectId ->
         updateScene (return . removeAspect aspectId) world <&> (, All)
     AddDie aspectId ->
-        updateScene (return . addDie aspectId) world <&> (, All)
+        updateScene (return . addDie (Die role) aspectId) world <&> (, All)
     RemoveDie aspectId ->
-        updateScene (return . removeDie aspectId) world <&> (, All)
+        updateScene (return . removeDie (Die role) aspectId) world <&> (, All)
     RollStat statId messageId ->
         rollStat statId messageId world <&> (, All)
     RollAspect aspectId messageId ->
-        rollAspect aspectId messageId world <&> (, All)
+        rollAspect (Die role) aspectId messageId world <&> (, All)
     Undo ->
         return (undo world, All)
     Redo ->
@@ -170,13 +171,13 @@ rollStat statId messageId world = case Map.lookup statId stats' of
   where
     stats' = Timeline.present (world ^. #timeline) ^. #stats
 
-rollAspect :: RandomGen r => AspectId -> MessageId -> World -> Rand r World
-rollAspect aspectId messageId world = case Map.lookup aspectId aspects' of
-    Just aspect | aspect ^. #dice >= 1 -> do
+rollAspect :: RandomGen r => Die -> AspectId -> MessageId -> World -> Rand r World
+rollAspect die aspectId messageId world = case Map.lookup aspectId aspects' of
+    Just aspect | MultiSet.member die $ aspect ^. #dice -> do
         result <- getRandomR (1, 6)
         let invoke = Invoke (aspect ^. #text) result
         return $ world
-            & over #timeline (Timeline.modify $ removeDie aspectId)
+            & over #timeline (Timeline.modify $ removeDie die aspectId)
             & over #messages (\(MessageList ids msgs) -> MessageList
                 ids
                 (Map.adjust (append invoke) messageId msgs))

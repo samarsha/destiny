@@ -24,6 +24,7 @@ import Data.Generics.Labels ()
 import Data.Map.Lazy (Map)
 import Data.Maybe
 import Data.UUID
+import Destiny.Scene
 import Destiny.System
 import Destiny.World (World)
 import Elm.Derive
@@ -55,11 +56,6 @@ data ServerOptions = ServerOptions
     , storage :: FilePath
     , user :: Maybe String
     }
-
-data Role
-    = Player
-    | DM
-deriveBoth defaultOptions ''Role
 
 newtype ClientId = ClientId UUID deriving (Eq, Ord, Random)
 
@@ -103,11 +99,11 @@ serverSettings options stateVar = Warp.defaultSettings
     beforeMainLoop = do
         putStrLn $ printf "Listening on port %d." $ port options
         case user options of
-            Just name | os == "mingw32" ->
-                putStrLn $ printf "Switching to user %s is not supported on Windows." name
-            Just name -> do
-                putStrLn $ printf "Switching to user %s." name
-                setUserName name
+            Just name' | os == "mingw32" ->
+                putStrLn $ printf "Switching to user %s is not supported on Windows." name'
+            Just name' -> do
+                putStrLn $ printf "Switching to user %s." name'
+                setUserName name'
             Nothing -> return ()
     installShutdownHandler closeSocket = installHandler sigINT $ const $ do
         putStrLn "Shutting down."
@@ -193,7 +189,7 @@ receiveMessage clientId = flip modifyMVar_ $ \state ->
 handleMessage :: ServerState -> Client -> ServerCommand -> IO ServerState
 handleMessage state client = \case
     WorldCommand command -> do
-        (world', reply) <- evalRandIO $ World.update command $ world state
+        (world', reply) <- evalRandIO $ World.update (role client) command $ world state
         let clients' = Map.elems $ case reply of
                 World.All -> clients state
                 World.Others -> Map.delete (client ^. #id) $ clients state

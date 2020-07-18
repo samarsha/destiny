@@ -10,13 +10,16 @@ module Destiny.Scene exposing
   , viewRollBar
   )
 
+import Destiny.AnyBag as AnyBag
 import Destiny.Drag as Drag
 import Destiny.Generated.Message exposing (MessageId)
 import Destiny.Generated.Scene exposing
   ( Aspect
   , AspectId
+  , Die
   , Entity
   , EntityId
+  , Role (..)
   , Scene
   , Stat
   , StatId
@@ -218,13 +221,23 @@ viewAspect (Model model) aspect =
         , button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
         , button [ onClick (RemoveDie aspect.id |> Command) ] [ text "-" ]
         ]
-      , List.repeat aspect.dice <| button
-          [ isRolling (Model model) |> not |> disabled
-          , ContinueRoll aspect.id |> onClick
-          ]
-          [ text "🎲" ]
+      , AnyBag.values aspect.dice |> List.map (viewDie (Model model) aspect)
       ]
     |> div (List.append [ class "aspect" ] <| dragAttributes aspect.id model.drag.dragging)
+
+viewDie : Model -> Aspect -> Die -> Html Event
+viewDie (Model model) aspect role =
+  let
+    roleClass = case role of
+      Player -> "die-player"
+      DM -> "die-dm"
+  in
+    button
+      [ class roleClass
+      , isRolling (Model model) |> not |> disabled
+      , ContinueRoll aspect.id |> onClick
+      ]
+    [ text "🎲" ]
 
 dragAttributes : Uuid -> Maybe Uuid -> List (Attribute msg)
 dragAttributes id dragging =
