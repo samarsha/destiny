@@ -74,8 +74,8 @@ data Command
 deriveBoth defaultOptions ''Command
 
 data Reply
-    = SendWorld
-    | NoResponse
+    = All
+    | Others
 
 empty :: World
 empty = World
@@ -92,49 +92,49 @@ snapshot world = Snapshot
 update :: RandomGen r => Command -> World -> Rand r (World, Reply)
 update request world = case request of
     AddEntity ->
-        updateScene addEntity world <&> (, SendWorld)
+        updateScene addEntity world <&> (, All)
     ToggleEntity entityId ->
-        updateScene (return . toggleEntity entityId) world <&> (, SendWorld)
+        updateScene (return . toggleEntity entityId) world <&> (, All)
     SetEntityName entityId name' ->
-        updateScene (return . setEntityName name' entityId) world <&> (, NoResponse)
+        updateScene (return . setEntityName name' entityId) world <&> (, Others)
     MoveEntity entityId i ->
-        updateScene (return . moveEntity i entityId) world <&> (, SendWorld)
+        updateScene (return . moveEntity i entityId) world <&> (, All)
     RemoveEntity entityId ->
-        updateScene (return . removeEntity entityId) world <&> (, SendWorld)
+        updateScene (return . removeEntity entityId) world <&> (, All)
     AddStatGroup entityId ->
-        updateScene (addStatGroup entityId) world <&> (, SendWorld)
+        updateScene (addStatGroup entityId) world <&> (, All)
     SetStatGroupName groupId name' ->
-        updateScene (return . setStatGroupName name' groupId) world <&> (, NoResponse)
+        updateScene (return . setStatGroupName name' groupId) world <&> (, Others)
     RemoveStatGroup groupId ->
-        updateScene (return . removeStatGroup groupId) world <&> (, SendWorld)
+        updateScene (return . removeStatGroup groupId) world <&> (, All)
     AddStat groupId ->
-        updateScene (addStat groupId) world <&> (, SendWorld)
+        updateScene (addStat groupId) world <&> (, All)
     SetStatName statId name' ->
-        updateScene (return . setStatName name' statId) world <&> (, NoResponse)
+        updateScene (return . setStatName name' statId) world <&> (, Others)
     SetStatScore statId score' ->
-        updateScene (return . setStatScore score' statId) world <&> (, SendWorld)
+        updateScene (return . setStatScore score' statId) world <&> (, All)
     RemoveStat statId ->
-        updateScene (return . removeStat statId) world <&> (, SendWorld)
+        updateScene (return . removeStat statId) world <&> (, All)
     AddAspect entityId ->
-        updateScene (addAspect entityId) world <&> (, SendWorld)
+        updateScene (addAspect entityId) world <&> (, All)
     SetAspectText aspectId text' ->
-        updateScene (return . setAspectText text' aspectId) world <&> (, NoResponse)
+        updateScene (return . setAspectText text' aspectId) world <&> (, Others)
     MoveAspect aspectId entityId i ->
-        updateScene (return . moveAspect aspectId entityId i) world <&> (, SendWorld)
+        updateScene (return . moveAspect aspectId entityId i) world <&> (, All)
     RemoveAspect aspectId ->
-        updateScene (return . removeAspect aspectId) world <&> (, SendWorld)
+        updateScene (return . removeAspect aspectId) world <&> (, All)
     AddDie aspectId ->
-        updateScene (return . addDie aspectId) world <&> (, SendWorld)
+        updateScene (return . addDie aspectId) world <&> (, All)
     RemoveDie aspectId ->
-        updateScene (return . removeDie aspectId) world <&> (, SendWorld)
+        updateScene (return . removeDie aspectId) world <&> (, All)
     RollStat statId messageId ->
-        rollStat statId messageId world <&> (, SendWorld)
+        rollStat statId messageId world <&> (, All)
     RollAspect aspectId messageId ->
-        rollAspect aspectId messageId world <&> (, SendWorld)
+        rollAspect aspectId messageId world <&> (, All)
     Undo ->
-        return (undo world, SendWorld)
+        return (undo world, All)
     Redo ->
-        return (redo world, SendWorld)
+        return (redo world, All)
 
 updateScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
 updateScene f world = do

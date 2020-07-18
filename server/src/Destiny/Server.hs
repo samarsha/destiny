@@ -1,13 +1,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Destiny.Server (Role, ServerCommand,ServerOptions (..), run) where
+module Destiny.Server (Role, ServerCommand, ServerOptions (..), run) where
 
 import Control.Concurrent hiding (threadDelay)
 import Control.Exception
@@ -20,7 +21,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Builder
 import Data.FileEmbed
 import Data.Generics.Labels ()
-import Data.List
+import Data.Map.Lazy (Map)
 import Data.Maybe
 import Data.UUID
 import Destiny.System
@@ -43,6 +44,7 @@ import Time.Units
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import qualified Data.Map.Lazy as Map
 import qualified Data.Text as Text
 import qualified Destiny.World as World
 import qualified Network.Wai.Handler.Warp as Warp
@@ -59,15 +61,14 @@ data Role
     | DM
 deriveBoth defaultOptions ''Role
 
+newtype ClientId = ClientId UUID deriving (Eq, Ord, Random)
+
 data Client = Client
-    { id :: UUID
+    { id :: ClientId
     , connection :: WS.Connection
     , role :: Role
     }
     deriving Generic
-
-instance Eq Client where
-    a == b = a ^. #id == b ^. #id
 
 data ServerCommand
     = WorldCommand World.Command
@@ -76,7 +77,7 @@ deriveBoth defaultOptions ''ServerCommand
 
 data ServerState = ServerState
     { world :: World
-    , clients :: [Client]
+    , clients :: Map ClientId Client
     }
     deriving Generic
 
@@ -115,7 +116,7 @@ serverSettings options stateVar = Warp.defaultSettings
         closeSocket
 
 newState :: World -> ServerState
-newState world' = ServerState { world = world', clients = [] }
+newState world' = ServerState { world = world', clients = Map.empty }
 
 clientAppDir :: [(FilePath, ByteString)]
 clientAppDir = $(embedDir $ "client" </> "app")
@@ -161,36 +162,45 @@ webSocketsApp :: MVar ServerState -> WS.ServerApp
 webSocketsApp stateVar pending = do
     connection' <- WS.acceptRequest pending
     WS.withPingThread connection' (toNum @Second pingInterval) (return ()) $ do
-        client <- modifyMVar stateVar $ \state -> do
+        clientId <- modifyMVar stateVar $ \state -> do
             WS.sendTextData connection' $ encode $ World.snapshot $ world state
             evalRandIO $ addClient connection' state
         finally
-            (forever $ handleMessage client stateVar)
-            (modifyMVar_ stateVar $ return . removeClient client)
+            (forever $ receiveMessage clientId stateVar)
+            (modifyMVar_ stateVar $ return . removeClient clientId)
   where
     pingInterval = sec 30
 
-addClient :: RandomGen g => WS.Connection -> ServerState -> Rand g (ServerState, Client)
+addClient :: RandomGen g => WS.Connection -> ServerState -> Rand g (ServerState, ClientId)
 addClient connection' state = do
     clientId <- getRandom
     let client = Client { id = clientId, connection = connection', role = Player }
-    return (state & over #clients (client :), client)
+    let state' = state & over #clients (Map.insert clientId client)
+    return (state', clientId)
 
-removeClient :: Client -> ServerState -> ServerState
-removeClient client = over #clients $ delete client
+removeClient :: ClientId -> ServerState -> ServerState
+removeClient clientId = over #clients $ Map.delete clientId
 
-handleMessage :: Client -> MVar ServerState -> IO ()
-handleMessage client stateVar = decode <$> WS.receiveData (connection client) >>= \case
-    Just (WorldCommand command) -> modifyMVar_ stateVar $ \state -> do
+receiveMessage :: ClientId -> MVar ServerState -> IO ()
+receiveMessage clientId = flip modifyMVar_ $ \state ->
+    case Map.lookup clientId $ clients state of
+        Just client ->
+            decode
+            <$> WS.receiveData (connection client)
+            >>= maybe (return state) (handleMessage state client)
+        Nothing -> return state
+
+handleMessage :: ServerState -> Client -> ServerCommand -> IO ServerState
+handleMessage state client = \case
+    WorldCommand command -> do
         (world', reply) <- evalRandIO $ World.update command $ world state
-        let clients' = case reply of
-                World.SendWorld -> clients state
-                World.NoResponse -> delete client $ clients state
+        let clients' = Map.elems $ case reply of
+                World.All -> clients state
+                World.Others -> Map.delete (client ^. #id) $ clients state
         broadcast (World.snapshot world') clients'
         return state { world = world' }
-    Just (SetRole role') -> modifyMVar_ stateVar $
-        return . over #clients ((client { role = role' } :) . delete client)
-    Nothing -> return ()
+    SetRole role' ->
+        return $ state & over #clients (Map.adjust (#role .~ role') $ client ^. #id)
 
 broadcast :: ToJSON a => a -> [Client] -> IO ()
 broadcast message clients' = forM_ connections $ flip WS.sendTextData $ encode message
