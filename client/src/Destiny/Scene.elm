@@ -11,20 +11,19 @@ module Destiny.Scene exposing
   )
 
 import Destiny.Drag as Drag
-import Destiny.Generated.Model exposing
+import Destiny.Generated.Message exposing (MessageId)
+import Destiny.Generated.Scene exposing
   ( Aspect
   , AspectId
-  , ClientRequest (..)
   , Entity
   , EntityId
-  , MessageId
   , Scene
   , Stat
   , StatId
   , StatGroup
   , StatGroupId
-  , jsonEncClientRequest
   )
+import Destiny.Generated.World exposing (Command (..))
 import Destiny.Utils exposing (joinedMap)
 import Dict.Any
 import Flip exposing (flip)
@@ -32,7 +31,6 @@ import Html exposing (Attribute, Html, button, div, input, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed
-import Json.Decode
 import List.Extra
 import Maybe.Extra
 import Random
@@ -45,7 +43,7 @@ type Object
   | AspectObject Aspect
 
 type Event
-  = Request ClientRequest
+  = Command Command
   | Drag Drag.Event
   | GenerateRollId StatId
   | StartRoll StatId MessageId
@@ -117,9 +115,9 @@ viewBoard (Model model) =
       )
   in
     div [ class "board" ]
-      [ button [ onClick <| Request AddEntity ] [ text "+" ]
-      , button [ onClick <| Request Undo ] [ text "Undo" ]
-      , button [ onClick <| Request Redo ] [ text "Redo" ]
+      [ button [ onClick <| Command AddEntity ] [ text "+" ]
+      , button [ onClick <| Command Undo ] [ text "Undo" ]
+      , button [ onClick <| Command Redo ] [ text "Redo" ]
       , Html.Keyed.node "div" [ class "entities" ] <| joinedMap entityElement
           model.scene.entities
           model.scene.board
@@ -149,13 +147,13 @@ viewEntity (Model model) entity =
     content =
       [ div [ class "stats" ] <|
           joinedMap (viewStatGroup (Model model)) model.scene.statGroups entity.statGroups ++
-          [ button [ onClick <| Request <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
+          [ button [ onClick <| Command <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
       , div [ class "aspects" ]
           ( if entity.collapsed
             then []
             else joinedMap (viewAspect (Model model)) model.scene.aspects entity.aspects
           )
-      , button [ onClick (AddAspect entity.id |> Request) ] [ text "+ Aspect" ]
+      , button [ onClick (AddAspect entity.id |> Command) ] [ text "+ Aspect" ]
       ]
   in
     div attributes <|
@@ -163,13 +161,13 @@ viewEntity (Model model) entity =
           [ class "name"
           , placeholder "Name this entity"
           , value entity.name
-          , onInput <| SetEntityName entity.id >> Request
+          , onInput <| SetEntityName entity.id >> Command
           ]
           []
       , button
-          [ onClick (ToggleEntity entity.id |> Request) ]
+          [ onClick (ToggleEntity entity.id |> Command) ]
           [ text <| if entity.collapsed then "Show" else "Hide" ]
-      , button [ onClick (RemoveEntity entity.id |> Request) ] [ text "✖" ]
+      , button [ onClick (RemoveEntity entity.id |> Command) ] [ text "✖" ]
       ] ++
       (if entity.collapsed then [] else content)
 
@@ -177,26 +175,26 @@ viewStatGroup : Model -> StatGroup -> Html Event
 viewStatGroup (Model model) group = div [ class "stat-group" ] <|
   div [ class "stat-group-controls" ]
     [ input
-        [ onInput <| SetStatGroupName group.id >> Request
+        [ onInput <| SetStatGroupName group.id >> Command
         , placeholder "Name this stat group"
         , value group.name
         ]
         []
-    , button [ group.id |> AddStat |> Request |> onClick ] [ text "+" ]
-    , button [ group.id |> RemoveStatGroup |> Request |> onClick ] [ text "✖" ]
+    , button [ group.id |> AddStat |> Command |> onClick ] [ text "+" ]
+    , button [ group.id |> RemoveStatGroup |> Command |> onClick ] [ text "✖" ]
     ]
   :: joinedMap (viewStat (Model model)) model.scene.stats group.stats
 
 viewStat : Model -> Stat -> Html Event
 viewStat model stat = div [ class "stat" ]
   [ input
-      [ onInput <| SetStatName stat.id >> Request
+      [ onInput <| SetStatName stat.id >> Command
       , placeholder "Name this stat", value stat.name
       ]
       []
   , input
       [ type_ "number"
-      , onInput <| String.toInt >> Maybe.withDefault stat.score >> SetStatScore stat.id >> Request
+      , onInput <| String.toInt >> Maybe.withDefault stat.score >> SetStatScore stat.id >> Command
       , value <| String.fromInt stat.score
       ]
       []
@@ -205,20 +203,20 @@ viewStat model stat = div [ class "stat" ]
       , stat.id |> GenerateRollId |> onClick
       ]
       [ text "🎲" ]
-  , button [ stat.id |> RemoveStat |> Request |> onClick ] [ text "✖" ]
+  , button [ stat.id |> RemoveStat |> Command |> onClick ] [ text "✖" ]
   ]
 
 viewAspect : Model -> Aspect -> Html Event
 viewAspect (Model model) aspect =
-  let edit text = SetAspectText aspect.id text |> Request
+  let edit text = SetAspectText aspect.id text |> Command
   in
     List.concat
       [ [ div
             [ attribute "data-autoexpand" aspect.text ]
             [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
-        , button [ onClick (RemoveAspect aspect.id |> Request) ] [ text "✖" ]
-        , button [ onClick (AddDie aspect.id |> Request) ] [ text "+" ]
-        , button [ onClick (RemoveDie aspect.id |> Request) ] [ text "-" ]
+        , button [ onClick (RemoveAspect aspect.id |> Command) ] [ text "✖" ]
+        , button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
+        , button [ onClick (RemoveDie aspect.id |> Command) ] [ text "-" ]
         ]
       , List.repeat aspect.dice <| button
           [ isRolling (Model model) |> not |> disabled
@@ -237,18 +235,18 @@ dragAttributes id dragging =
 
 -- Update
 
-update : (Json.Decode.Value -> Cmd Event) -> Model -> Event -> (Model, Cmd Event)
+update : (Command -> Cmd Event) -> Model -> Event -> (Model, Cmd Event)
 update send (Model model) event = case event of
-  Request request -> handleRequest send (Model model) request
+  Command command -> handleRequest send (Model model) command
   Drag dragEvent -> handleDragEvent send (Model model) dragEvent
   GenerateRollId statId -> (Model model, Uuid.uuidGenerator |> Random.generate (StartRoll statId))
   StartRoll statId rollId ->
-    let cmd = RollStat statId rollId |> jsonEncClientRequest |> send
+    let cmd = RollStat statId rollId |> send
     in (Model { model | rolling = Just rollId }, cmd)
   ContinueRoll aspectId ->
     let
       cmd = case model.rolling of
-        Just rollId -> RollAspect aspectId rollId |> jsonEncClientRequest |> send
+        Just rollId -> RollAspect aspectId rollId |> send
         Nothing -> Cmd.none
     in (Model model, cmd)
   EndRoll ->
@@ -270,7 +268,7 @@ updateAspect f id scene = { scene | aspects = Dict.Any.update id (Maybe.map f) s
 replace : Model -> Scene -> Model
 replace (Model model) scene = Model { model | scene = scene }
 
-handleRequest : (Json.Decode.Value -> Cmd msg) -> Model -> ClientRequest -> (Model, Cmd msg)
+handleRequest : (Command -> Cmd msg) -> Model -> Command -> (Model, Cmd msg)
 handleRequest send (Model model) request =
   let
     updater = case request of
@@ -288,9 +286,9 @@ handleRequest send (Model model) request =
         moveAspect aspectId entityId index
       _ -> identity
   in
-    (Model { model | scene = updater model.scene }, jsonEncClientRequest request |> send)
+    (Model { model | scene = updater model.scene }, send request)
 
-handleDragEvent : (Json.Decode.Value -> Cmd msg) -> Model -> Drag.Event -> (Model, Cmd msg)
+handleDragEvent : (Command -> Cmd msg) -> Model -> Drag.Event -> (Model, Cmd msg)
 handleDragEvent send (Model model) event =
   let
     newModel = { model | drag = Drag.update event model.drag }
@@ -306,7 +304,7 @@ handleDragEvent send (Model model) event =
 drag : Drag.Event -> Event
 drag = Drag
 
-dragEntity : Model -> Maybe ClientRequest
+dragEntity : Model -> Maybe Command
 dragEntity (Model model) =
   let
     targetIndex =
@@ -317,7 +315,7 @@ dragEntity (Model model) =
     (Just id, Just index) -> MoveEntity id index |> Just
     _ -> Nothing
 
-dragAspect : Model -> Maybe ClientRequest
+dragAspect : Model -> Maybe Command
 dragAspect (Model model) =
   let
     aspectTarget =

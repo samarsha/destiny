@@ -3,17 +3,21 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module Destiny.World
-    ( World (..)
-    , WorldSnapshot
+    ( Command
+    , Reply (..)
+    , World (..)
+    , Snapshot
     , commit
-    , emptyWorld
+    , empty
     , redo
     , rollAspect
     , rollStat
     , undo
-    , worldSnapshot
+    , update
+    , snapshot
     )
 where
 
@@ -37,24 +41,105 @@ data World = World
     deriving Generic
 deriveJSON defaultOptions ''World
 
-data WorldSnapshot = WorldSnapshot
+data Snapshot = Snapshot
     { scene :: Scene
     , messages :: MessageList
     }
     deriving Generic
-deriveBoth defaultOptions ''WorldSnapshot
+deriveBoth defaultOptions ''Snapshot
 
-emptyWorld :: World
-emptyWorld = World
+data Command
+    = AddEntity
+    | ToggleEntity EntityId
+    | SetEntityName EntityId String
+    | MoveEntity EntityId Int
+    | RemoveEntity EntityId
+    | AddStatGroup EntityId
+    | SetStatGroupName StatGroupId String
+    | RemoveStatGroup StatGroupId
+    | AddStat StatGroupId
+    | SetStatName StatId String
+    | SetStatScore StatId Int
+    | RemoveStat StatId
+    | AddAspect EntityId
+    | SetAspectText AspectId String
+    | MoveAspect AspectId EntityId Int
+    | RemoveAspect AspectId
+    | AddDie AspectId
+    | RemoveDie AspectId
+    | RollStat StatId MessageId
+    | RollAspect AspectId MessageId
+    | Undo
+    | Redo
+deriveBoth defaultOptions ''Command
+
+data Reply
+    = SendWorld
+    | NoResponse
+
+empty :: World
+empty = World
     { timeline = Timeline.singleton emptyScene
     , messages = emptyMessages
     }
 
-worldSnapshot :: World -> WorldSnapshot
-worldSnapshot world = WorldSnapshot
+snapshot :: World -> Snapshot
+snapshot world = Snapshot
     { scene = Timeline.present $ world ^. #timeline
     , messages = world ^. #messages
     }
+
+update :: RandomGen r => Command -> World -> Rand r (World, Reply)
+update request world = case request of
+    AddEntity ->
+        updateScene addEntity world <&> (, SendWorld)
+    ToggleEntity entityId ->
+        updateScene (return . toggleEntity entityId) world <&> (, SendWorld)
+    SetEntityName entityId name' ->
+        updateScene (return . setEntityName name' entityId) world <&> (, NoResponse)
+    MoveEntity entityId i ->
+        updateScene (return . moveEntity i entityId) world <&> (, SendWorld)
+    RemoveEntity entityId ->
+        updateScene (return . removeEntity entityId) world <&> (, SendWorld)
+    AddStatGroup entityId ->
+        updateScene (addStatGroup entityId) world <&> (, SendWorld)
+    SetStatGroupName groupId name' ->
+        updateScene (return . setStatGroupName name' groupId) world <&> (, NoResponse)
+    RemoveStatGroup groupId ->
+        updateScene (return . removeStatGroup groupId) world <&> (, SendWorld)
+    AddStat groupId ->
+        updateScene (addStat groupId) world <&> (, SendWorld)
+    SetStatName statId name' ->
+        updateScene (return . setStatName name' statId) world <&> (, NoResponse)
+    SetStatScore statId score' ->
+        updateScene (return . setStatScore score' statId) world <&> (, SendWorld)
+    RemoveStat statId ->
+        updateScene (return . removeStat statId) world <&> (, SendWorld)
+    AddAspect entityId ->
+        updateScene (addAspect entityId) world <&> (, SendWorld)
+    SetAspectText aspectId text' ->
+        updateScene (return . setAspectText text' aspectId) world <&> (, NoResponse)
+    MoveAspect aspectId entityId i ->
+        updateScene (return . moveAspect aspectId entityId i) world <&> (, SendWorld)
+    RemoveAspect aspectId ->
+        updateScene (return . removeAspect aspectId) world <&> (, SendWorld)
+    AddDie aspectId ->
+        updateScene (return . addDie aspectId) world <&> (, SendWorld)
+    RemoveDie aspectId ->
+        updateScene (return . removeDie aspectId) world <&> (, SendWorld)
+    RollStat statId messageId ->
+        rollStat statId messageId world <&> (, SendWorld)
+    RollAspect aspectId messageId ->
+        rollAspect aspectId messageId world <&> (, SendWorld)
+    Undo ->
+        return (undo world, SendWorld)
+    Redo ->
+        return (redo world, SendWorld)
+
+updateScene :: RandomGen r => (Scene -> Rand r Scene) -> World -> Rand r World
+updateScene f world = do
+    scene' <- f $ Timeline.present $ world ^. #timeline
+    return $ world & over #timeline (Timeline.update scene')
 
 undo :: World -> World
 undo = over #timeline Timeline.undo

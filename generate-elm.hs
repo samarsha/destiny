@@ -10,10 +10,6 @@
 
 import Control.Arrow
 import Data.Proxy
-import Destiny.Message
-import Destiny.Request
-import Destiny.Scene
-import Destiny.World
 import Elm.Module
 import Elm.TyRep
 import Elm.Versions
@@ -21,75 +17,120 @@ import System.Directory
 import System.Environment.FindBin
 import System.FilePath
 
+import qualified Destiny.Message as Message
+import qualified Destiny.Scene as Scene
+import qualified Destiny.Server as Server
+import qualified Destiny.World as World
+
+data Module = Module
+    { name :: String
+    , dependencies :: [String]
+    , definitions :: [DefineElm]
+    }
+
 main :: IO ()
 main = do
     outputDir <- generatedDir <$> getProgPath
     createDirectoryIfMissing True outputDir
-    writeFile (outputDir </> "Model.elm") $ makeModule "Destiny.Generated.Model" defs
+    mapM_ (writeModule outputDir)
+        [ Module "Message" [] messageDefs
+        , Module "Scene" [] sceneDefs
+        , Module "Server" ["World"] serverDefs
+        , Module "World" ["Message", "Scene"] worldDefs
+        ]
   where
     generatedDir projectDir = projectDir </> "client" </> "src" </> "Destiny" </> "Generated"
 
-defs :: [DefineElm]
-defs =
-    [ DefineElm (Proxy :: Proxy Aspect)
-    , DefineElm (Proxy :: Proxy AspectId)
-    , DefineElm (Proxy :: Proxy ClientRequest)
-    , DefineElm (Proxy :: Proxy Entity)
-    , DefineElm (Proxy :: Proxy EntityId)
-    , DefineElm (Proxy :: Proxy Invoke)
-    , DefineElm (Proxy :: Proxy Message)
-    , DefineElm (Proxy :: Proxy MessageId)
-    , DefineElm (Proxy :: Proxy MessageList)
-    , DefineElm (Proxy :: Proxy Roll)
-    , DefineElm (Proxy :: Proxy Scene)
-    , DefineElm (Proxy :: Proxy Stat)
-    , DefineElm (Proxy :: Proxy StatGroup)
-    , DefineElm (Proxy :: Proxy StatGroupId)
-    , DefineElm (Proxy :: Proxy StatId)
-    , DefineElm (Proxy :: Proxy WorldSnapshot)
+writeModule :: FilePath -> Module -> IO ()
+writeModule outputDir mod = writeFile fileName $ makeModule mod
+    where
+    fileName = outputDir </> name mod -<.> "elm"
+
+fullName :: String -> String
+fullName name = "Destiny.Generated." ++ name
+
+messageDefs :: [DefineElm]
+messageDefs =
+    [ DefineElm (Proxy :: Proxy Message.Invoke)
+    , DefineElm (Proxy :: Proxy Message.Message)
+    , DefineElm (Proxy :: Proxy Message.MessageId)
+    , DefineElm (Proxy :: Proxy Message.MessageList)
+    , DefineElm (Proxy :: Proxy Message.Roll)
     ]
 
-makeModule :: String -> [DefineElm] -> String
-makeModule name defs = unlines
-    [ moduleHeader Elm0p18 name
-    , ""
-    , "import Dict exposing (Dict)"
-    , "import Dict.Any exposing (AnyDict)"
-    , "import Json.Decode exposing (Decoder)"
-    , "import Json.Encode exposing (Value)"
-    , "import Json.Helpers exposing (..)"
-    , "import Set exposing (Set)"
-    , "import Uuid exposing (Uuid)"
-    , ""
-    , "type alias UuidDict k v = AnyDict String k v"
-    , ""
-    , "jsonDecUuid : Decoder Uuid"
-    , "jsonDecUuid = Uuid.decoder"
-    , ""
-    , "jsonEncUuid : Uuid -> Value"
-    , "jsonEncUuid = Uuid.encode"
-    , ""
-    , "jsonDecUuidDict : a -> Decoder v -> Decoder (UuidDict Uuid v)"
-    , "jsonDecUuidDict _ valueDecoder ="
-    , "  let"
-    , "    insert key value dict = case Uuid.fromString key of"
-    , "      Just k -> dict |> Dict.Any.insert k value |> Json.Decode.succeed"
-    , "      Nothing -> \"Key '\" ++ key ++ \"' cannot be converted to a UUID.\" |> Json.Decode.fail"
-    , "    create key value acc = acc |> Json.Decode.andThen (insert key value)"
-    , "  in"
-    , "    Json.Decode.dict valueDecoder"
-    , "    |> Json.Decode.andThen (Dict.foldr create (Dict.Any.empty Uuid.toString |> Json.Decode.succeed))"
-    , ""
-    , "jsonEncUuidDict : (k -> Value) -> (v -> Value) -> UuidDict k v -> Value"
-    , "jsonEncUuidDict encodeKey encodeValue ="
-    , "  Dict.Any.encode (encodeKey >> Json.Encode.encode 0) encodeValue"
-    , ""
-    ] ++
-    makeModuleContentWithAlterations
+sceneDefs :: [DefineElm]
+sceneDefs =
+    [ DefineElm (Proxy :: Proxy Scene.Aspect)
+    , DefineElm (Proxy :: Proxy Scene.AspectId)
+    , DefineElm (Proxy :: Proxy Scene.Entity)
+    , DefineElm (Proxy :: Proxy Scene.EntityId)
+    , DefineElm (Proxy :: Proxy Scene.Scene)
+    , DefineElm (Proxy :: Proxy Scene.Stat)
+    , DefineElm (Proxy :: Proxy Scene.StatGroup)
+    , DefineElm (Proxy :: Proxy Scene.StatGroupId)
+    , DefineElm (Proxy :: Proxy Scene.StatId)
+    ]
+
+serverDefs :: [DefineElm]
+serverDefs =
+    [ DefineElm (Proxy :: Proxy Server.ServerCommand)
+    , DefineElm (Proxy :: Proxy Server.Role)
+    ]
+
+worldDefs :: [DefineElm]
+worldDefs =
+    [ DefineElm (Proxy :: Proxy World.Command)
+    , DefineElm (Proxy :: Proxy World.Snapshot)
+    ]
+
+makeModule :: Module -> String
+makeModule mod = standardHeader ++ extraImports ++ uuidDict ++ content
+  where
+    standardHeader = unlines
+        [ moduleHeader Elm0p18 $ fullName $ name mod
+        , ""
+        , "import Dict exposing (Dict)"
+        , "import Dict.Any exposing (AnyDict)"
+        , "import Json.Decode exposing (Decoder)"
+        , "import Json.Encode exposing (Value)"
+        , "import Json.Helpers exposing (..)"
+        , "import Set exposing (Set)"
+        , "import Uuid exposing (Uuid)"
+        , ""
+        ]
+    extraImports = unlines $
+        map (\name -> "import " ++ fullName name ++ " exposing (..)") $ dependencies mod
+    uuidDict = unlines $
+        [ ""
+        , "type alias UuidDict k v = AnyDict String k v"
+        , ""
+        , "jsonDecUuid : Decoder Uuid"
+        , "jsonDecUuid = Uuid.decoder"
+        , ""
+        , "jsonEncUuid : Uuid -> Value"
+        , "jsonEncUuid = Uuid.encode"
+        , ""
+        , "jsonDecUuidDict : a -> Decoder v -> Decoder (UuidDict Uuid v)"
+        , "jsonDecUuidDict _ valueDecoder ="
+        , "  let"
+        , "    insert key value dict = case Uuid.fromString key of"
+        , "      Just k -> dict |> Dict.Any.insert k value |> Json.Decode.succeed"
+        , "      Nothing -> \"Key '\" ++ key ++ \"' cannot be converted to a UUID.\" |> Json.Decode.fail"
+        , "    create key value acc = acc |> Json.Decode.andThen (insert key value)"
+        , "  in"
+        , "    Json.Decode.dict valueDecoder"
+        , "    |> Json.Decode.andThen (Dict.foldr create (Dict.Any.empty Uuid.toString |> Json.Decode.succeed))"
+        , ""
+        , "jsonEncUuidDict : (k -> Value) -> (v -> Value) -> UuidDict k v -> Value"
+        , "jsonEncUuidDict encodeKey encodeValue ="
+        , "  Dict.Any.encode (encodeKey >> Json.Encode.encode 0) encodeValue"
+        , ""
+        ]
+    content = makeModuleContentWithAlterations
         ( renameType "UUID" "Uuid"
         . renameType "Map" "UuidDict"
         )
-        defs
+        (definitions mod)
 
 renameType :: String -> String -> ETypeDef -> ETypeDef
 renameType before after = \case

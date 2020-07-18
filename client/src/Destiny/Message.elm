@@ -1,6 +1,6 @@
 module Destiny.Message exposing (empty, view)
 
-import Destiny.Generated.Model exposing (Invoke (..), Message (..), MessageList (..))
+import Destiny.Generated.Message exposing (Invoke (..), Message (..), MessageList (..))
 import Dict.Any
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
