@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Destiny.MultiSet where
+module Destiny.MultiSet () where
 
 import Data.Aeson
 import Data.MultiSet (MultiSet)
