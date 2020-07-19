@@ -154,7 +154,7 @@ textarea {
 
 .die {
     border-radius: 2px;
-    border: #00010081 2px solid;
+    border: #000000 2px solid;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.25);
     display: inline-block;
     line-height: 24px;
@@ -162,22 +162,25 @@ textarea {
     width: 24px;
 }
 
+.die-good,
+.die-bad {
+    font-weight: bold;
+}
+
 .die-good {
-    border-color: #62da627a;
-    color: #33c033;
+    color: #28c428;
 }
 
 .die-bad {
-    border-color: #da627c81;
-    color: #b9304e;
+    color: #e72e56;
 }
 
 .die-player {
-    background: #1097f72f;
+    border-color: #1097f7b9;
 }
 
 .die-dm {
-    background: #da627c2a;
+    border-color: #da4d4dc5;
 }
 
 .roll {
