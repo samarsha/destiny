@@ -158,33 +158,33 @@ webSocketsApp :: MVar ServerState -> WS.ServerApp
 webSocketsApp stateVar pending = do
     connection' <- WS.acceptRequest pending
     WS.withPingThread connection' (toNum @Second pingInterval) (return ()) $ do
-        clientId <- modifyMVar stateVar $ \state -> do
+        client <- modifyMVar stateVar $ \state -> do
             WS.sendTextData connection' $ encode $ World.snapshot $ world state
             evalRandIO $ addClient connection' state
         finally
-            (forever $ receiveMessage clientId stateVar)
-            (modifyMVar_ stateVar $ return . removeClient clientId)
+            (forever $ receiveMessage (client ^. #connection) (client ^. #id) stateVar)
+            (modifyMVar_ stateVar $ return . removeClient (client ^. #id))
   where
     pingInterval = sec 30
 
-addClient :: RandomGen g => WS.Connection -> ServerState -> Rand g (ServerState, ClientId)
+addClient :: RandomGen g => WS.Connection -> ServerState -> Rand g (ServerState, Client)
 addClient connection' state = do
     clientId <- getRandom
     let client = Client { id = clientId, connection = connection', role = Player }
     let state' = state & over #clients (Map.insert clientId client)
-    return (state', clientId)
+    return (state', client)
 
 removeClient :: ClientId -> ServerState -> ServerState
 removeClient clientId = over #clients $ Map.delete clientId
 
-receiveMessage :: ClientId -> MVar ServerState -> IO ()
-receiveMessage clientId = flip modifyMVar_ $ \state ->
-    case Map.lookup clientId $ clients state of
-        Just client ->
-            decode
-            <$> WS.receiveData (connection client)
-            >>= maybe (return state) (handleMessage state client)
-        Nothing -> return state
+receiveMessage :: WS.Connection -> ClientId -> MVar ServerState -> IO ()
+receiveMessage connection' clientId stateVar =
+    decode <$> WS.receiveData connection' >>= \case
+        Just command -> modifyMVar_ stateVar $ \state ->
+            case Map.lookup clientId $ clients state of
+                Just client -> handleMessage state client command
+                Nothing -> return state
+        Nothing -> return ()
 
 handleMessage :: ServerState -> Client -> ServerCommand -> IO ServerState
 handleMessage state client = \case
