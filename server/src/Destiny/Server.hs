@@ -22,7 +22,6 @@ import Data.ByteString.Builder
 import Data.FileEmbed
 import Data.Generics.Labels ()
 import Data.Map.Lazy (Map)
-import Data.Maybe
 import Data.UUID
 import Destiny.Scene
 import Destiny.System
@@ -34,6 +33,7 @@ import Network.Mime
 import Network.Wai
 import Network.Wai.Handler.WebSockets
 import System.Directory
+import System.Exit
 import System.FilePath
 import System.Info
 import System.IO
@@ -79,8 +79,11 @@ data ServerState = ServerState
 
 run :: ServerOptions -> IO ()
 run options = do
-    savedWorld <- readSavedWorld $ storage options
-    stateVar <- newMVar $ newState $ fromMaybe World.empty savedWorld
+    worldPath <- makeAbsolute $ worldSavePath $ storage options
+    savedWorld <- readSavedWorld World.empty worldPath
+    stateVar <- case savedWorld of
+        Left err -> die $ "The world could not be read from " ++ worldPath ++ ":\n\n" ++ err
+        Right savedWorld' -> newMVar $ newState savedWorld'
     _ <- forkIO $ saveWorldEvery saveInterval (storage options) stateVar
     let settings = serverSettings options stateVar
     Warp.runSettings settings $ websocketsOr WS.defaultConnectionOptions
@@ -136,12 +139,12 @@ saveWorldEvery interval storage' stateVar = forever $ do
         in return (state', world state')
     catchIOError (saveWorld storage' world') $ hPutStrLn stderr . show
 
-readSavedWorld :: FilePath -> IO (Maybe World)
-readSavedWorld storage' =
-    catchIOError (decodeStrict <$> BS.readFile (worldSavePath storage')) $ \err ->
+readSavedWorld :: World -> FilePath -> IO (Either String World)
+readSavedWorld defaultWorld path =
+    catchIOError (eitherDecodeFileStrict path) $ \err ->
         if isDoesNotExistError err
-        then return Nothing
-        else ioError err
+        then return $ Right defaultWorld
+        else return $ Left $ show err
 
 httpApp :: Application
 httpApp request respond = respond $ case rawPathInfo request of
