@@ -8,7 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Destiny.Server (Role, ServerCommand, ServerOptions (..), run) where
+module Destiny.Server (ServerCommand, ServerOptions (..), run) where
 
 import Control.Concurrent hiding (threadDelay)
 import Control.Exception

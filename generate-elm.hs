@@ -76,7 +76,6 @@ sceneDefs =
 serverDefs :: [DefineElm]
 serverDefs =
     [ DefineElm (Proxy :: Proxy Server.ServerCommand)
-    , DefineElm (Proxy :: Proxy Server.Role)
     ]
 
 worldDefs :: [DefineElm]

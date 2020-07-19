@@ -4,6 +4,7 @@ module Destiny.Scene exposing
   , drag
   , empty
   , replace
+  , setRole
   , update
   , viewBoard
   , viewDrag
@@ -59,6 +60,7 @@ type Model = Model
   { scene : Scene
   , rolling : Maybe Uuid
   , drag : Drag.State
+  , role : Role
   }
 
 empty : Model
@@ -75,6 +77,7 @@ empty =
     Model { scene = scene
           , rolling = Nothing
           , drag = Drag.empty
+          , role = Player
           }
 
 get : Scene -> Uuid -> Maybe Object
@@ -234,8 +237,8 @@ viewDie (Model model) aspect role =
   in
     button
       [ class roleClass
-      , isRolling (Model model) |> not |> disabled
-      , ContinueRoll aspect.id |> onClick
+      , disabled <| (not <| isRolling <| Model model) || model.role /= role
+      , onClick <| ContinueRoll aspect.id
       ]
     [ text "🎲" ]
 
@@ -280,6 +283,9 @@ updateAspect f id scene = { scene | aspects = Dict.Any.update id (Maybe.map f) s
 
 replace : Model -> Scene -> Model
 replace (Model model) scene = Model { model | scene = scene }
+
+setRole : Model -> Role -> Model
+setRole (Model model) role = Model { model | role = role }
 
 handleRequest : (Command -> Cmd msg) -> Model -> Command -> (Model, Cmd msg)
 handleRequest send (Model model) request =

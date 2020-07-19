@@ -3,11 +3,8 @@ port module Main exposing (main)
 import Browser
 import Destiny.Drag as Drag
 import Destiny.Generated.Message exposing (Message (..), MessageList (..))
-import Destiny.Generated.Server as Server exposing
-  ( Role (..)
-  , ServerCommand (..)
-  , jsonEncServerCommand
-  )
+import Destiny.Generated.Server as Server exposing (ServerCommand (..), jsonEncServerCommand)
+import Destiny.Generated.Scene exposing (Role (..))
 import Destiny.Generated.World as World exposing (Snapshot, jsonDecSnapshot)
 import Destiny.Message as Message
 import Destiny.Scene as Scene
@@ -68,7 +65,7 @@ update message model = case message of
   ServerCommand command ->
     let
       newModel = case command of
-        SetRole role -> { model | role = role }
+        SetRole role -> { model | scene = Scene.setRole model.scene role, role = role }
         _ -> model
     in
       (newModel, sendServerCommand command)
@@ -96,7 +93,7 @@ view model =
         [ input
             [ type_ "checkbox"
             , checked <| model.role == DM
-            , onClick <| ServerCommand <| SetRole <| notRole model.role
+            , onClick <| ServerCommand <| SetRole <| flipRole model.role
             ]
             []
         , text "DM"
@@ -113,7 +110,7 @@ view model =
     )
     |> div [ class "app" ]
 
-notRole : Role -> Role
-notRole role = case role of
+flipRole : Role -> Role
+flipRole role = case role of
   Player -> DM
   DM -> Player
