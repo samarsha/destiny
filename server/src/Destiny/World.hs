@@ -101,13 +101,13 @@ update role' command world = case command of
     MoveEntity entityId i ->
         updateScene (return . moveEntity i entityId) world <&> (, All)
     RemoveEntity entityId ->
-        updateScene (return . removeEntity entityId) world <&> (, All)
+        updateScene (return . removeEntity entityId) (commit world) <&> (, All)
     AddStatGroup entityId ->
         updateScene (addStatGroup entityId) world <&> (, All)
     SetStatGroupName groupId name' ->
         updateScene (return . setStatGroupName name' groupId) world <&> (, Others)
     RemoveStatGroup groupId ->
-        updateScene (return . removeStatGroup groupId) world <&> (, All)
+        updateScene (return . removeStatGroup groupId) (commit world) <&> (, All)
     AddStat groupId ->
         updateScene (addStat groupId) world <&> (, All)
     SetStatName statId name' ->
@@ -115,7 +115,7 @@ update role' command world = case command of
     SetStatScore statId score' ->
         updateScene (return . setStatScore score' statId) world <&> (, All)
     RemoveStat statId ->
-        updateScene (return . removeStat statId) world <&> (, All)
+        updateScene (return . removeStat statId) (commit world) <&> (, All)
     AddAspect entityId ->
         updateScene (addAspect entityId) world <&> (, All)
     SetAspectText aspectId text' ->
@@ -123,7 +123,7 @@ update role' command world = case command of
     MoveAspect aspectId entityId i ->
         updateScene (return . moveAspect aspectId entityId i) world <&> (, All)
     RemoveAspect aspectId ->
-        updateScene (return . removeAspect aspectId) world <&> (, All)
+        updateScene (return . removeAspect aspectId) (commit world) <&> (, All)
     AddDie aspectId ->
         updateScene (return . addDie (Die role') aspectId) world <&> (, All)
     RemoveDie aspectId ->
