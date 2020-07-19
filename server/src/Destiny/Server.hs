@@ -141,10 +141,10 @@ saveWorldEvery interval storage' stateVar = forever $ do
 
 readSavedWorld :: World -> FilePath -> IO (Either String World)
 readSavedWorld defaultWorld path =
-    catchIOError (eitherDecodeFileStrict path) $ \err ->
+    catchIOError (eitherDecodeFileStrict path) $ \err -> return $
         if isDoesNotExistError err
-        then return $ Right defaultWorld
-        else return $ Left $ show err
+        then Right defaultWorld
+        else Left $ show err
 
 httpApp :: Application
 httpApp request respond = respond $ case rawPathInfo request of
