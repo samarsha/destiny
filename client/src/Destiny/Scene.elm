@@ -31,7 +31,7 @@ import Destiny.Generated.World exposing (Command (..))
 import Destiny.Utils exposing (joinedMap)
 import Dict.Any
 import Flip exposing (flip)
-import Html exposing (Attribute, Html, button, div, input, text, textarea)
+import Html exposing (Attribute, Html, button, div, input, span, text, textarea)
 import Html.Attributes exposing (attribute, class, disabled, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed
@@ -53,15 +53,19 @@ type Event
   | StartRoll StatId MessageId
   | ContinueRoll AspectId
   | EndRoll
-
--- Model
+  | ToggleEdit EntityId
 
 type Model = Model
   { scene : Scene
   , rolling : Maybe Uuid
   , drag : Drag.State
   , role : Role
+  , editing : Maybe EntityId
   }
+
+type Mode = View | Edit
+
+-- Model
 
 empty : Model
 empty =
@@ -78,6 +82,7 @@ empty =
           , rolling = Nothing
           , drag = Drag.empty
           , role = Player
+          , editing = Nothing
           }
 
 get : Scene -> Uuid -> Maybe Object
@@ -115,9 +120,10 @@ viewRollBar (Model model) =
 viewBoard : Model -> Html Event
 viewBoard (Model model) =
   let
+    mode id = if model.editing == Just id then Edit else View
     entityElement entity =
       ( Uuid.toString entity.id
-      , viewEntity (Model model) entity
+      , viewEntity (mode entity.id) (Model model) entity
       )
   in
     div []
@@ -132,12 +138,13 @@ viewBoard (Model model) =
 viewDrag : Model -> Maybe (Html Event)
 viewDrag (Model model) =
   let
+    -- TODO: Use the current view/edit mode for the entity.
     entity id =
       Dict.Any.get id model.scene.entities
-      |> Maybe.map (Model { model | drag = Drag.empty } |> viewEntity)
+      |> Maybe.map (Model { model | drag = Drag.empty } |> viewEntity View)
     aspect id =
       Dict.Any.get id model.scene.aspects
-      |> Maybe.map (Model { model | drag = Drag.empty } |> viewAspect)
+      |> Maybe.map (Model { model | drag = Drag.empty } |> viewAspect View)
     invalid id = "Invalid ID: " ++ Uuid.toString id |> Debug.todo
     view id =
       entity id
@@ -146,87 +153,131 @@ viewDrag (Model model) =
   in
     model.drag |> Drag.view view
 
-viewEntity : Model -> Entity -> Html Event
-viewEntity (Model model) entity =
+viewEntity : Mode -> Model -> Entity -> Html Event
+viewEntity mode (Model model) entity =
   let
-    attributes = List.append [ class "entity" ] <| dragAttributes entity.id model.drag.dragging
-    content =
-      [ div [ class "stats" ] <|
-          joinedMap (viewStatGroup (Model model)) model.scene.statGroups entity.statGroups ++
-          [ button [ onClick <| Command <| AddStatGroup entity.id ] [ text "+ Stat Group" ] ]
-      , div [ class "aspects" ]
-          ( if entity.collapsed
-            then []
-            else joinedMap (viewAspect (Model model)) model.scene.aspects entity.aspects
-          )
-      , button [ onClick (AddAspect entity.id |> Command) ] [ text "+ Aspect" ]
+    attributes = class "entity" :: dragAttributes entity.id model.drag.dragging
+    name = case mode of
+      View -> div [ class "name" ] [ text entity.name ]
+      Edit -> input
+        [ class "name"
+        , placeholder "Name this entity"
+        , value entity.name
+        , onInput <| SetEntityName entity.id >> Command
+        ]
+        []
+    hideButton = button
+      [ onClick <| Command <| ToggleEntity entity.id ]
+      [ text <| if entity.collapsed then "Show" else "Hide" ]
+    editButton = button
+      [ onClick <| ToggleEdit entity.id ]
+      [ text "📝" ]
+    addGroupButton = whenEdit mode <| button
+      [ onClick <| Command <| AddStatGroup entity.id ]
+      [ text "+ Stat Group" ]
+    stats =
+      joinedMap (viewStatGroup mode <| Model model) model.scene.statGroups entity.statGroups
+      ++ Maybe.Extra.toList addGroupButton
+    aspects =
+      if entity.collapsed
+      then []
+      else joinedMap (viewAspect mode <| Model model) model.scene.aspects entity.aspects
+    content = Maybe.Extra.values
+      [ Just <| div [ class "stats" ] stats
+      , Just <| div [ class "aspects" ] aspects
+      , whenEdit mode <| button [ onClick (AddAspect entity.id |> Command) ] [ text "+ Aspect" ]
       ]
   in
-    div attributes <|
-      [ input
-          [ class "name"
-          , placeholder "Name this entity"
-          , value entity.name
-          , onInput <| SetEntityName entity.id >> Command
-          ]
-          []
-      , button
-          [ onClick (ToggleEntity entity.id |> Command) ]
-          [ text <| if entity.collapsed then "Show" else "Hide" ]
-      , button [ onClick (RemoveEntity entity.id |> Command) ] [ text "✖" ]
-      ] ++
-      (if entity.collapsed then [] else content)
+    div attributes <| Maybe.Extra.values
+      [ Just name
+      , Just hideButton
+      , Just editButton
+      , whenEdit mode <| button [ onClick (RemoveEntity entity.id |> Command) ] [ text "✖" ]
+      ]
+      ++ (if entity.collapsed then [] else content)
 
-viewStatGroup : Model -> StatGroup -> Html Event
-viewStatGroup (Model model) group = div [ class "stat-group" ] <|
-  div [ class "stat-group-controls" ]
-    [ input
-        [ onInput <| SetStatGroupName group.id >> Command
+viewStatGroup : Mode -> Model -> StatGroup -> Html Event
+viewStatGroup mode (Model model) group =
+  let
+    name = case mode of
+      View -> span [ class "stat-group-name" ] [ text group.name ]
+      Edit -> input
+        [ class "stat-group-name"
+        , onInput <| SetStatGroupName group.id >> Command
         , placeholder "Name this stat group"
         , value group.name
         ]
         []
-    , button [ group.id |> AddStat |> Command |> onClick ] [ text "+" ]
-    , button [ group.id |> RemoveStatGroup |> Command |> onClick ] [ text "✖" ]
-    ]
-  :: joinedMap (viewStat (Model model)) model.scene.stats group.stats
+    controls = Maybe.Extra.values
+      [ Just name
+      , whenEdit mode <| button [ group.id |> AddStat |> Command |> onClick ] [ text "+" ]
+      , whenEdit mode <| button [ group.id |> RemoveStatGroup |> Command |> onClick ] [ text "✖" ]
+      ]
+    stats = joinedMap (viewStat mode <| Model model) model.scene.stats group.stats
+  in
+    div [ class "stat-group" ] <|
+      div [ class "stat-group-controls" ] controls
+      :: stats
 
-viewStat : Model -> Stat -> Html Event
-viewStat model stat = div [ class "stat" ]
-  [ input
-      [ onInput <| SetStatName stat.id >> Command
-      , placeholder "Name this stat", value stat.name
-      ]
-      []
-  , input
-      [ type_ "number"
-      , onInput <| String.toInt >> Maybe.withDefault stat.score >> SetStatScore stat.id >> Command
-      , value <| String.fromInt stat.score
-      ]
-      []
-  , button
+viewStat : Mode -> Model -> Stat -> Html Event
+viewStat mode model stat =
+  let
+    name = case mode of
+      View -> span [ class "stat-name" ] [ text stat.name ]
+      Edit -> input
+        [ class "stat-name"
+        , onInput <| SetStatName stat.id >> Command
+        , placeholder "Name this stat", value stat.name
+        ]
+        []
+    score = case mode of
+      View -> span [ class "stat-score" ] [ text <| String.fromInt stat.score ]
+      Edit -> input
+        [ class "stat-score"
+        , type_ "number"
+        , onInput <| String.toInt >> Maybe.withDefault stat.score >> SetStatScore stat.id >> Command
+        , value <| String.fromInt stat.score
+        ]
+        []
+    rollButton = button
       [ isRolling model |> disabled
       , stat.id |> GenerateRollId |> onClick
       ]
       [ text "🎲" ]
-  , button [ stat.id |> RemoveStat |> Command |> onClick ] [ text "✖" ]
-  ]
-
-viewAspect : Model -> Aspect -> Html Event
-viewAspect (Model model) aspect =
-  let edit text = SetAspectText aspect.id text |> Command
   in
-    List.concat
-      [ [ div
-            [ attribute "data-autoexpand" aspect.text ]
-            [ textarea [ placeholder "Describe this aspect.", value aspect.text, onInput edit ] [] ]
-        , button [ onClick (RemoveAspect aspect.id |> Command) ] [ text "✖" ]
-        , button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
-        , button [ onClick (RemoveDie aspect.id |> Command) ] [ text "-" ]
-        ]
-      , AnyBag.values aspect.dice |> List.map (viewDie (Model model) aspect)
+    div [ class "stat" ] <| Maybe.Extra.values
+      [ Just name
+      , Just score
+      , Just rollButton
+      , whenEdit mode <| button [ stat.id |> RemoveStat |> Command |> onClick ] [ text "✖" ]
       ]
-    |> div (List.append [ class "aspect" ] <| dragAttributes aspect.id model.drag.dragging)
+
+viewAspect : Mode -> Model -> Aspect -> Html Event
+viewAspect mode (Model model) aspect =
+  let
+    attributes = class "aspect" :: dragAttributes aspect.id model.drag.dragging
+    description = case mode of
+      View -> div [ class "aspect-description" ] [ text aspect.text ]
+      Edit -> div
+        [ attribute "data-autoexpand" aspect.text ]
+        [ textarea
+            [ class "aspect-description"
+            , placeholder "Describe this aspect."
+            , value aspect.text
+            , onInput <| Command << SetAspectText aspect.id
+            ]
+            []
+        ]
+    content = Maybe.Extra.values
+      [ Just description
+      , whenEdit mode <| button [ onClick (RemoveAspect aspect.id |> Command) ] [ text "✖" ]
+      , whenEdit mode <| button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
+      , whenEdit mode <| button [ onClick (RemoveDie aspect.id |> Command) ] [ text "-" ]
+      ]
+  in
+    div attributes
+    <| content
+    ++ (AnyBag.values aspect.dice |> List.map (viewDie (Model model) aspect))
 
 viewDie : Model -> Aspect -> Die -> Html Event
 viewDie (Model model) aspect role =
@@ -249,6 +300,11 @@ dragAttributes id dragging =
     Just dragId -> if id == dragId then [ class "drag-removed" ] else [ draggable ]
     Nothing -> [ draggable ]
 
+whenEdit : Mode -> Html msg -> Maybe (Html msg)
+whenEdit mode element = case mode of
+  Edit -> Just element
+  View -> Nothing
+
 -- Update
 
 update : (Command -> Cmd Event) -> Model -> Event -> (Model, Cmd Event)
@@ -267,6 +323,14 @@ update send (Model model) event = case event of
     in (Model model, cmd)
   EndRoll ->
     (Model { model | rolling = Nothing }, Cmd.none)
+  ToggleEdit entityId ->
+    let
+      editing =
+        if model.editing == Just entityId
+        then Nothing
+        else Just entityId
+    in
+      (Model { model | editing = editing }, Cmd.none)
 
 updateEntity : (Entity -> Entity) -> EntityId -> Scene -> Scene
 updateEntity f id scene = { scene | entities = Dict.Any.update id (Maybe.map f) scene.entities }

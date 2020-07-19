@@ -39,8 +39,8 @@ textarea {
 [data-autoexpand]::after {
     content: attr(data-autoexpand) " ";
     display: block;
-    word-wrap: break-word;
     white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .active-roll {
@@ -100,7 +100,9 @@ textarea {
     border-bottom: #ccc 1px solid;
 }
 
-.stats input {
+.stat-group-name,
+.stat-name,
+.stat-score {
     border: 0;
     min-width: 0;
     padding: 5px 10px;
@@ -111,12 +113,16 @@ textarea {
     display: flex;
 }
 
-.stat-group-controls input {
+.stat-group-name {
     font-family: "Noto Sans", sans-serif;
     font-weight: bold;
 }
 
-.stat input[type="number"] {
+.stat-name {
+    flex-grow: 1;
+}
+
+.stat-score {
     padding-left: 0;
     padding-right: 0;
     text-align: right;
@@ -131,7 +137,7 @@ textarea {
     border-bottom: none;
 }
 
-.aspect textarea {
+.aspect-description {
     border: 0;
     box-sizing: border-box;
     display: block;
@@ -139,8 +145,10 @@ textarea {
 }
 
 .aspect [data-autoexpand],
-.aspect textarea {
+.aspect-description {
     padding: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .messages {
