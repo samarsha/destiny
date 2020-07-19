@@ -268,16 +268,14 @@ viewAspect mode (Model model) aspect =
             ]
             []
         ]
-    content = Maybe.Extra.values
-      [ Just description
-      , whenEdit mode <| button [ onClick (RemoveAspect aspect.id |> Command) ] [ text "✖" ]
-      , whenEdit mode <| button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
+  in
+    div attributes <| Maybe.Extra.values
+      [ whenEdit mode <| button [ onClick (RemoveAspect aspect.id |> Command) ] [ text "✖" ]
+      , Just description
+      , Just <| span [] (AnyBag.values aspect.dice |> List.map (viewDie (Model model) aspect))
+      , Just <| button [ onClick (AddDie aspect.id |> Command) ] [ text "+" ]
       , whenEdit mode <| button [ onClick (RemoveDie aspect.id |> Command) ] [ text "-" ]
       ]
-  in
-    div attributes
-    <| content
-    ++ (AnyBag.values aspect.dice |> List.map (viewDie (Model model) aspect))
 
 viewDie : Model -> Aspect -> Die -> Html Event
 viewDie (Model model) aspect role =
