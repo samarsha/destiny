@@ -120,7 +120,7 @@ viewBoard (Model model) =
       , viewEntity (Model model) entity
       )
   in
-    div [ class "board" ]
+    div []
       [ button [ onClick <| Command AddEntity ] [ text "+" ]
       , button [ onClick <| Command Undo ] [ text "Undo" ]
       , button [ onClick <| Command Redo ] [ text "Redo" ]

@@ -83,27 +83,29 @@ view : Model -> Html Event
 view model =
   let
     (messageIds, messageMap) = case model.messages of MessageList ids map -> (ids, map)
+    dmCheckbox = label []
+      [ input
+          [ type_ "checkbox"
+          , checked <| model.role == DM
+          , onClick <| ServerCommand <| SetRole <| flipRole model.role
+          ]
+          []
+      , text "DM"
+      ]
   in
     ( Scene.viewRollBar model.scene
       |> Maybe.map (Html.map SceneEvent)
       |> Maybe.Extra.toList
     )
     ++
-    [ label []
-        [ input
-            [ type_ "checkbox"
-            , checked <| model.role == DM
-            , onClick <| ServerCommand <| SetRole <| flipRole model.role
-            ]
-            []
-        , text "DM"
-        ]
-    , div [ class "main" ]
-        [ Scene.viewBoard model.scene |> Html.map SceneEvent
-        , div [ class "messages" ] <| joinedMap Message.view messageMap messageIds
-        ]
-    ]
-    ++
+    div [ class "main" ]
+      [ div [ class "board" ]
+          [ dmCheckbox
+          , Scene.viewBoard model.scene |> Html.map SceneEvent
+          ]
+      , div [ class "messages" ] <| joinedMap Message.view messageMap messageIds
+      ]
+    ::
     ( Scene.viewDrag model.scene 
       |> Maybe.map (Html.map SceneEvent)
       |> Maybe.Extra.toList
