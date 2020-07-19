@@ -93,45 +93,45 @@ snapshot world = Snapshot
 update :: RandomGen r => Role -> Command -> World -> Rand r (World, Reply)
 update role' command world = case command of
     AddEntity ->
-        updateScene addEntity world <&> (, All)
+        commit world & updateScene addEntity <&> (, All)
     ToggleEntity entityId ->
-        updateScene (return . toggleEntity entityId) world <&> (, All)
+        world & updateScene (return . toggleEntity entityId) <&> (, All)
     SetEntityName entityId name' ->
-        updateScene (return . setEntityName name' entityId) world <&> (, Others)
+        world & updateScene (return . setEntityName name' entityId) <&> (, Others)
     MoveEntity entityId i ->
-        updateScene (return . moveEntity i entityId) world <&> (, All)
+        world & updateScene (return . moveEntity i entityId) <&> (, All)
     RemoveEntity entityId ->
-        updateScene (return . removeEntity entityId) (commit world) <&> (, All)
+        commit world & updateScene (return . removeEntity entityId) <&> (, All)
     AddStatGroup entityId ->
-        updateScene (addStatGroup entityId) world <&> (, All)
+        commit world & updateScene (addStatGroup entityId) <&> (, All)
     SetStatGroupName groupId name' ->
-        updateScene (return . setStatGroupName name' groupId) world <&> (, Others)
+        world & updateScene (return . setStatGroupName name' groupId) <&> (, Others)
     RemoveStatGroup groupId ->
-        updateScene (return . removeStatGroup groupId) (commit world) <&> (, All)
+        commit world & updateScene (return . removeStatGroup groupId) <&> (, All)
     AddStat groupId ->
-        updateScene (addStat groupId) world <&> (, All)
+        commit world & updateScene (addStat groupId) <&> (, All)
     SetStatName statId name' ->
-        updateScene (return . setStatName name' statId) world <&> (, Others)
+        world & updateScene (return . setStatName name' statId) <&> (, Others)
     SetStatScore statId score' ->
-        updateScene (return . setStatScore score' statId) world <&> (, All)
+        world & updateScene (return . setStatScore score' statId) <&> (, All)
     RemoveStat statId ->
-        updateScene (return . removeStat statId) (commit world) <&> (, All)
+        commit world & updateScene (return . removeStat statId) <&> (, All)
     AddAspect entityId ->
-        updateScene (addAspect entityId) world <&> (, All)
+        commit world & updateScene (addAspect entityId) <&> (, All)
     SetAspectText aspectId text' ->
-        updateScene (return . setAspectText text' aspectId) world <&> (, Others)
+        world & updateScene (return . setAspectText text' aspectId) <&> (, Others)
     MoveAspect aspectId entityId i ->
-        updateScene (return . moveAspect aspectId entityId i) world <&> (, All)
+        world & updateScene (return . moveAspect aspectId entityId i) <&> (, All)
     RemoveAspect aspectId ->
-        updateScene (return . removeAspect aspectId) (commit world) <&> (, All)
+        commit world & updateScene (return . removeAspect aspectId) <&> (, All)
     AddDie aspectId ->
-        updateScene (return . addDie (Die role') aspectId) world <&> (, All)
+        commit world & updateScene (return . addDie (Die role') aspectId) <&> (, All)
     RemoveDie aspectId ->
-        updateScene (return . removeDie (Die role') aspectId) world <&> (, All)
+        commit world & updateScene (return . removeDie (Die role') aspectId) <&> (, All)
     RollStat statId messageId ->
-        rollStat role' statId messageId world <&> (, All)
+        world & rollStat role' statId messageId <&> (, All)
     RollAspect aspectId messageId ->
-        rollAspect (Die role') aspectId messageId world <&> (, All)
+        commit world & rollAspect (Die role') aspectId messageId <&> (, All)
     Undo ->
         return (undo world, All)
     Redo ->
