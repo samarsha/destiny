@@ -15,6 +15,7 @@ import Flip exposing (flip)
 import Html exposing (Html, div, input, label, text)
 import Html.Attributes exposing (class, checked, id, type_)
 import Html.Events exposing (onClick)
+import Html.Keyed
 import Json.Decode
 import List.Extra
 import Maybe.Extra
@@ -120,25 +121,21 @@ view model =
           []
       , text "DM"
       ]
-  in
-    ( Scene.viewRollBar model.scene
-      |> Maybe.map (Html.map SceneEvent)
-      |> Maybe.Extra.toList
-    )
-    ++
-    div [ class "main" ]
+    mainDiv = div [ class "main" ]
       [ div [ class "board" ]
           [ dmCheckbox
           , Scene.viewBoard model.scene |> Html.map SceneEvent
           ]
-      , div [ id "messages", class "messages" ] <| joinedMap Message.view messageMap messageIds
+      , div [ id "messages", class "messages" ]
+        <| joinedMap Message.view messageMap messageIds
       ]
-    ::
-    ( Scene.viewDrag model.scene 
-      |> Maybe.map (Html.map SceneEvent)
-      |> Maybe.Extra.toList
-    )
-    |> div [ class "app" ]
+  in Html.Keyed.node "div" [ class "app" ] <| Maybe.Extra.values
+    [ Scene.viewRollBar model.scene
+      |> Maybe.map (\rollBar -> ("roll-bar", Html.map SceneEvent rollBar))
+    , Just ("main", mainDiv)
+    , Scene.viewDrag model.scene 
+      |> Maybe.map (\dragging -> ("drag", Html.map SceneEvent dragging))
+    ]
 
 flipRole : Role -> Role
 flipRole role = case role of
