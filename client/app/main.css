@@ -110,6 +110,7 @@ textarea {
 
 .stat-group-controls,
 .stat {
+    align-items: center;
     display: flex;
 }
 
