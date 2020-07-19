@@ -91,7 +91,7 @@ snapshot world = Snapshot
     }
 
 update :: RandomGen r => Role -> Command -> World -> Rand r (World, Reply)
-update role command world = case command of
+update role' command world = case command of
     AddEntity ->
         updateScene addEntity world <&> (, All)
     ToggleEntity entityId ->
@@ -125,13 +125,13 @@ update role command world = case command of
     RemoveAspect aspectId ->
         updateScene (return . removeAspect aspectId) world <&> (, All)
     AddDie aspectId ->
-        updateScene (return . addDie (Die role) aspectId) world <&> (, All)
+        updateScene (return . addDie (Die role') aspectId) world <&> (, All)
     RemoveDie aspectId ->
-        updateScene (return . removeDie (Die role) aspectId) world <&> (, All)
+        updateScene (return . removeDie (Die role') aspectId) world <&> (, All)
     RollStat statId messageId ->
-        rollStat role statId messageId world <&> (, All)
+        rollStat role' statId messageId world <&> (, All)
     RollAspect aspectId messageId ->
-        rollAspect (Die role) aspectId messageId world <&> (, All)
+        rollAspect (Die role') aspectId messageId world <&> (, All)
     Undo ->
         return (undo world, All)
     Redo ->
@@ -152,16 +152,16 @@ commit :: World -> World
 commit = over #timeline Timeline.commit
 
 rollStat :: RandomGen r => Role -> StatId -> MessageId -> World -> Rand r World
-rollStat role statId messageId world = case Map.lookup statId stats' of
+rollStat role' statId messageId world = case Map.lookup statId stats' of
     Just stat -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
-        result <- getRandomR (1, 6)
+        result' <- getRandomR (1, 6)
         let roll = Roll
                 { id = messageId
-                , role = role
+                , role = role'
                 , statName = stat ^. #name
-                , statResult = result
+                , statResult = result'
                 , statModifier = stat ^. #score
                 , invokes = []
                 }
