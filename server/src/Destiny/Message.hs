@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -16,6 +17,7 @@ import Control.Monad.Random
 import Data.Aeson.Types hiding (defaultOptions)
 import Data.Map.Lazy (Map)
 import Data.UUID
+import Destiny.Scene
 import Elm.Derive
 import GHC.Generics
 
@@ -25,11 +27,16 @@ newtype MessageId = MessageId UUID
     deriving (Eq, Ord, Random, FromJSONKey, ToJSONKey)
 deriveBoth defaultOptions ''MessageId
 
-data Invoke = Invoke String Int
+data Invoke = Invoke
+    { source :: String
+    , role :: Role
+    , result :: Int
+    }
 deriveBoth defaultOptions ''Invoke
 
 data Roll = Roll
     { id :: MessageId
+    , role :: Role
     , statName :: String
     , statResult :: Int
     , statModifier :: Int

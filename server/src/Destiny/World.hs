@@ -129,7 +129,7 @@ update role command world = case command of
     RemoveDie aspectId ->
         updateScene (return . removeDie (Die role) aspectId) world <&> (, All)
     RollStat statId messageId ->
-        rollStat statId messageId world <&> (, All)
+        rollStat role statId messageId world <&> (, All)
     RollAspect aspectId messageId ->
         rollAspect (Die role) aspectId messageId world <&> (, All)
     Undo ->
@@ -151,14 +151,15 @@ redo = over #timeline Timeline.redo
 commit :: World -> World
 commit = over #timeline Timeline.commit
 
-rollStat :: RandomGen r => StatId -> MessageId -> World -> Rand r World
-rollStat statId messageId world = case Map.lookup statId stats' of
+rollStat :: RandomGen r => Role -> StatId -> MessageId -> World -> Rand r World
+rollStat role statId messageId world = case Map.lookup statId stats' of
     Just stat -> do
         -- TODO: Generate roll ID on the server and send it to just the client that initiated the
         -- roll.
         result <- getRandomR (1, 6)
         let roll = Roll
                 { id = messageId
+                , role = role
                 , statName = stat ^. #name
                 , statResult = result
                 , statModifier = stat ^. #score
@@ -172,10 +173,10 @@ rollStat statId messageId world = case Map.lookup statId stats' of
     stats' = Timeline.present (world ^. #timeline) ^. #stats
 
 rollAspect :: RandomGen r => Die -> AspectId -> MessageId -> World -> Rand r World
-rollAspect die aspectId messageId world = case Map.lookup aspectId aspects' of
+rollAspect die@(Die role') aspectId messageId world = case Map.lookup aspectId aspects' of
     Just aspect | MultiSet.member die $ aspect ^. #dice -> do
-        result <- getRandomR (1, 6)
-        let invoke = Invoke (aspect ^. #text) result
+        result' <- getRandomR (1, 6)
+        let invoke = Invoke { source = aspect ^. #text, role = role', result = result' }
         return $ world
             & over #timeline (Timeline.modify $ removeDie die aspectId)
             & over #messages (\(MessageList ids msgs) -> MessageList
