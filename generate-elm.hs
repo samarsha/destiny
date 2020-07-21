@@ -88,7 +88,7 @@ makeModule :: Module -> String
 makeModule mod = standardHeader ++ extraImports ++ uuidDict ++ content
   where
     standardHeader = unlines
-        [ moduleHeader Elm0p18 $ fullName $ name mod
+        [ moduleHeader Elm0p19 $ fullName $ name mod
         , ""
         , "import Destiny.AnyBag as AnyBag exposing (AnyBag)"
         , "import Destiny.Utils exposing (decodeAnyDict)"

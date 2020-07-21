@@ -5,6 +5,13 @@
 
 packages:
 - completed:
+    hackage: elm-bridge-0.6.1@sha256:108b3306bc18eac2e82d092606665cb78f2195ccccecf7c8de5b44127329219f,2458
+    pantry-tree:
+      size: 1146
+      sha256: 71b66853959e3e1ec20df764cc8ba5c1022154ea2e09779ce31f564a17a95486
+  original:
+    hackage: elm-bridge-0.6.1@sha256:108b3306bc18eac2e82d092606665cb78f2195ccccecf7c8de5b44127329219f,2458
+- completed:
     hackage: o-clock-1.1.0@sha256:941ac2bc1732e6622b165831c4badb1a8e846f451620bd028064339f5b284224,5043
     pantry-tree:
       size: 1043
