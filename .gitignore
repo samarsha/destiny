@@ -1,0 +1,10 @@
+*.user
+.fable/
+.fake/
+.idea/
+.vs/
+bin/
+deploy/
+node_modules/
+obj/
+paket-files/

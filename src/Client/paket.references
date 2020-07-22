@@ -1,0 +1,10 @@
+group Client
+    Elmish.Bridge.Client
+    FSharp.Core
+    Fable.Core
+    Fable.Elmish.Debugger
+    Fable.Elmish.HMR
+    Fable.Elmish.React
+    Fable.FontAwesome.Free
+    Fulma
+    Thoth.Fetch
