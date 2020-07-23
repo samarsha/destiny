@@ -25,26 +25,24 @@ module internal MVar =
         | Take channel -> Some channel
 
     let private body initial (inbox : _ MailboxProcessor) =
-        let rec update = function
+        let rec receive = function
             | Some value -> async {
                 let! channel = inbox.Scan (toTake >> Option.map async.Return)
                 channel.Reply value
-                return! update None }
+                return! receive None }
             | None -> async {
                 let! value = inbox.Scan (toPut >> Option.map async.Return)
-                return! update <| Some value }
-        update initial
+                return! receive <| Some value }
+        receive initial
 
     let createEmpty () = MVar <| MailboxProcessor.Start (body None)
 
     let create initial = MVar <| MailboxProcessor.Start (body <| Some initial)
 
-    let updateReturn (MVar mailbox) f =
+    let update (MVar mailbox) mapper =
         let value = mailbox.PostAndReply Take
-        let value', ret = f value
+        let value' = mapper value
         mailbox.Post <| Put value'
-        ret
+        value'
 
-    let update var f = updateReturn var <| fun value -> f value, ()
-
-    let read var = updateReturn var <| fun value -> value, value
+    let read var = update var id

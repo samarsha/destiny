@@ -17,9 +17,10 @@ let private init send () =
 
 let private update _ message _ =
     match message with
-    | SetScene scene -> MVar.update sceneVar (fun _ -> scene)
+    | SetScene scene -> MVar.update sceneVar <| fun _ -> scene
     | AddEntity -> MVar.update sceneVar (Scene.addEntity <| Scene.randomId ())
-    hub.BroadcastClient (SetScene <| MVar.read sceneVar)
+    |> SetScene
+    |> hub.BroadcastClient
     (), Cmd.none
 
 let private app =
