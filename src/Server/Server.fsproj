@@ -6,7 +6,8 @@
   <Import Project="..\..\.paket\Paket.Restore.targets" />
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="..\Shared\**\*.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Scene.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Message.fs" LinkBase="Shared Items" />
     <Compile Include="MVar.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
