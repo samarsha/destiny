@@ -1,4 +1,4 @@
-namespace Destiny.Shared.Scene
+namespace Destiny.Shared.Board
 
 open System
 
@@ -32,29 +32,29 @@ type Entity =
       Aspects : Aspect Id list
       Collapsed : bool }
 
-type Scene =
+type Board =
     { Entities : Map<Entity Id, Entity>
       StatGroups : Map<StatGroup Id, Stat>
       Stats : Map<Stat Id, Stat>
       Aspects : Map<Aspect Id, Aspect>
-      View : Entity Id list }
+      Sequence : Entity Id list }
 
-module internal Scene =
+module internal Board =
     let empty =
         { Entities = Map.empty
           Aspects = Map.empty
           Stats = Map.empty
           StatGroups = Map.empty
-          View = [] }
+          Sequence = [] }
 
     let randomId () = Id <| Guid.NewGuid ()
 
-    let addEntity id scene =
+    let addEntity id board =
         let entity =
             { Id = id
               Name = ""
               StatGroups = []
               Aspects = []
               Collapsed = false }
-        { scene with Entities = Map.add id entity scene.Entities
-                     View = scene.View @ [ id ] }
+        { board with Entities = Map.add id entity board.Entities
+                     Sequence = board.Sequence @ [ id ] }

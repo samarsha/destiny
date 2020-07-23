@@ -1,25 +1,25 @@
 open Destiny.Server
 open Destiny.Shared
-open Destiny.Shared.Scene
+open Destiny.Shared.Board
 open Elmish
 open Elmish.Bridge
 open Saturn
 open System.IO
 open Thoth.Json.Giraffe
 
-let private sceneVar = MVar.create Scene.empty
+let private boardVar = MVar.create Board.empty
 
 let private hub = ServerHub ()
 
 let private init send () =
-    send (SetScene <| MVar.read sceneVar)
+    send (SetBoard <| MVar.read boardVar)
     (), Cmd.none
 
 let private update _ message _ =
     match message with
-    | SetScene scene -> MVar.update sceneVar <| fun _ -> scene
-    | AddEntity -> MVar.update sceneVar (Scene.addEntity <| Scene.randomId ())
-    |> SetScene
+    | SetBoard board -> MVar.update boardVar <| fun _ -> board
+    | AddEntity -> MVar.update boardVar (Board.addEntity <| Board.randomId ())
+    |> SetBoard
     |> hub.BroadcastClient
     (), Cmd.none
 

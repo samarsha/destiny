@@ -1,9 +1,9 @@
 namespace Destiny.Shared
 
-open Destiny.Shared.Scene
+open Destiny.Shared.Board
 
 type Message =
-    | SetScene of Scene
+    | SetBoard of Board
     | AddEntity
 
 module internal Message =

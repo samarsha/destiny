@@ -1,7 +1,7 @@
 module private Destiny.Client
 
 open Destiny.Shared
-open Destiny.Shared.Scene
+open Destiny.Shared.Board
 open Elmish
 open Elmish.Bridge
 open Elmish.React
@@ -13,11 +13,11 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
-let private init () = Scene.empty, Cmd.none
+let private init () = Board.empty, Cmd.none
 
 let private update message model =
     match message with
-    | SetScene scene -> scene, Cmd.none
+    | SetBoard board -> board, Cmd.none
     | AddEntity -> model, Cmd.bridgeSend AddEntity
 
 let private show = sprintf "%A"
