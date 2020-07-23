@@ -1,4 +1,4 @@
-open Destiny.Server.MVar
+open Destiny.Server
 open Destiny.Shared
 open Destiny.Shared.Scene
 open Elmish

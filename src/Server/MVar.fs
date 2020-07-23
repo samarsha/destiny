@@ -1,10 +1,19 @@
-﻿namespace Destiny.Server.MVar
+﻿namespace Destiny.Server
+
+open System
 
 type private 'a Message =
     | Put of 'a
     | Take of 'a AsyncReplyChannel
 
-type internal 'a MVar = private MVar of 'a Message MailboxProcessor
+type internal 'a MVar =
+    private
+    | MVar of 'a Message MailboxProcessor
+
+    interface IDisposable with
+        member this.Dispose () =
+            match this with
+            | MVar mailbox -> (mailbox :> IDisposable).Dispose ()
 
 module internal MVar =
     let private toPut = function
