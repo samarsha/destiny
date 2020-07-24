@@ -9,6 +9,7 @@
     <None Include="index.html" />
     <None Include="style.scss" />
     <Compile Include="..\Shared\Bag.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Message.fs" LinkBase="Shared Items" />
     <Compile Include="Client.fs" />

@@ -7,6 +7,7 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="..\Shared\Bag.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Message.fs" LinkBase="Shared Items" />
     <Compile Include="MVar.fs" />

@@ -8,10 +8,11 @@ module internal Bag =
     let empty = Bag (Map.empty)
 
     let add value (Bag bag) =
-        Map.tryFind value bag
-        |> Option.map ((+) 1)
-        |> Option.defaultValue 0
-        |> Map.add value
+        let count =
+            Map.tryFind value bag
+            |> Option.map ((+) 1)
+            |> Option.defaultValue 0
+        Bag <| Map.add value count bag
 
     let remove value (Bag bag) =
         match Map.tryFind value bag with
