@@ -1,5 +1,6 @@
 namespace Destiny.Shared.Board
 
+open Destiny.Shared.Bag
 open System
 
 type 'a Id = private Id of Guid
@@ -23,7 +24,7 @@ type Die = Die of Role
 type Aspect =
     { Id : Aspect Id
       Description : string
-      Dice : Die list }
+      Dice : Die Bag }
 
 type Entity =
     { Id : Entity Id
