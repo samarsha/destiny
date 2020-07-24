@@ -1,9 +1,8 @@
 namespace Destiny.Shared.Board
 
+open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Collections
-open FSharpPlus.Lens
-open FSharpPlus.Operators
 open System
 
 type 'a Id = private Id of Guid
@@ -14,8 +13,9 @@ type Stat =
       Score : int }
 
 module private Stat =
-    let inline _name f stat = f stat.Name <&> fun n -> { stat with Name = n }
-    let inline _score f stat = f stat.Score <&> fun s -> { stat with Score = s }
+    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let score = { Get = (fun s -> s.Score); Set = fun v s -> { s with Score = v } }
 
 type StatGroup =
     { Id : StatGroup Id
@@ -23,8 +23,9 @@ type StatGroup =
       Stats : Stat Id list }
 
 module private StatGroup =
-    let inline _name f group = f group.Name <&> fun n -> { group with Name = n }
-    let inline _stats f group = f group.Stats <&> fun s -> { group with Stats = s }
+    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
 
 type Role =
     | Player
@@ -38,8 +39,9 @@ type Aspect =
       Dice : Die Bag }
 
 module private Aspect =
-    let inline _description f aspect = f aspect.Description <&> fun d -> { aspect with Description = d }
-    let inline _dice f aspect = f aspect.Dice <&> fun d -> { aspect with Dice = d }
+    let description = { Get = (fun s -> s.Description); Set = fun v s -> { s with Description = v } }
+
+    let dice = { Get = (fun s -> s.Dice); Set = fun v s -> { s with Dice = v } }
 
 type Entity =
     { Id : Entity Id
@@ -49,10 +51,13 @@ type Entity =
       Collapsed : bool }
 
 module private Entity =
-    let inline _name f entity = f entity.Name <&> fun n -> { entity with Name = n }
-    let inline _statGroups f entity = f entity.StatGroups <&> fun s -> { entity with StatGroups = s }
-    let inline _aspects f entity = f entity.Aspects <&> fun a -> { entity with Aspects = a }
-    let inline _collapsed f entity = f entity.Collapsed <&> fun c -> { entity with Collapsed = c }
+    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+
+    let aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
+
+    let collapsed = { Get = (fun s -> s.Collapsed); Set = fun v s -> { s with Collapsed = v } }
 
 type Board =
     { Entities : Map<Entity Id, Entity>
@@ -62,11 +67,17 @@ type Board =
       Sequence : Entity Id list }
 
 module internal Board =
-    let inline private _entities f board = f board.Entities <&> fun e -> { board with Entities = e }
-    let inline private _statGroups f board = f board.StatGroups <&> fun g -> { board with StatGroups = g }
-    let inline private _stats f board = f board.Stats <&> fun s -> { board with Stats = s }
-    let inline private _aspects f board = f board.Aspects <&> fun a -> { board with Aspects = a }
-    let inline private _sequence f board = f board.Sequence <&> fun s -> { board with Sequence = s }
+    let private entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
+
+    let private statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+
+    let private stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
+
+    let private aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
+
+    let private sequence = { Get = (fun s -> s.Sequence); Set = fun v s -> { s with Sequence = v } }
+
+    let private flip f x y = f y x
 
     let empty =
         { Entities = Map.empty
@@ -84,16 +95,16 @@ module internal Board =
             { Id = statId
               Name = ""
               Score = 0 }
-        over _statGroups (Map.change (List.add statId |> over StatGroup._stats) groupId) >>
-        over _stats (Map.add statId stat)
+        Lens.update statGroups (Map.change (List.add statId |> Lens.update StatGroup.stats) groupId) >>
+        Lens.update stats (Map.add statId stat)
 
-    let setStatName name = Map.change (Stat._name .-> name) >> over _stats
+    let setStatName name = Map.change (Stat.name.Set name) >> Lens.update stats
 
-    let setStatScore score = Map.change (Stat._score .-> score) >> over _stats
+    let setStatScore score = Map.change (Stat.score.Set score) >> Lens.update stats
 
     let removeStat id =
-        over _statGroups (Map.map <| fun _ -> over StatGroup._stats (List.remove id)) >>
-        over _stats (Map.remove id)
+        Lens.update statGroups (Map.map <| fun _ -> Lens.update StatGroup.stats (List.remove id)) >>
+        Lens.update stats (Map.remove id)
 
     // Stat Groups
 
@@ -102,18 +113,19 @@ module internal Board =
             { Id = groupId
               Name = ""
               Stats = [] }
-        over _entities (Map.change (List.add groupId |> over Entity._statGroups) entityId) >>
-        over _statGroups (Map.add groupId group)
+        Lens.update entities (Map.change (List.add groupId |> Lens.update Entity.statGroups) entityId) >>
+        Lens.update statGroups (Map.add groupId group)
 
-    let setStatGroupName name = Map.change (StatGroup._name .-> name) >> over _statGroups
+    let setStatGroupName name = Map.change (StatGroup.name.Set name) >> Lens.update statGroups
 
     let removeStatGroup id board =
-        let group = Map.tryFind id board.StatGroups
-        let stats = group |> Option.map (view StatGroup._stats) |> Option.defaultValue []
-        board
-        |> over _entities (Map.map <| fun _ -> List.remove id |> over Entity._statGroups)
-        |> over _statGroups (Map.remove id)
-        |> flip (List.fold <| flip removeStat) stats
+        match Map.tryFind id board.StatGroups with
+        | Some group ->
+            board
+            |> Lens.update entities (Map.map <| fun _ -> List.remove id |> Lens.update Entity.statGroups)
+            |> Lens.update statGroups (Map.remove id)
+            |> flip (List.fold <| flip removeStat) group.Stats
+        | None -> board
 
     // Aspects
 
@@ -122,23 +134,23 @@ module internal Board =
             { Id = aspectId
               Description = ""
               Dice = Bag.empty }
-        over _entities (Map.change (List.add aspectId |> over Entity._aspects) entityId) >>
-        over _aspects (Map.add aspectId aspect)
+        Lens.update entities (Map.change (List.add aspectId |> Lens.update Entity.aspects) entityId) >>
+        Lens.update aspects (Map.add aspectId aspect)
 
-    let setAspectDescription description = Map.change (Aspect._description .-> description) >> over _aspects
+    let setAspectDescription description = Map.change (Aspect.description.Set description) >> Lens.update aspects
 
-    let addDie die = Map.change (Bag.add die |> over Aspect._dice) >> over _aspects
+    let addDie die = Map.change (Bag.add die |> Lens.update Aspect.dice) >> Lens.update aspects
 
-    let removeDie die = Map.change (Bag.remove die |> over Aspect._dice) >> over _aspects
+    let removeDie die = Map.change (Bag.remove die |> Lens.update Aspect.dice) >> Lens.update aspects
 
     let moveAspect aspectId entityId index =
-        Map.map (fun _ -> List.remove aspectId |> over Entity._aspects)
-        >> Map.change (List.insertAt index aspectId |> over Entity._aspects) entityId
-        |> over _entities
+        Map.map (fun _ -> List.remove aspectId |> Lens.update Entity.aspects)
+        >> Map.change (List.insertAt index aspectId |> Lens.update Entity.aspects) entityId
+        |> Lens.update entities
 
     let removeAspect id =
-        over _entities (Map.map <| fun _ -> List.remove id |> over Entity._aspects) >>
-        over _aspects (Map.remove id)
+        Lens.update entities (Map.map <| fun _ -> List.remove id |> Lens.update Entity.aspects) >>
+        Lens.update aspects (Map.remove id)
 
     // Entities
 
@@ -149,21 +161,21 @@ module internal Board =
               StatGroups = []
               Aspects = []
               Collapsed = false }
-        over _entities (Map.add id entity) >>
-        over _sequence (fun sequence -> sequence @ [ id ])
+        Lens.update entities (Map.add id entity) >>
+        Lens.update sequence (fun sequence -> sequence @ [ id ])
 
-    let setEntityName name = Map.change (Entity._name .-> name) >> over _entities
+    let setEntityName name = Map.change (Entity.name.Set name) >> Lens.update entities
 
-    let collapseEntity = Map.change (over Entity._collapsed not) >> over _entities
+    let collapseEntity = Map.change (Lens.update Entity.collapsed not) >> Lens.update entities
 
-    let moveEntity index id = List.remove id >> List.insertAt index id |> over _sequence
+    let moveEntity index id = List.remove id >> List.insertAt index id |> Lens.update sequence
 
     let removeEntity id board =
         match Map.tryFind id board.Entities with
         | Some entity ->
             board
-            |> over _sequence (List.remove id)
-            |> over _entities (Map.remove id)
+            |> Lens.update sequence (List.remove id)
+            |> Lens.update entities (Map.remove id)
             |> flip (List.fold <| flip removeStatGroup) entity.StatGroups
             |> flip (List.fold <| flip removeAspect) entity.Aspects
         | None -> board

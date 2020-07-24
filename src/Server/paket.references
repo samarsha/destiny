@@ -1,6 +1,5 @@
 group Server
     Elmish.Bridge.Giraffe
     FSharp.Core
-    FSharpPlus
     Saturn
     Thoth.Json.Giraffe

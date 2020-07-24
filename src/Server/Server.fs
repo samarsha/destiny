@@ -7,21 +7,22 @@ open Saturn
 open System.IO
 open Thoth.Json.Giraffe
 
+type private Client = { Role : Role }
+
 let private boardVar = MVar.create Board.empty
 
 let private hub = ServerHub ()
 
 let private init send () =
     send (SetBoard <| MVar.read boardVar)
-    (), Cmd.none
+    { Role = Player }, Cmd.none
 
-let private update _ message _ =
-    match message with
-    | SetBoard board -> MVar.update boardVar <| fun _ -> board
-    | AddEntity -> MVar.update boardVar (Board.addEntity <| Board.randomId ())
+let private update _ message client =
+    Message.update client.Role message
+    |> MVar.update boardVar
     |> SetBoard
     |> hub.BroadcastClient
-    (), Cmd.none
+    client, Cmd.none
 
 let private app =
     Bridge.mkServer Message.socket init update

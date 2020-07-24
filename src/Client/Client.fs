@@ -18,7 +18,7 @@ let private init () = Board.empty, Cmd.none
 let private update message model =
     match message with
     | SetBoard board -> board, Cmd.none
-    | AddEntity -> model, Cmd.bridgeSend AddEntity
+    | _ -> model, Cmd.bridgeSend message
 
 let private show = sprintf "%A"
 
@@ -35,7 +35,7 @@ let private view model send =
               [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h3 [] [ str <| show model ] ]
                 Columns.columns []
-                    [ Column.column [] [ button "+" <| fun _ -> send AddEntity ] ] ] ]
+                    [ Column.column [] [ button "+" <| fun _ -> send <| AddEntity (Board.randomId ()) ] ] ] ]
 
 Program.mkProgram init update view
 #if DEBUG

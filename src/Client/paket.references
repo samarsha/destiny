@@ -1,7 +1,6 @@
 group Client
     Elmish.Bridge.Client
     FSharp.Core
-    FSharpPlus
     Fable.Core
     Fable.Elmish.Debugger
     Fable.Elmish.HMR

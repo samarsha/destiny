@@ -7,7 +7,6 @@ group Server
 
     nuget Elmish.Bridge.Giraffe
     nuget FSharp.Core
-    nuget FSharpPlus
     nuget Saturn
     nuget Thoth.Json.Giraffe
 
@@ -17,7 +16,6 @@ group Client
     storage: none
 
     nuget Elmish.Bridge.Client
-    nuget FSharpPlus
     nuget Fable.Core
     nuget Fable.Elmish
     nuget Fable.Elmish.Debugger
