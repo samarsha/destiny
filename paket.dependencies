@@ -16,6 +16,7 @@ group Client
     storage: none
 
     nuget Elmish.Bridge.Client
+    nuget FSharp.Core
     nuget Fable.Core
     nuget Fable.Elmish
     nuget Fable.Elmish.Debugger
