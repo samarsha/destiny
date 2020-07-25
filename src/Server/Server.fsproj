@@ -5,14 +5,9 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>Destiny.Server</RootNamespace>
   </PropertyGroup>
+  <Import Project="..\Shared\Shared.props" />
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="..\Shared\Bag.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Lens.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\World.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Command.fs" LinkBase="Shared Items" />
     <Compile Include="MVar.fs" />
     <Compile Include="World.fs" />
     <Compile Include="Server.fs" />
