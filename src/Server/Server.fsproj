@@ -10,7 +10,7 @@
     <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Lens.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Message.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Command.fs" LinkBase="Shared Items" />
     <Compile Include="MVar.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

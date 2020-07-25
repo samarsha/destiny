@@ -1,47 +1,58 @@
-module private Destiny.Client
+module private Destiny.Client.Main
 
+open Destiny.Client
 open Destiny.Shared
 open Destiny.Shared.Board
 open Elmish
 open Elmish.Bridge
-open Elmish.React
-open Fable.React
-open Fulma
 
 #if DEBUG
 open Elmish.Debug
 open Elmish.HMR
 #endif
 
-let private init () = Board.empty, Cmd.none
+type private Model =
+    { Board : Board
+      Role : Role
+      BoardView : BoardView.Model }
+
+type private Message =
+    | Server of Command
+    | Client of BoardView.Message
+
+let private empty =
+    let board = Board.empty
+    let role = Player
+    { Board = board
+      Role = role
+      BoardView = BoardView.empty board role }
+
+let private init () = empty, Cmd.none
+
+let private applyCommand command model =
+    let board' = Command.update model.Role command model.Board
+    { model with Board = board'
+                 BoardView = BoardView.setBoard board' model.BoardView }
 
 let private update message model =
     match message with
-    | SetBoard board -> board, Cmd.none
-    | _ -> model, Cmd.bridgeSend message
+    | Client (BoardView.Command command) -> applyCommand command model, Cmd.bridgeSend command
+    | Client (BoardView.Event event) ->
+        let model' = { model with BoardView = BoardView.update event model.BoardView }
+        model', Cmd.none
+    | Server command -> applyCommand command model, Cmd.none
 
-let private show = sprintf "%A"
+let private view model dispatch = BoardView.view model.BoardView (Client >> dispatch)
 
-let private button text onClick =
-    Button.button
-        [ Button.IsFullWidth
-          Button.Color IsPrimary
-          Button.OnClick onClick ]
-        [ str text ]
-
-let private view model send =
-    div []
-        [ Container.container []
-              [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h3 [] [ str <| show model ] ]
-                Columns.columns []
-                    [ Column.column [] [ button "+" <| fun _ -> send <| AddEntity (Board.randomId ()) ] ] ] ]
+let private bridgeConfig =
+    Bridge.endpoint Command.socket
+    |> Bridge.withMapping Server
 
 Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
-|> Program.withBridge Message.socket
+|> Program.withBridgeConfig bridgeConfig
 |> Program.withReactBatched "elmish-app"
 #if DEBUG
 |> Program.withDebugger

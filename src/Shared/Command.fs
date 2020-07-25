@@ -2,7 +2,7 @@ namespace Destiny.Shared
 
 open Destiny.Shared.Board
 
-type Message =
+type Command =
     | SetBoard of Board
     | AddEntity of Entity Id
     | CollapseEntity of Entity Id
@@ -23,7 +23,7 @@ type Message =
     | AddDie of Aspect Id
     | RemoveDie of Aspect Id
 
-module internal Message =
+module internal Command =
     let socket = "/socket"
 
     let update role = function

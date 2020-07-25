@@ -13,19 +13,19 @@ let private boardVar = MVar.create Board.empty
 
 let private hub = ServerHub ()
 
-let private init send () =
-    send (SetBoard <| MVar.read boardVar)
+let private init dispatch () =
+    dispatch (SetBoard <| MVar.read boardVar)
     { Role = Player }, Cmd.none
 
 let private update _ message client =
-    Message.update client.Role message
+    Command.update client.Role message
     |> MVar.update boardVar
     |> SetBoard
     |> hub.BroadcastClient
     client, Cmd.none
 
 let private app =
-    Bridge.mkServer Message.socket init update
+    Bridge.mkServer Command.socket init update
     |> Bridge.withServerHub hub
     |> Bridge.run Giraffe.server
 
