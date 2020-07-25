@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <DefineConstants>FABLE_COMPILER</DefineConstants>
+    <RootNamespace>Destiny.Client</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
