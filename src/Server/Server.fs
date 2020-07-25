@@ -1,6 +1,8 @@
+open System
 open Destiny.Server
-open Destiny.Shared
 open Destiny.Shared.Board
+open Destiny.Shared.Command
+open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Saturn
@@ -9,18 +11,21 @@ open Thoth.Json.Giraffe
 
 type private Client = { Role : Role }
 
-let private boardVar = MVar.create Board.empty
+let private worldVar = MVar.create World.empty
 
 let private hub = ServerHub ()
 
+let private random = Random ()
+
 let private init dispatch () =
-    dispatch (SetBoard <| MVar.read boardVar)
+    dispatch (SetWorld <| MVar.read worldVar)
     { Role = Player }, Cmd.none
 
 let private update _ message client =
-    Command.update client.Role message
-    |> MVar.update boardVar
-    |> SetBoard
+    World.update random client.Role message
+    |> MVar.update worldVar
+    |> SetWorld
+    // TODO: If the command was a board command, broadcast to every other client but not the original client.
     |> hub.BroadcastClient
     client, Cmd.none
 
@@ -34,7 +39,7 @@ run <| application {
     app_config Giraffe.useWebSockets
     use_router app
     use_static (Path.GetFullPath "../Client/assets")
-    use_json_serializer (ThothSerializer())
+    use_json_serializer (ThothSerializer ())
     use_gzip
     memory_cache
 }

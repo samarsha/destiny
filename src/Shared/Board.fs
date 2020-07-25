@@ -88,6 +88,8 @@ module internal Board =
 
     let randomId () = Id <| Guid.NewGuid ()
 
+    // TODO: In add functions, verify that the ID doesn't already exist.
+
     // Stats
 
     let addStat statId groupId =

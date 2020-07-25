@@ -1,11 +1,14 @@
-module private Destiny.Client.Main
+module private Destiny.Client.Program
 
 open Destiny.Client
-open Destiny.Shared
+open Destiny.Shared.Command
 open Destiny.Shared.Board
+open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Elmish.React
+open Fable.React
+open Fable.React.Props
 
 #if DEBUG
 open Elmish.Debug
@@ -13,48 +16,89 @@ open Elmish.HMR
 #endif
 
 type private Model =
-    { Board : Board
+    { World : World
       Role : Role
       BoardView : BoardView.Model }
 
 type private Message =
-    | Server of Command
-    | Client of BoardView.Message
+    | Command of ClientCommand
+    | BoardView of BoardView.Message
+
+// Model
 
 let private empty =
-    let board = Board.empty
+    let world = World.empty
     let role = Player
-    { Board = board
+    { World = world
       Role = role
-      BoardView = BoardView.empty board role }
+      BoardView = BoardView.empty world.Board role }
 
 let private init () = empty, Cmd.none
 
-let private applyCommand command model =
-    let board' = Command.update model.Role command model.Board
-    { model with Board = board'
-                 BoardView = BoardView.setBoard board' model.BoardView }
+// View
+
+let private flipRole = function
+    | Player -> DM
+    | DM -> Player
+
+let private view model dispatch =
+    let dmCheckbox =
+        label []
+            [ input
+                  [ Type "checkbox"
+                    Checked (model.Role = DM)
+                    OnChange <| fun _ -> () (* TODO: flipRole model.Role |> SetRole |> dispatch *) ]
+              str "DM" ]
+    let main =
+        div [ Class "main" ]
+            [ div [ Class "board" ]
+                  [ dmCheckbox
+                    BoardView.viewBoard model.BoardView (BoardView >> dispatch) ]
+              div [ Class "messages" ] [ RollView.view model.World.Rolls ] ]
+    div [ Class "app" ]
+        [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
+          main ]
+
+// Update
+
+let private applyBoardCommand command model =
+    let world' = { model.World with Board = BoardCommand.update model.Role command model.World.Board }
+    { model with
+          World = world'
+          BoardView = BoardView.setBoard world'.Board model.BoardView }
+
+let private applyClientCommand command model =
+    match command with
+    | UpdateClientBoard command' -> applyBoardCommand command' model
+    | SetWorld world ->
+        { model with
+              World = world
+              BoardView = BoardView.setBoard world.Board model.BoardView }
 
 let private update message model =
     match message with
-    | Client (BoardView.Command command) -> applyCommand command model, Cmd.bridgeSend command
-    | Client (BoardView.Event event) ->
-        let model' = { model with BoardView = BoardView.update event model.BoardView }
+    | BoardView (BoardView.Command command) ->
+        let model' =
+            // Apply all server board commands locally before sending them.
+            match command with
+            | UpdateServerBoard command' -> applyBoardCommand command' model
+            | _ -> model
+        model', Cmd.bridgeSend command
+    | BoardView (BoardView.Private message') ->
+        let model' = { model with BoardView = BoardView.update message' model.BoardView }
         model', Cmd.none
-    | Server command -> applyCommand command model, Cmd.none
-
-let private view model dispatch = BoardView.view model.BoardView (Client >> dispatch)
+    | Command command -> applyClientCommand command model, Cmd.none
 
 let private bridgeConfig =
     Bridge.endpoint Command.socket
-    |> Bridge.withMapping Server
+    |> Bridge.withMapping Command
 
 Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
 |> Program.withBridgeConfig bridgeConfig
-|> Program.withReactBatched "elmish-app"
+|> Program.withReactBatched "app"
 #if DEBUG
 |> Program.withDebugger
 #endif

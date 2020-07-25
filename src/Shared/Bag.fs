@@ -20,7 +20,7 @@ module internal Bag =
         | Some _ -> Bag <| Map.remove value bag
         | None -> Bag bag
 
-    let count key (Bag bag) = Map.tryFind key bag |> Option.defaultValue 0
+    let contains value (Bag bag) = Map.containsKey value bag
 
     let toSeq (Bag bag) =
         Map.toSeq bag

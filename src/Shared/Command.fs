@@ -1,9 +1,9 @@
-namespace Destiny.Shared
+namespace Destiny.Shared.Command
 
 open Destiny.Shared.Board
+open Destiny.Shared.World
 
-type Command =
-    | SetBoard of Board
+type BoardCommand =
     | AddEntity of Entity Id
     | CollapseEntity of Entity Id
     | SetEntityName of Entity Id * string
@@ -23,11 +23,8 @@ type Command =
     | AddDie of Aspect Id
     | RemoveDie of Aspect Id
 
-module internal Command =
-    let socket = "/socket"
-
+module internal BoardCommand =
     let update role = function
-        | SetBoard board -> fun _ -> board
         | AddEntity id -> Board.addEntity id
         | CollapseEntity id -> Board.collapseEntity id
         | SetEntityName (id, name) -> Board.setEntityName name id
@@ -46,3 +43,15 @@ module internal Command =
         | RemoveAspect id -> Board.removeAspect id
         | AddDie id -> Board.addDie (Die role) id
         | RemoveDie id -> Board.removeDie (Die role) id
+
+type ClientCommand =
+    | UpdateClientBoard of BoardCommand
+    | SetWorld of World
+
+type ServerCommand =
+    | UpdateServerBoard of BoardCommand
+    | RollStat of Stat Id * Roll Id
+    | RollAspect of Aspect Id * Roll Id
+
+module internal Command =
+    let socket = "/socket"

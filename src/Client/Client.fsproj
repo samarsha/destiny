@@ -12,8 +12,11 @@
     <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Lens.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\World.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Command.fs" LinkBase="Shared Items" />
+    <Compile Include="Collections.fs" />
     <Compile Include="BoardView.fs" />
+    <Compile Include="RollView.fs" />
     <Compile Include="Client.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
