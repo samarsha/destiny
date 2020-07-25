@@ -161,7 +161,7 @@ let view model send =
               [ OnClick <| fun _ -> Board.randomId () |> AddEntity |> Command |> send ]
               [ str "+" ]
           div [ Class "entities" ] <|
-              joinMap (viewEntity model send) model.Board.Entities model.Board.Sequence ]
+              joinMap (viewEntity model send) model.Board.Entities model.Board.Order ]
 
 // Update
 

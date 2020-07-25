@@ -64,7 +64,7 @@ type Board =
       StatGroups : Map<StatGroup Id, StatGroup>
       Stats : Map<Stat Id, Stat>
       Aspects : Map<Aspect Id, Aspect>
-      Sequence : Entity Id list }
+      Order : Entity Id list }
 
 module internal Board =
     let private entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
@@ -75,7 +75,7 @@ module internal Board =
 
     let private aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
 
-    let private sequence = { Get = (fun s -> s.Sequence); Set = fun v s -> { s with Sequence = v } }
+    let private order = { Get = (fun s -> s.Order); Set = fun v s -> { s with Order = v } }
 
     let private flip f x y = f y x
 
@@ -84,7 +84,7 @@ module internal Board =
           Aspects = Map.empty
           Stats = Map.empty
           StatGroups = Map.empty
-          Sequence = [] }
+          Order = [] }
 
     let randomId () = Id <| Guid.NewGuid ()
 
@@ -162,19 +162,19 @@ module internal Board =
               Aspects = []
               Collapsed = false }
         over entities (Map.add id entity) >>
-        over sequence (fun sequence -> sequence @ [ id ])
+        over order (fun order -> order @ [ id ])
 
     let setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
     let collapseEntity = Map.change (over Entity.collapsed not) >> over entities
 
-    let moveEntity index id = List.remove id >> List.insertAt index id |> over sequence
+    let moveEntity index id = List.remove id >> List.insertAt index id |> over order
 
     let removeEntity id board =
         match Map.tryFind id board.Entities with
         | Some entity ->
             board
-            |> over sequence (List.remove id)
+            |> over order (List.remove id)
             |> over entities (Map.remove id)
             |> flip (List.fold <| flip removeStatGroup) entity.StatGroups
             |> flip (List.fold <| flip removeAspect) entity.Aspects
