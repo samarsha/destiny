@@ -5,6 +5,7 @@ open Destiny.Shared
 open Destiny.Shared.Board
 open Elmish
 open Elmish.Bridge
+open Elmish.React
 
 #if DEBUG
 open Elmish.Debug
