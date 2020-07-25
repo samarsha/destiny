@@ -11,7 +11,7 @@ module internal Bag =
         let count =
             Map.tryFind value bag
             |> Option.map ((+) 1)
-            |> Option.defaultValue 0
+            |> Option.defaultValue 1
         Bag <| Map.add value count bag
 
     let remove value (Bag bag) =
