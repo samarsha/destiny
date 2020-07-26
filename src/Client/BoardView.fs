@@ -250,14 +250,24 @@ let private dragEntityCommand model (entity : Entity) =
     | Some index -> MoveEntity (entity.Id, index) |> UpdateServerBoard |> Some
     | None -> None
 
-let private dragAspectCommand model aspect = None // TODO
+let private dragAspectCommand model (aspect : Aspect) =
+    let tryFindTarget map = Drag.targets model.Drag |> List.choose (tryFindStringId map) |> List.tryHead
+    match tryFindTarget model.Board.Entities,
+          tryFindTarget model.Board.Aspects with
+    | Some parent, Some target ->
+        aspectIndex model target.Id parent.Id
+        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> UpdateServerBoard)
+    | Some parent, None ->
+        if List.isEmpty parent.Aspects
+        then MoveAspect (aspect.Id, parent.Id, 0) |> UpdateServerBoard |> Some
+        else None
+    | _ -> None
 
 let private updateDrag message model =
     let model' = { model with Drag = Drag.update message model.Drag }
     let command = Drag.current model'.Drag |> Option.bind (fun id ->
-        let entity = tryFindStringId model'.Board.Entities id
-        let aspect = tryFindStringId model'.Board.Aspects id
-        match entity, aspect with
+        match tryFindStringId model'.Board.Entities id,
+              tryFindStringId model'.Board.Aspects id with
         | Some entity', _ -> dragEntityCommand model' entity'
         | _, Some aspect' -> dragAspectCommand model' aspect'
         | _ -> None)
