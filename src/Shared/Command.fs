@@ -46,13 +46,15 @@ module internal BoardCommand =
         | RemoveDie id -> Board.removeDie (Die role) id
 
 type ClientCommand =
-    | UpdateClientBoard of BoardCommand
-    | SetWorld of World
+    | BoardUpdated of BoardCommand
+    | WorldUpdated of World
+    | RoleChanged of Role
 
 type ServerCommand =
-    | UpdateServerBoard of BoardCommand
+    | UpdateBoard of BoardCommand
     | RollStat of Stat Id * Roll Id
     | RollAspect of Aspect Id * Roll Id
+    | SetRole of Role
 
 module internal Command =
     let socket = "/socket"

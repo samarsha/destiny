@@ -60,7 +60,7 @@ let private whenEdit mode item =
     | Edit -> Some item
     | View -> None
 
-let private boardCommand = UpdateServerBoard >> Command
+let private boardCommand = UpdateBoard >> Command
 
 let private dragClass id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
@@ -247,7 +247,7 @@ let private dragEntityCommand model (entity : Entity) =
         |> List.choose (Id.tryParse >> Option.bind (entityIndex model))
         |> List.tryHead
     match targetIndex with
-    | Some index -> MoveEntity (entity.Id, index) |> UpdateServerBoard |> Some
+    | Some index -> MoveEntity (entity.Id, index) |> UpdateBoard |> Some
     | None -> None
 
 let private dragAspectCommand model (aspect : Aspect) =
@@ -256,10 +256,10 @@ let private dragAspectCommand model (aspect : Aspect) =
           tryFindTarget model.Board.Aspects with
     | Some parent, Some target ->
         aspectIndex model target.Id parent.Id
-        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> UpdateServerBoard)
+        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> UpdateBoard)
     | Some parent, None ->
         if List.isEmpty parent.Aspects
-        then MoveAspect (aspect.Id, parent.Id, 0) |> UpdateServerBoard |> Some
+        then MoveAspect (aspect.Id, parent.Id, 0) |> UpdateBoard |> Some
         else None
     | _ -> None
 

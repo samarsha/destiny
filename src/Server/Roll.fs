@@ -1,9 +1,8 @@
-﻿module internal Destiny.Server.World
+﻿module internal Destiny.Server.Roll
 
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
-open Destiny.Shared.Command
 open Destiny.Shared.World
 open System
 
@@ -37,8 +36,3 @@ let rollAspect (random : Random) (Die role as die) aspectId rollId world =
               Board = Board.removeDie die aspectId world.Board
               Rolls = rolls' }
     | _ -> world
-
-let update random role = function
-    | UpdateServerBoard command -> fun world -> { world with Board = BoardCommand.update role command world.Board }
-    | RollStat (statId, rollId) -> rollStat random role statId rollId
-    | RollAspect (aspectId, rollId) -> rollAspect random (Die role) aspectId rollId

@@ -1,7 +1,9 @@
 open System
 open Destiny.Server
+open Destiny.Server.Roll
 open Destiny.Shared.Board
 open Destiny.Shared.Command
+open Destiny.Shared.Lens
 open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
@@ -18,16 +20,31 @@ let private hub = ServerHub ()
 let private random = Random ()
 
 let private init dispatch () =
-    dispatch (SetWorld <| MVar.read worldVar)
+    dispatch (WorldUpdated <| MVar.read worldVar)
     { Role = Player }, Cmd.none
 
-let private update _ message client =
-    World.update random client.Role message
-    |> MVar.update worldVar
-    |> SetWorld
-    // TODO: If the command was a board command, broadcast to every other client but not the original client.
+let private updateWorld updater =
+    MVar.update worldVar updater
+    |> WorldUpdated
     |> hub.BroadcastClient
-    client, Cmd.none
+
+let private update dispatch message client =
+    // TODO: If the command was a board command, broadcast to every other client but not the original client.
+    let client' =
+        match message with
+        | UpdateBoard command ->
+            over World.board (BoardCommand.update client.Role command) |> updateWorld
+            client
+        | RollStat (statId, rollId) ->
+            rollStat random client.Role statId rollId |> updateWorld
+            client
+        | RollAspect (aspectId, rollId) ->
+            rollAspect random (Die client.Role) aspectId rollId |> updateWorld
+            client
+        | SetRole role ->
+            RoleChanged role |> dispatch
+            { Role = role }
+    client', Cmd.none
 
 let private app =
     Bridge.mkServer Command.socket init update

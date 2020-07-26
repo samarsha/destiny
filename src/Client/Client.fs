@@ -21,7 +21,8 @@ type private Model =
       BoardView : BoardView.Model }
 
 type private Message =
-    | Command of ClientCommand
+    | Receive of ClientCommand
+    | Send of ServerCommand
     | BoardView of BoardView.Message
 
 // Model
@@ -47,7 +48,7 @@ let private view model dispatch =
             [ input
                   [ Type "checkbox"
                     Checked (model.Role = DM)
-                    OnChange <| fun _ -> () (* TODO: flipRole model.Role |> SetRole |> dispatch *) ]
+                    OnChange <| fun _ -> flipRole model.Role |> SetRole |> Send |> dispatch ]
               str "DM" ]
     let main =
         div [ Class "main" ]
@@ -67,18 +68,23 @@ let private applyBoardCommand model command =
           BoardView = BoardView.setBoard world'.Board model.BoardView }
 
 let private applyServerCommand model = function
-    | UpdateServerBoard command -> applyBoardCommand model command
+    // Apply board commands locally before sending them to the server to make typing, dragging, etc. more responsive.
+    | UpdateBoard command -> applyBoardCommand model command
     | _ -> model
 
 let private applyClientCommand model = function
-    | UpdateClientBoard command' -> applyBoardCommand model command'
-    | SetWorld world ->
+    | BoardUpdated command' -> applyBoardCommand model command'
+    | WorldUpdated world ->
         { model with
               World = world
               BoardView = BoardView.setBoard world.Board model.BoardView }
+    | RoleChanged role -> { model with Role = role }
 
 let private update message model =
     match message with
+    | Receive command ->
+        applyClientCommand model command, Cmd.none
+    | Send command
     | BoardView (BoardView.Command command) ->
         applyServerCommand model command, Cmd.bridgeSend command
     | BoardView (BoardView.Private message') ->
@@ -87,12 +93,10 @@ let private update message model =
         let model'' = serverCommand |> Option.map (applyServerCommand model') |> Option.defaultValue model'
         let command = serverCommand |> Option.map Cmd.bridgeSend |> Option.defaultValue Cmd.none
         model'', command
-    | Command command ->
-        applyClientCommand model command, Cmd.none
 
 let private bridgeConfig =
     Bridge.endpoint Command.socket
-    |> Bridge.withMapping Command
+    |> Bridge.withMapping Receive
 
 Program.mkProgram init update view
 #if DEBUG
