@@ -84,8 +84,13 @@ let private update message model =
             | _ -> model
         model', Cmd.bridgeSend command
     | BoardView (BoardView.Private message') ->
-        let model' = { model with BoardView = BoardView.update message' model.BoardView }
-        model', Cmd.none
+        let boardView', boardCommand = BoardView.update message' model.BoardView
+        let model' = { model with BoardView = boardView' }
+        let command =
+            boardCommand
+            |> Option.map (UpdateServerBoard >> Cmd.bridgeSend)
+            |> Option.defaultValue Cmd.none
+        model', command
     | Command command -> applyClientCommand command model, Cmd.none
 
 let private bridgeConfig =

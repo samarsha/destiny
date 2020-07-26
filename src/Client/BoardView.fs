@@ -43,6 +43,16 @@ let empty board role =
       Editing = None
       Drag = Drag.empty }
 
+let private entityIndex model id = List.tryFindIndex ((=) id) model.Board.Order
+
+let private aspectIndex model aspectId entityId =
+    Map.tryFind entityId model.Board.Entities
+    |> Option.bind (fun entity -> List.tryFindIndex ((=) aspectId) entity.Aspects)
+
+let private tryFindStringId map id =
+    Id.tryParse id
+    |> Option.bind (fun id' -> Map.tryFind id' map)
+
 // View
 
 let private whenEdit mode item =
@@ -203,8 +213,7 @@ let private viewEntity model dispatch (entity : Entity) =
 
 let private viewDrag model dispatch id =
     let tryView source viewer =
-        Id.tryParse id
-        |> Option.bind (fun id' -> Map.tryFind id' source)
+        tryFindStringId source id
         |> Option.map (viewer { model with Drag = Drag.empty } dispatch)
     tryView model.Board.Entities viewEntity
     |> Option.orElseWith (fun () -> tryView model.Board.Aspects <| viewAspect View)
@@ -232,12 +241,33 @@ let viewRollBar model dispatch =
 
 let setBoard board model = { model with Model.Board = board }
 
+let private dragEntityCommand model (entity : Entity) =
+    let targetIndex =
+        Drag.targets model.Drag
+        |> List.choose (Id.tryParse >> Option.bind (entityIndex model))
+        |> List.tryHead
+    match targetIndex with
+    | Some index -> Some <| MoveEntity (entity.Id, index)
+    | None -> None
+
+let private dragAspectCommand model aspect = None // TODO
+
+let private updateDrag message model =
+    let model' = { model with Drag = Drag.update message model.Drag }
+    let command = Drag.current model'.Drag |> Option.bind (fun id ->
+        let entity = tryFindStringId model'.Board.Entities id
+        let aspect = tryFindStringId model'.Board.Aspects id
+        match entity, aspect with
+        | Some entity', _ -> dragEntityCommand model' entity'
+        | _, Some aspect' -> dragAspectCommand model' aspect'
+        | _ -> None)
+    model', command
+
 let update message model =
     match message with
     | ToggleEdit id ->
         let editing' = if model.Editing |> Option.contains id then None else Some id
-        { model with Editing = editing' }
-    | StartRoll rollId -> { model with Rolling = Some rollId }
-    | StopRoll -> { model with Rolling = None }
-    // TODO: Send board commands based on drag targets.
-    | Drag message -> { model with Drag = Drag.update message model.Drag }
+        { model with Editing = editing' }, None
+    | StartRoll rollId -> { model with Rolling = Some rollId }, None
+    | StopRoll -> { model with Rolling = None }, None
+    | Drag message -> updateDrag message model
