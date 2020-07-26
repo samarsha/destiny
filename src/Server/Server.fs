@@ -20,7 +20,7 @@ let private hub = ServerHub ()
 let private random = Random ()
 
 let private init dispatch () =
-    dispatch (WorldUpdated <| MVar.read worldVar)
+    MVar.read worldVar |> WorldUpdated |> dispatch
     { Role = Player }, Cmd.none
 
 let private updateWorld updater =
