@@ -1,5 +1,6 @@
 namespace Destiny.Shared.World
 
+open Destiny.Shared
 open Destiny.Shared.Board
 
 type Invoke =

@@ -11,6 +11,7 @@
     <None Include="index.html" />
     <None Include="style.scss" />
     <Compile Include="Collections.fs" />
+    <Compile Include="Drag.fs" />
     <Compile Include="BoardView.fs" />
     <Compile Include="RollView.fs" />
     <Compile Include="Client.fs" />

@@ -2,7 +2,9 @@
 
 open System
 
+open Destiny.Client
 open Destiny.Client.Collections
+open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
 open Destiny.Shared.Command
@@ -16,13 +18,15 @@ type Model =
         { Board : Board
           Role : Role
           Rolling : Roll Id option
-          Editing : Entity Id option }
+          Editing : Entity Id option
+          Drag : Drag.Model }
 
 type PrivateMessage =
     private
     | StartRoll of Roll Id
     | StopRoll
     | ToggleEdit of Entity Id
+    | Drag of Drag.Message
 
 type Message =
     | Command of ServerCommand
@@ -36,7 +40,8 @@ let empty board role =
     { Board = board
       Role = role
       Rolling = None
-      Editing = None }
+      Editing = None
+      Drag = Drag.empty }
 
 // View
 
@@ -47,8 +52,13 @@ let private whenEdit mode item =
 
 let private boardCommand = UpdateServerBoard >> Command
 
+let private dragClass id model =
+    if Drag.current model.Drag |> Option.contains (id.ToString ())
+    then Some "drag-removed"
+    else None
+
 let private startRoll dispatch statId =
-    let rollId = Board.randomId ()
+    let rollId = Id.random ()
     StartRoll rollId |> Private |> dispatch 
     RollStat (statId, rollId) |> Command |> dispatch
 
@@ -95,7 +105,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
     let controls = List.choose id [
         Some name
         whenEdit mode <| button
-            [ OnClick <| fun _ -> AddStat (Board.randomId (), group.Id) |> boardCommand |> dispatch ]
+            [ OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
             [ str "+" ]
         whenEdit mode <| button
             [ OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
@@ -119,7 +129,8 @@ let private viewAspectDie model dispatch (aspect : Aspect) (Die role) =
               | None -> () ]
         [ str "🎲" ]
 
-let private viewAspect mode model dispatch aspect =
+let private viewAspect mode model dispatch (aspect : Aspect) =
+    let classes = String.concat " " <| List.choose id [ Some "aspect"; dragClass aspect.Id model ]
     let description =
         match mode with
         | View -> div [ Class "aspect-description" ] [ str aspect.Description ]
@@ -132,7 +143,11 @@ let private viewAspect mode model dispatch aspect =
                             SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch
                         valueOrDefault aspect.Description ]
                       [] ]
-    div [ Class "aspect"; Key <| aspect.Id.ToString () ] <| List.choose id
+    div [ Class classes
+          Key <| aspect.Id.ToString ()
+          Data ("draggable", aspect.Id)
+          Drag.draggableListener (Drag >> Private >> dispatch) ]
+    <| List.choose id
         [ whenEdit mode <| button [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ] [ str "✖" ]
           Some description
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
@@ -140,6 +155,7 @@ let private viewAspect mode model dispatch aspect =
           Some <| button [ OnClick <| fun _ -> RemoveDie aspect.Id |> boardCommand |> dispatch ] [ str "-" ] ]
 
 let private viewEntity model dispatch (entity : Entity) =
+    let classes = String.concat " " <| List.choose id [ Some "entity"; dragClass entity.Id model ]
     let mode = if model.Editing |> Option.contains entity.Id then Edit else View
     let name =
         match mode with
@@ -159,7 +175,7 @@ let private viewEntity model dispatch (entity : Entity) =
             [ str "📝" ]
     let addGroupButton =
         button
-            [ OnClick <| fun _ -> AddStatGroup (Board.randomId (), entity.Id) |> boardCommand |> dispatch ]
+            [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
             [ str "+ Stat Group" ]
     let stats =
         joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
@@ -170,9 +186,13 @@ let private viewEntity model dispatch (entity : Entity) =
             [ Some <| div [ Class "stats" ] stats
               Some <| div [ Class "aspects" ] aspects
               whenEdit mode <| button
-                  [ OnClick <| fun _ -> AddAspect (Board.randomId (), entity.Id) |> boardCommand |> dispatch ]
+                  [ OnClick <| fun _ -> AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch ]
                   [ str "+ Aspect" ] ]
-    div [ Class "entity"; Key <| entity.Id.ToString () ] <| List.choose id
+    div [ Class classes
+          Key <| entity.Id.ToString ()
+          Data ("draggable", entity.Id)
+          Drag.draggableListener (Drag >> Private >> dispatch) ]
+    <| List.choose id
         [ Some name
           Some hideButton
           Some editButton
@@ -181,13 +201,24 @@ let private viewEntity model dispatch (entity : Entity) =
               [ str "✖" ] ]
         @ if entity.Collapsed then [] else content
 
+let private viewDrag model dispatch id =
+    let tryView source viewer =
+        Id.tryParse id
+        |> Option.bind (fun id' -> Map.tryFind id' source)
+        |> Option.map (viewer { model with Drag = Drag.empty } dispatch)
+    tryView model.Board.Entities viewEntity
+    |> Option.orElseWith (fun () -> tryView model.Board.Aspects <| viewAspect View)
+    |> Option.defaultWith (fun () -> failwith <| "Invalid drag ID: " + id)
+
 let viewBoard model dispatch =
-    div []
+    div (upcast Class "board"
+         :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
         [ button
-              [ OnClick <| fun _ -> Board.randomId () |> AddEntity |> boardCommand |> dispatch ]
+              [ OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
               [ str "+" ]
           div [ Class "entities" ] <|
-              joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order ]
+              joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
+          Drag.view (viewDrag model dispatch) model.Drag ]
 
 let viewRollBar model dispatch =
     match model.Rolling with
@@ -208,3 +239,5 @@ let update message model =
         { model with Editing = editing' }
     | StartRoll rollId -> { model with Rolling = Some rollId }
     | StopRoll -> { model with Rolling = None }
+    // TODO: Send board commands based on drag targets.
+    | Drag message -> { model with Drag = Drag.update message model.Drag }

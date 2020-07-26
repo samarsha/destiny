@@ -1,5 +1,6 @@
 namespace Destiny.Shared.Command
 
+open Destiny.Shared
 open Destiny.Shared.Board
 open Destiny.Shared.World
 

@@ -51,12 +51,11 @@ let private view model dispatch =
               str "DM" ]
     let main =
         div [ Class "main" ]
-            [ div [ Class "board" ]
-                  [ dmCheckbox
-                    BoardView.viewBoard model.BoardView (BoardView >> dispatch) ]
+            [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
               div [ Class "messages" ] [ RollView.view model.World.Rolls ] ]
     div [ Class "app" ]
         [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
+          dmCheckbox
           main ]
 
 // Update

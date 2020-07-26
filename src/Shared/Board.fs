@@ -3,9 +3,6 @@ namespace Destiny.Shared.Board
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Lens
-open System
-
-type 'a Id = private Id of Guid
 
 type Stat =
     { Id : Stat Id
@@ -85,8 +82,6 @@ module internal Board =
           Stats = Map.empty
           StatGroups = Map.empty
           Order = [] }
-
-    let randomId () = Id <| Guid.NewGuid ()
 
     // TODO: In add functions, verify that the ID doesn't already exist.
 
