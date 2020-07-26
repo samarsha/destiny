@@ -247,7 +247,7 @@ let private dragEntityCommand model (entity : Entity) =
         |> List.choose (Id.tryParse >> Option.bind (entityIndex model))
         |> List.tryHead
     match targetIndex with
-    | Some index -> Some <| MoveEntity (entity.Id, index)
+    | Some index -> MoveEntity (entity.Id, index) |> UpdateServerBoard |> Some
     | None -> None
 
 let private dragAspectCommand model aspect = None // TODO
