@@ -20,26 +20,29 @@ let private hub = ServerHub ()
 let private random = Random ()
 
 let private init dispatch () =
-    MVar.read worldVar |> WorldUpdated |> dispatch
+    MVar.read worldVar |> WorldInitialized |> dispatch
     { Role = Player }, Cmd.none
 
-let private updateWorld updater =
-    MVar.update worldVar updater
-    |> WorldUpdated
-    |> hub.BroadcastClient
+//let private updateWorld updater =
+//    MVar.update worldVar updater
+//    |> WorldUpdated
+//    |> hub.BroadcastClient
 
 let private update dispatch message client =
     // TODO: If the command was a board command, broadcast to every other client but not the original client.
     let client' =
         match message with
         | UpdateBoard command ->
-            over World.board (BoardCommand.update client.Role command) |> updateWorld
+            over World.board (BoardCommand.update command.Command) |> MVar.update worldVar |> ignore
+            hub.BroadcastClient (BoardUpdated command)
             client
         | RollStat (statId, rollId) ->
-            rollStat random client.Role statId rollId |> updateWorld
+            let world' = rollStat random client.Role statId rollId |> MVar.update worldVar
+            hub.BroadcastClient (RollLogUpdated world'.Rolls)
             client
         | RollAspect (aspectId, rollId) ->
-            rollAspect random (Die client.Role) aspectId rollId |> updateWorld
+            let world' = rollAspect random (Die client.Role) aspectId rollId |> MVar.update worldVar
+            hub.BroadcastClient (RollLogUpdated world'.Rolls)
             client
         | SetRole role ->
             RoleChanged role |> dispatch
