@@ -11,18 +11,16 @@ open System.IO
 open System.Threading
 open Thoth.Json.Giraffe
 
-type private Client = Client of Role
+type private Client = { Role : Role }
 
-// TODO: Read a saved universe.
-let private universeVar = MVar.create Universe.empty
+type private Context =
+    { Universe : Universe MVar
+      Hub : ServerHub<Client, ClientMessage, ServerMessage>
+      Random : Random }
 
 let private saveInterval = TimeSpan.FromSeconds 30.0
 
 let private savePath = "universe.json"
-
-let private hub = ServerHub ()
-
-let private random = Random ()
 
 let private serializer = ThothSerializer () :> IJsonSerializer
 
@@ -39,59 +37,69 @@ let private commitBefore = function
     | RemoveDie -> true
     | _ -> false
 
-let private init dispatch () =
+let private init universeVar dispatch () =
     MVar.read universeVar |> Universe.toWorld |> ClientConnected |> dispatch
-    Client Player, Cmd.none
+    { Role = Player }, Cmd.none
 
-let private update dispatch message (Client role as client) =
+let private update context dispatch message client =
     match message with
     | UpdateBoard message ->
         if commitBefore message.Command then Timeline.commit else id
         >> Timeline.update (BoardCommand.update message.Command)
         |> over Universe.boards
-        |> MVar.update universeVar
+        |> MVar.update context.Universe
         |> ignore
-        BoardUpdated message |> hub.BroadcastClient
+        BoardUpdated message |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollStat (statId, rollId) ->
-        let universe = Universe.rollStat random role statId rollId |> MVar.update universeVar
-        RollLogUpdated universe.Rolls |> hub.BroadcastClient
+        let universe = Universe.rollStat context.Random client.Role statId rollId |> MVar.update context.Universe
+        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollAspect (aspectId, rollId) ->
-        let die = Die role
-        let universe = Universe.rollAspect random die aspectId rollId |> MVar.update universeVar
-        RollLogUpdated universe.Rolls |> hub.BroadcastClient
-        RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> hub.BroadcastClient
+        let die = Die client.Role
+        let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
+        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+        RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> context.Hub.BroadcastClient
         client, Cmd.none
     | Undo ->
-        let universe = over Universe.boards Timeline.undo |> MVar.update universeVar
-        Timeline.present universe.Boards |> BoardReplaced |> hub.BroadcastClient
+        let universe = over Universe.boards Timeline.undo |> MVar.update context.Universe
+        Timeline.present universe.Boards |> BoardReplaced |> context.Hub.BroadcastClient
         client, Cmd.none
     | Redo ->
-        let universe = over Universe.boards Timeline.redo |> MVar.update universeVar
-        Timeline.present universe.Boards |> BoardReplaced |> hub.BroadcastClient
+        let universe = over Universe.boards Timeline.redo |> MVar.update context.Universe
+        Timeline.present universe.Boards |> BoardReplaced |> context.Hub.BroadcastClient
         client, Cmd.none
     | SetRole role ->
         RoleChanged role |> dispatch
-        Client role, Cmd.none
+        { Role = role }, Cmd.none
 
-let private save () =
+let private save universeVar =
     let universe = over Universe.boards Timeline.commit |> MVar.update universeVar
     File.WriteAllText (savePath, serializer.SerializeToString universe)
 
-new Timer ((fun _ -> save ()), (), saveInterval, saveInterval) |> ignore
-
-let private app =
-    Bridge.mkServer Message.socket init update
-    |> Bridge.withServerHub hub
+let private router context =
+    Bridge.mkServer Message.socket (init context.Universe) (update context)
+    |> Bridge.withServerHub context.Hub
     |> Bridge.run Giraffe.server
 
-run <| application {
-    app_config Giraffe.useWebSockets
-    memory_cache
-    url "http://0.0.0.0:8085/"
-    use_gzip
-    use_json_serializer serializer
-    use_router app
-    use_static (Path.GetFullPath "../Client/assets")
-}
+let private app context =
+    application {
+        app_config Giraffe.useWebSockets
+        memory_cache
+        url "http://0.0.0.0:8085/"
+        use_gzip
+        use_json_serializer serializer
+        use_router (router context)
+        use_static (Path.GetFullPath "../Client/assets")
+    }
+
+[<EntryPoint>]
+let main _ =
+    let context =
+        // TODO: Read a saved universe.
+        { Universe = MVar.create Universe.empty
+          Hub = ServerHub ()
+          Random = Random () }
+    new Timer ((fun _ -> save context.Universe), (), saveInterval, saveInterval) |> ignore
+    app context |> run
+    0
