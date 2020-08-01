@@ -98,9 +98,6 @@ let private applyClientCommand model = function
             { model' with UnconfirmedMessages = List.remove command' model'.UnconfirmedMessages }
         else
             recreateLocalState model'
-    | BoardMessageRejected command' ->
-        let model' = { model with UnconfirmedMessages = List.remove command' model.UnconfirmedMessages }
-        recreateLocalState model'
     | WorldInitialized world ->
         { model with
               World = world

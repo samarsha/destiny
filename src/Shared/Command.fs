@@ -53,7 +53,6 @@ module internal BoardCommand =
 
 type ClientCommand =
     | BoardUpdated of BoardMessage
-    | BoardMessageRejected of BoardMessage
     | WorldInitialized of World
     | RollLogUpdated of RollLog
     | RoleChanged of Role
