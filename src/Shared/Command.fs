@@ -21,11 +21,15 @@ type BoardCommand =
     | SetAspectDescription of Aspect Id * string
     | MoveAspect of Aspect Id * Entity Id * int
     | RemoveAspect of Aspect Id
-    | AddDie of Aspect Id
-    | RemoveDie of Aspect Id
+    | AddDie of Aspect Id * Die
+    | RemoveDie of Aspect Id * Die
+
+type BoardMessage =
+    { Command : BoardCommand
+      Id : BoardMessage Id }
 
 module internal BoardCommand =
-    let update role = function
+    let update = function
         | AddEntity id -> Board.addEntity id
         | CollapseEntity id -> Board.collapseEntity id
         | SetEntityName (id, name) -> Board.setEntityName name id
@@ -42,16 +46,19 @@ module internal BoardCommand =
         | SetAspectDescription (id, description) -> Board.setAspectDescription description id
         | MoveAspect (aspectId, entityId, index) -> Board.moveAspect aspectId entityId index
         | RemoveAspect id -> Board.removeAspect id
-        | AddDie id -> Board.addDie (Die role) id
-        | RemoveDie id -> Board.removeDie (Die role) id
+        | AddDie (id, die) -> Board.addDie die id
+        | RemoveDie (id, die) -> Board.removeDie die id
+
+    let boardMessage command = { Command = command; Id = Id.random() }
 
 type ClientCommand =
-    | BoardUpdated of BoardCommand
-    | WorldUpdated of World
+    | BoardUpdated of BoardMessage
+    | WorldInitialized of World
+    | RollLogUpdated of RollLog
     | RoleChanged of Role
 
 type ServerCommand =
-    | UpdateBoard of BoardCommand
+    | UpdateBoard of BoardMessage
     | RollStat of Stat Id * Roll Id
     | RollAspect of Aspect Id * Roll Id
     | SetRole of Role

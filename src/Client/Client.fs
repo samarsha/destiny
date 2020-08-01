@@ -1,6 +1,7 @@
 module private Destiny.Client.Program
 
 open Destiny.Client
+open Destiny.Shared
 open Destiny.Shared.Command
 open Destiny.Shared.Board
 open Destiny.Shared.World
@@ -17,6 +18,8 @@ open Elmish.HMR
 
 type private Model =
     { World : World
+      ServerBoard : Board
+      UnconfirmedMessages : BoardMessage List
       Role : Role
       BoardView : BoardView.Model }
 
@@ -31,6 +34,8 @@ let private empty =
     let world = World.empty
     let role = Player
     { World = world
+      ServerBoard = Board.empty
+      UnconfirmedMessages = []
       Role = role
       BoardView = BoardView.empty world.Board role }
 
@@ -61,23 +66,46 @@ let private view model dispatch =
 
 // Update
 
-let private applyBoardCommand model command =
-    let world' = { model.World with Board = BoardCommand.update model.Role command model.World.Board }
+let private applyBoardCommandToLocalState model command =
+    let board' = BoardCommand.update command.Command model.World.Board
     { model with
-          World = world'
-          BoardView = BoardView.setBoard world'.Board model.BoardView }
+          World = { model.World with Board = board' }
+          BoardView = BoardView.setBoard board' model.BoardView }
 
+let private recreateLocalState model =
+    let board' = model.UnconfirmedMessages
+                 |> List.map (fun x -> BoardCommand.update x.Command)
+                 |> List.fold (|>) model.ServerBoard
+    { model with
+          World = { model.World with Board = board' }
+          BoardView = BoardView.setBoard board' model.BoardView }
+    
+
+/// From Client to Server
 let private applyServerCommand model = function
     // Apply board commands locally before sending them to the server to make typing, dragging, etc. more responsive.
-    | UpdateBoard command -> applyBoardCommand model command
+    | UpdateBoard command ->
+        let model' = applyBoardCommandToLocalState model command
+        { model' with UnconfirmedMessages = model'.UnconfirmedMessages @ [ command ] }
     | _ -> model
 
+/// From Server to Client
 let private applyClientCommand model = function
-    | BoardUpdated command' -> applyBoardCommand model command'
-    | WorldUpdated world ->
+    | BoardUpdated command' ->
+        let model' = { model with ServerBoard = BoardCommand.update command'.Command model.ServerBoard }
+        let isMyCommand = List.contains command' model.UnconfirmedMessages
+        if isMyCommand then
+            { model' with UnconfirmedMessages = List.remove command' model'.UnconfirmedMessages }
+        else
+            recreateLocalState model'
+    | WorldInitialized world ->
         { model with
               World = world
-              BoardView = BoardView.setBoard world.Board model.BoardView }
+              BoardView = BoardView.setBoard world.Board model.BoardView
+              ServerBoard = world.Board
+              UnconfirmedMessages = [] }
+    | RollLogUpdated rollLog ->
+        { model with World = { model.World with Rolls = rollLog } }
     | RoleChanged role -> { model with Role = role }
 
 let private update message model =
