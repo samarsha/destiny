@@ -23,11 +23,6 @@ let private init dispatch () =
     MVar.read worldVar |> WorldInitialized |> dispatch
     { Role = Player }, Cmd.none
 
-//let private updateWorld updater =
-//    MVar.update worldVar updater
-//    |> WorldUpdated
-//    |> hub.BroadcastClient
-
 let private update dispatch message client =
     // TODO: If the command was a board command, broadcast to every other client but not the original client.
     let client' =
