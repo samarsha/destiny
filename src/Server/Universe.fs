@@ -49,6 +49,6 @@ module internal Universe =
             let addInvoke roll = { roll with Invokes = List.add invoke roll.Invokes }
             let rolls' = { universe.Rolls with Map = Map.change addInvoke rollId universe.Rolls.Map }
             { universe with
-                  Boards = Timeline.update (Board.removeDie die aspectId) universe.Boards
+                  Boards = universe.Boards |> Timeline.commit |> Timeline.update (Board.removeDie die aspectId)
                   Rolls = rolls' }
         | _ -> universe

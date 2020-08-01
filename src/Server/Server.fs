@@ -18,6 +18,19 @@ let private hub = ServerHub ()
 
 let private random = Random ()
 
+let private commitBefore = function
+    | AddEntity
+    | RemoveEntity
+    | AddStatGroup
+    | RemoveStatGroup
+    | AddStat
+    | RemoveStat
+    | AddAspect
+    | RemoveAspect
+    | AddDie
+    | RemoveDie -> true
+    | _ -> false
+
 let private init dispatch () =
     MVar.read universeVar |> Universe.toWorld |> ClientConnected |> dispatch
     Client Player, Cmd.none
@@ -25,12 +38,13 @@ let private init dispatch () =
 let private update dispatch message (Client role as client) =
     let client' =
         match message with
-        | UpdateBoard command ->
-            // TODO: Commit the timeline for some commands.
-            over Universe.boards (BoardCommand.update command.Command |> Timeline.update)
+        | UpdateBoard message ->
+            if commitBefore message.Command then Timeline.commit else id
+            >> Timeline.update (BoardCommand.update message.Command)
+            |> over Universe.boards
             |> MVar.update universeVar
             |> ignore
-            BoardUpdated command |> hub.BroadcastClient
+            BoardUpdated message |> hub.BroadcastClient
             client
         | RollStat (statId, rollId) ->
             let universe = Universe.rollStat random role statId rollId |> MVar.update universeVar
