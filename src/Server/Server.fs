@@ -1,44 +1,54 @@
-open System
 open Destiny.Server
-open Destiny.Server.Roll
 open Destiny.Shared.Board
 open Destiny.Shared.Lens
 open Destiny.Shared.Message
-open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Saturn
+open System
 open System.IO
 open Thoth.Json.Giraffe
 
 type private Client = Client of Role
 
-let private worldVar = MVar.create World.empty
+// TODO: Commit the timeline periodically.
+let private universeVar = MVar.create Universe.empty
 
 let private hub = ServerHub ()
 
 let private random = Random ()
 
 let private init dispatch () =
-    MVar.read worldVar |> ClientConnected |> dispatch
+    MVar.read universeVar |> Universe.toWorld |> ClientConnected |> dispatch
     Client Player, Cmd.none
 
 let private update dispatch message (Client role as client) =
     let client' =
         match message with
         | UpdateBoard command ->
-            over World.board (BoardCommand.update command.Command) |> MVar.update worldVar |> ignore
+            // TODO: Commit the timeline for some commands.
+            over Universe.boards (BoardCommand.update command.Command |> Timeline.update)
+            |> MVar.update universeVar
+            |> ignore
             BoardUpdated command |> hub.BroadcastClient
             client
         | RollStat (statId, rollId) ->
-            let world' = rollStat random role statId rollId |> MVar.update worldVar
-            RollLogUpdated world'.Rolls |> hub.BroadcastClient
+            let universe = Universe.rollStat random role statId rollId |> MVar.update universeVar
+            RollLogUpdated universe.Rolls |> hub.BroadcastClient
             client
         | RollAspect (aspectId, rollId) ->
             let die = Die role
-            let world' = rollAspect random die aspectId rollId |> MVar.update worldVar
-            RollLogUpdated world'.Rolls |> hub.BroadcastClient
+            let universe = Universe.rollAspect random die aspectId rollId |> MVar.update universeVar
+            RollLogUpdated universe.Rolls |> hub.BroadcastClient
             RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> hub.BroadcastClient
+            client
+        | Undo ->
+            let universe = over Universe.boards Timeline.undo |> MVar.update universeVar
+            Timeline.present universe.Boards |> BoardReplaced |> hub.BroadcastClient
+            client
+        | Redo ->
+            let universe = over Universe.boards Timeline.redo |> MVar.update universeVar
+            Timeline.present universe.Boards |> BoardReplaced |> hub.BroadcastClient
             client
         | SetRole role ->
             RoleChanged role |> dispatch

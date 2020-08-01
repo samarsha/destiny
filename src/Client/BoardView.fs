@@ -3,10 +3,10 @@
 open System
 
 open Destiny.Client
-open Destiny.Client.Collections
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
+open Destiny.Shared.Collections
 open Destiny.Shared.Message
 open Destiny.Shared.World
 open Elmish.React
@@ -122,7 +122,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         whenEdit mode <| button
             [ OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
             [ str "✖" ] ]
-    let stats = joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
+    let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     div [ Class "stat-group"; Key <| group.Id.ToString () ] <|
         div [ Class "stat-group-controls" ] controls
         :: stats
@@ -194,9 +194,9 @@ let private viewEntity model dispatch (entity : Entity) =
             [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
             [ str "+ Stat Group" ]
     let stats =
-        joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
+        Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
         @ Option.toList (whenEdit mode addGroupButton)
-    let aspects = joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
+    let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let content =
         List.choose id
             [ Some <| div [ Class "stats" ] stats
@@ -232,7 +232,7 @@ let viewBoard model dispatch =
               [ OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
               [ str "+" ]
           div [ Class "entities" ] <|
-              joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
+              Map.joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
           Drag.view (viewDrag model dispatch) model.Drag ]
 
 let viewRollBar model dispatch =

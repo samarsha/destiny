@@ -1,7 +1,7 @@
 ﻿module internal Destiny.Client.RollView
 
-open Destiny.Client.Collections
 open Destiny.Shared.Board
+open Destiny.Shared.Collections
 open Destiny.Shared.World
 open Fable.React
 open Fable.React.Props
@@ -45,4 +45,4 @@ let private viewRoll roll =
         div [] [ str <| " = " + total.ToString () ]
     div [ Class "roll" ] <| baseRoll :: invokes @ [ equals ]
 
-let view rolls = div [] <| joinMap viewRoll rolls.Map rolls.Order
+let view rolls = div [] <| Map.joinMap viewRoll rolls.Map rolls.Order

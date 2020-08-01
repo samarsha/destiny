@@ -6,10 +6,14 @@ module internal Map =
         | Some value -> Map.add key (f value) map
         | None -> map
 
-module internal List =
-    let add value list = list @ [ value ]
+    let joinMap f map = List.choose <| fun key -> Map.tryFind key map |> Option.map f
 
-    let insertAt index value list =
-        List.take index list @ value :: List.skip index list
+module internal List =
+    let add value xs = xs @ [ value ]
 
     let remove value = List.filter ((<>) value)
+
+    let insertAt index value xs =
+        List.take index xs @ value :: List.skip index xs
+
+    let initial (xs : _ list) = xs.[.. List.length xs - 2]

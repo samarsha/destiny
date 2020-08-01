@@ -57,6 +57,7 @@ module internal BoardMessage =
 type ServerMessage =
     | ClientConnected of World
     | BoardUpdated of BoardMessage
+    | BoardReplaced of Board
     | RollLogUpdated of RollLog
     | RoleChanged of Role
 
@@ -64,6 +65,8 @@ type ClientMessage =
     | UpdateBoard of BoardMessage
     | RollStat of Stat Id * Roll Id
     | RollAspect of Aspect Id * Roll Id
+    | Undo
+    | Redo
     | SetRole of Role
 
 module internal Message =

@@ -9,7 +9,8 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="MVar.fs" />
-    <Compile Include="Roll.fs" />
+    <Compile Include="Timeline.fs" />
+    <Compile Include="Universe.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

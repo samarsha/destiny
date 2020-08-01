@@ -55,13 +55,18 @@ let private view model dispatch =
                     Checked (model.Role = DM)
                     OnChange <| fun _ -> flipRole model.Role |> SetRole |> Send |> dispatch ]
               str "DM" ]
+    let toolbar =
+        div [ Class "toolbar" ]
+            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ str "Undo" ]
+              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ str "Redo" ]
+              dmCheckbox ]
     let main =
         div [ Class "main" ]
             [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
               div [ Class "messages" ] [ RollView.view model.World.Rolls ] ]
     div [ Class "app" ]
         [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
-          dmCheckbox
+          toolbar
           main ]
 
 // Update
@@ -102,6 +107,7 @@ let private applyServerMessage model = function
         if List.contains message model.Unconfirmed
         then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
         else reapplyUnconfirmed model'
+    | BoardReplaced board -> reapplyUnconfirmed { model with ServerBoard = board }
     | RollLogUpdated rollLog -> { model with World = { model.World with Rolls = rollLog } }
     | RoleChanged role -> { model with Role = role }
 
