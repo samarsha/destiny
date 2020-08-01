@@ -24,7 +24,6 @@ group Client
     nuget Fable.Elmish.React
     nuget Fable.FontAwesome.Free
     nuget Fable.React
-    nuget Fulma
     nuget Thoth.Fetch
 
 group Build
