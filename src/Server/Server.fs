@@ -2,8 +2,8 @@ open System
 open Destiny.Server
 open Destiny.Server.Roll
 open Destiny.Shared.Board
-open Destiny.Shared.Command
 open Destiny.Shared.Lens
+open Destiny.Shared.Message
 open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
@@ -20,26 +20,25 @@ let private hub = ServerHub ()
 let private random = Random ()
 
 let private init dispatch () =
-    MVar.read worldVar |> WorldInitialized |> dispatch
+    MVar.read worldVar |> ClientConnected |> dispatch
     { Role = Player }, Cmd.none
 
 let private update dispatch message client =
-    // TODO: If the command was a board command, broadcast to every other client but not the original client.
     let client' =
         match message with
         | UpdateBoard command ->
             over World.board (BoardCommand.update command.Command) |> MVar.update worldVar |> ignore
-            hub.BroadcastClient (BoardUpdated command)
+            BoardUpdated command |> hub.BroadcastClient
             client
         | RollStat (statId, rollId) ->
             let world' = rollStat random client.Role statId rollId |> MVar.update worldVar
-            hub.BroadcastClient (RollLogUpdated world'.Rolls)
+            RollLogUpdated world'.Rolls |> hub.BroadcastClient
             client
         | RollAspect (aspectId, rollId) ->
             let die = Die client.Role
             let world' = rollAspect random die aspectId rollId |> MVar.update worldVar
-            hub.BroadcastClient (RollLogUpdated world'.Rolls)
-            RemoveDie (aspectId, die) |> BoardCommand.boardMessage |> BoardUpdated |> hub.BroadcastClient
+            RollLogUpdated world'.Rolls |> hub.BroadcastClient
+            RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> hub.BroadcastClient
             client
         | SetRole role ->
             RoleChanged role |> dispatch
@@ -47,7 +46,7 @@ let private update dispatch message client =
     client', Cmd.none
 
 let private app =
-    Bridge.mkServer Command.socket init update
+    Bridge.mkServer Message.socket init update
     |> Bridge.withServerHub hub
     |> Bridge.run Giraffe.server
 

@@ -1,9 +1,9 @@
 module private Destiny.Client.Program
 
 open Destiny.Client
-open Destiny.Shared.Collections
-open Destiny.Shared.Command
 open Destiny.Shared.Board
+open Destiny.Shared.Collections
+open Destiny.Shared.Message
 open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
@@ -24,8 +24,8 @@ type private Model =
       BoardView : BoardView.Model }
 
 type private Message =
-    | Receive of ClientCommand
-    | Send of ServerCommand
+    | Receive of ServerMessage
+    | Send of ClientMessage
     | BoardView of BoardView.Message
 
 // Model
@@ -66,8 +66,8 @@ let private view model dispatch =
 
 // Update
 
-let private applyBoardMessage model command =
-    let board' = BoardCommand.update command.Command model.World.Board
+let private applyBoardCommand model command =
+    let board' = BoardCommand.update command model.World.Board
     { model with
           World = { model.World with Board = board' }
           BoardView = BoardView.setBoard board' model.BoardView }
@@ -81,44 +81,44 @@ let private reapplyUnconfirmed model =
           World = { model.World with Board = board' }
           BoardView = BoardView.setBoard board' model.BoardView }
 
-/// Applies a command sent from the client to the server.
-let private applyServerCommand model = function
-    // Apply board commands locally before sending them to the server to make typing, dragging, etc. more responsive.
-    | UpdateBoard command ->
-        let model' = applyBoardMessage model command
-        { model' with Unconfirmed = List.add command model'.Unconfirmed }
+/// Applies a message sent by the client to the server.
+let private applyClientMessage model = function
+    | UpdateBoard message ->
+        // Apply board commands before sending them to the server to make typing, dragging, etc. more responsive.
+        let model' = applyBoardCommand model message.Command
+        { model' with Unconfirmed = List.add message model'.Unconfirmed }
     | _ -> model
 
-/// Applies a command received by the client from the server.
-let private applyClientCommand model = function
-    | BoardUpdated message ->
-        let model' = { model with ServerBoard = BoardCommand.update message.Command model.ServerBoard }
-        if List.contains message model.Unconfirmed
-        then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
-        else reapplyUnconfirmed model'
-    | WorldInitialized world ->
+/// Applies a message received by the client from the server.
+let private applyServerMessage model = function
+    | ClientConnected world ->
         { model with
               World = world
               ServerBoard = world.Board
               Unconfirmed = []
               BoardView = BoardView.setBoard world.Board model.BoardView }
+    | BoardUpdated message ->
+        let model' = { model with ServerBoard = BoardCommand.update message.Command model.ServerBoard }
+        if List.contains message model.Unconfirmed
+        then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
+        else reapplyUnconfirmed model'
     | RollLogUpdated rollLog -> { model with World = { model.World with Rolls = rollLog } }
     | RoleChanged role -> { model with Role = role }
 
 let private update message model =
     match message with
-    | Receive command -> applyClientCommand model command, Cmd.none
-    | Send command
-    | BoardView (BoardView.Command command) -> applyServerCommand model command, Cmd.bridgeSend command
+    | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
+    | Send clientMessage
+    | BoardView (BoardView.Send clientMessage) -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
     | BoardView (BoardView.Private message') ->
-        let boardView, serverCommand = BoardView.update message' model.BoardView
+        let boardView, clientMessage = BoardView.update message' model.BoardView
         let model' = { model with BoardView = boardView }
-        let model'' = serverCommand |> Option.map (applyServerCommand model') |> Option.defaultValue model'
-        let command = serverCommand |> Option.map Cmd.bridgeSend |> Option.defaultValue Cmd.none
+        let model'' = clientMessage |> Option.map (applyClientMessage model') |> Option.defaultValue model'
+        let command = clientMessage |> Option.map Cmd.bridgeSend |> Option.defaultValue Cmd.none
         model'', command
 
 let private bridgeConfig =
-    Bridge.endpoint Command.socket
+    Bridge.endpoint Message.socket
     |> Bridge.withMapping Receive
 
 Program.mkProgram init update view

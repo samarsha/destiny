@@ -1,4 +1,4 @@
-namespace Destiny.Shared.Command
+namespace Destiny.Shared.Message
 
 open Destiny.Shared
 open Destiny.Shared.Board
@@ -24,10 +24,6 @@ type BoardCommand =
     | AddDie of Aspect Id * Die
     | RemoveDie of Aspect Id * Die
 
-type BoardMessage =
-    { Command : BoardCommand
-      Id : BoardMessage Id }
-
 module internal BoardCommand =
     let update = function
         | AddEntity id -> Board.addEntity id
@@ -49,19 +45,26 @@ module internal BoardCommand =
         | AddDie (id, die) -> Board.addDie die id
         | RemoveDie (id, die) -> Board.removeDie die id
 
-    let boardMessage command = { Command = command; Id = Id.random() }
+type BoardMessage =
+    { Id : BoardMessage Id
+      Command : BoardCommand }
 
-type ClientCommand =
+module internal BoardMessage =
+    let create command =
+        { Id = Id.random ()
+          Command = command }
+
+type ServerMessage =
+    | ClientConnected of World
     | BoardUpdated of BoardMessage
-    | WorldInitialized of World
     | RollLogUpdated of RollLog
     | RoleChanged of Role
 
-type ServerCommand =
+type ClientMessage =
     | UpdateBoard of BoardMessage
     | RollStat of Stat Id * Roll Id
     | RollAspect of Aspect Id * Roll Id
     | SetRole of Role
 
-module internal Command =
+module internal Message =
     let socket = "/socket"

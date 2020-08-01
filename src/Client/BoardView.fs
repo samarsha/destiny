@@ -7,7 +7,7 @@ open Destiny.Client.Collections
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
-open Destiny.Shared.Command
+open Destiny.Shared.Message
 open Destiny.Shared.World
 open Elmish.React
 open Fable.React
@@ -29,7 +29,7 @@ type PrivateMessage =
     | Drag of Drag.Message
 
 type Message =
-    | Command of ServerCommand
+    | Send of ClientMessage
     | Private of PrivateMessage
 
 type private Mode = View | Edit
@@ -60,9 +60,9 @@ let private whenEdit mode item =
     | Edit -> Some item
     | View -> None
 
-let private updateBoard = BoardCommand.boardMessage >> UpdateBoard
+let private updateBoard = BoardMessage.create >> UpdateBoard
 
-let private boardCommand = updateBoard >> Command
+let private boardCommand = updateBoard >> Send
 
 let private dragClass id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
@@ -72,7 +72,7 @@ let private dragClass id model =
 let private startRoll dispatch statId =
     let rollId = Id.random ()
     StartRoll rollId |> Private |> dispatch 
-    RollStat (statId, rollId) |> Command |> dispatch
+    RollStat (statId, rollId) |> Send |> dispatch
 
 let private viewStat mode model dispatch (stat : Stat) =
     let name =
@@ -137,7 +137,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (Die role) =
           Disabled (Option.isNone model.Rolling || model.Role <> role)
           OnClick <| fun _ ->
               match model.Rolling with
-              | Some rollId -> RollAspect (aspect.Id, rollId) |> Command |> dispatch
+              | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> dispatch
               | None -> () ]
         [ str "🎲" ]
 
