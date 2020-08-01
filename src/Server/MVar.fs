@@ -26,13 +26,17 @@ module internal MVar =
 
     let private body initial (inbox : _ MailboxProcessor) =
         let rec receive = function
-            | Some value -> async {
-                let! channel = inbox.Scan (toTake >> Option.map async.Return)
-                channel.Reply value
-                return! receive None }
-            | None -> async {
-                let! value = inbox.Scan (toPut >> Option.map async.Return)
-                return! receive <| Some value }
+            | Some value ->
+                async {
+                    let! channel = inbox.Scan (toTake >> Option.map async.Return)
+                    channel.Reply value
+                    return! receive None
+                }
+            | None ->
+                async {
+                    let! value = inbox.Scan (toPut >> Option.map async.Return)
+                    return! receive <| Some value
+                }
         receive initial
 
     let createEmpty () = MVar <| MailboxProcessor.Start (body None)

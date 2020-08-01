@@ -72,9 +72,11 @@ Target.create "Build" <| fun _ ->
 Target.create "Run" <| fun _ ->
     let server = async { runDotNet "watch run" serverPath }
     let client = async { runTool yarnTool "webpack-dev-server" __SOURCE_DIRECTORY__ }
-    let browser = async {
-        do! Async.Sleep 5000
-        openBrowser "http://localhost:8080" }
+    let browser =
+        async {
+            do! Async.Sleep 5000
+            openBrowser "http://localhost:8080"
+        }
     let vsCodeSession = Environment.hasEnvironVar "vsCodeSession"
     let safeClientOnly = Environment.hasEnvironVar "safeClientOnly"
     let tasks =
