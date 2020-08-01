@@ -36,8 +36,10 @@ let private update dispatch message client =
             hub.BroadcastClient (RollLogUpdated world'.Rolls)
             client
         | RollAspect (aspectId, rollId) ->
-            let world' = rollAspect random (Die client.Role) aspectId rollId |> MVar.update worldVar
+            let die = Die client.Role
+            let world' = rollAspect random die aspectId rollId |> MVar.update worldVar
             hub.BroadcastClient (RollLogUpdated world'.Rolls)
+            RemoveDie (aspectId, die) |> BoardCommand.boardMessage |> BoardUpdated |> hub.BroadcastClient
             client
         | SetRole role ->
             RoleChanged role |> dispatch
