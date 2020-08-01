@@ -1,8 +1,8 @@
 ﻿module internal Destiny.Server.Roll
 
-open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
+open Destiny.Shared.Collections
 open Destiny.Shared.World
 open System
 

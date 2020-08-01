@@ -2,6 +2,7 @@ namespace Destiny.Shared.Board
 
 open Destiny.Shared
 open Destiny.Shared.Bag
+open Destiny.Shared.Collections
 open Destiny.Shared.Lens
 
 type Stat =

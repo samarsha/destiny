@@ -1,7 +1,7 @@
 module private Destiny.Client.Program
 
 open Destiny.Client
-open Destiny.Shared
+open Destiny.Shared.Collections
 open Destiny.Shared.Command
 open Destiny.Shared.Board
 open Destiny.Shared.World

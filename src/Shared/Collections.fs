@@ -1,4 +1,4 @@
-namespace Destiny.Shared
+namespace Destiny.Shared.Collections
 
 module internal Map =
     let change f key map =
