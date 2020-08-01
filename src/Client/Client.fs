@@ -63,7 +63,7 @@ let private view model dispatch =
     let main =
         div [ Class "main" ]
             [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
-              div [ Class "messages" ] [ RollView.view model.World.Rolls ] ]
+              RollView.view model.World.Rolls ]
     div [ Class "app" ]
         [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
           toolbar
@@ -78,13 +78,13 @@ let private applyBoardCommand model command =
           BoardView = BoardView.setBoard board' model.BoardView }
 
 let private reapplyUnconfirmed model =
-    let board' =
+    let board =
         model.Unconfirmed
         |> List.map (fun message -> BoardCommand.update message.Command)
         |> List.fold (|>) model.ServerBoard
     { model with
-          World = { model.World with Board = board' }
-          BoardView = BoardView.setBoard board' model.BoardView }
+          World = { model.World with Board = board }
+          BoardView = BoardView.setBoard board model.BoardView }
 
 /// Applies a message sent by the client to the server.
 let private applyClientMessage model = function

@@ -45,4 +45,11 @@ let private viewRoll roll =
         div [] [ str <| " = " + total.ToString () ]
     div [ Class "roll" ] <| baseRoll :: invokes @ [ equals ]
 
-let view rolls = div [] <| Map.joinMap viewRoll rolls.Map rolls.Order
+let private render rolls =
+    Map.joinMap viewRoll rolls.Map rolls.Order
+    |> div [ Class "messages"
+             Ref <| fun element ->
+                 if not <| isNull element
+                 then element.scrollTop <- element.scrollHeight ]
+
+let view = FunctionComponent.Of (render, memoizeWith = equalsButFunctions)
