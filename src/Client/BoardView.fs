@@ -60,9 +60,9 @@ let private whenEdit mode item =
     | Edit -> Some item
     | View -> None
 
-let private updateBoardMessage = BoardCommand.boardMessage >> UpdateBoard
+let private updateBoard = BoardCommand.boardMessage >> UpdateBoard
 
-let private boardCommand = updateBoardMessage >> Command
+let private boardCommand = updateBoard >> Command
 
 let private dragClass id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
@@ -163,8 +163,12 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
         [ whenEdit mode <| button [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ] [ str "✖" ]
           Some description
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
-          Some <| button [ OnClick (fun _ -> AddDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch) ] [ str "+" ]
-          Some <| button [ OnClick (fun _ -> RemoveDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch) ] [ str "-" ] ]
+          Some <| button
+              [ OnClick <| fun _ -> AddDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch ]
+              [ str "+" ]
+          Some <| button
+              [ OnClick <| fun _ -> RemoveDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch ]
+              [ str "-" ] ]
 
 let private viewEntity model dispatch (entity : Entity) =
     let classes = String.concat " " <| List.choose id [ Some "entity"; dragClass entity.Id model ]
@@ -249,7 +253,7 @@ let private dragEntityCommand model (entity : Entity) =
         |> List.choose (Id.tryParse >> Option.bind (entityIndex model))
         |> List.tryHead
     match targetIndex with
-    | Some index -> MoveEntity (entity.Id, index) |> updateBoardMessage |> Some
+    | Some index -> MoveEntity (entity.Id, index) |> updateBoard |> Some
     | None -> None
 
 let private dragAspectCommand model (aspect : Aspect) =
@@ -258,10 +262,10 @@ let private dragAspectCommand model (aspect : Aspect) =
           tryFindTarget model.Board.Aspects with
     | Some parent, Some target ->
         aspectIndex model target.Id parent.Id
-        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> updateBoardMessage)
+        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> updateBoard)
     | Some parent, None ->
         if List.isEmpty parent.Aspects
-        then MoveAspect (aspect.Id, parent.Id, 0) |> updateBoardMessage |> Some
+        then MoveAspect (aspect.Id, parent.Id, 0) |> updateBoard |> Some
         else None
     | _ -> None
 

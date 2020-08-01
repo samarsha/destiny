@@ -19,7 +19,7 @@ open Elmish.HMR
 type private Model =
     { World : World
       ServerBoard : Board
-      UnconfirmedMessages : BoardMessage List
+      Unconfirmed : BoardMessage list
       Role : Role
       BoardView : BoardView.Model }
 
@@ -35,7 +35,7 @@ let private empty =
     let role = Player
     { World = world
       ServerBoard = Board.empty
-      UnconfirmedMessages = []
+      Unconfirmed = []
       Role = role
       BoardView = BoardView.empty world.Board role }
 
@@ -66,55 +66,50 @@ let private view model dispatch =
 
 // Update
 
-let private applyBoardCommandToLocalState model command =
+let private applyBoardMessage model command =
     let board' = BoardCommand.update command.Command model.World.Board
     { model with
           World = { model.World with Board = board' }
           BoardView = BoardView.setBoard board' model.BoardView }
 
-let private recreateLocalState model =
-    let board' = model.UnconfirmedMessages
-                 |> List.map (fun x -> BoardCommand.update x.Command)
-                 |> List.fold (|>) model.ServerBoard
+let private reapplyUnconfirmed model =
+    let board' =
+        model.Unconfirmed
+        |> List.map (fun message -> BoardCommand.update message.Command)
+        |> List.fold (|>) model.ServerBoard
     { model with
           World = { model.World with Board = board' }
           BoardView = BoardView.setBoard board' model.BoardView }
-    
 
-/// From Client to Server
+/// Applies a command sent from the client to the server.
 let private applyServerCommand model = function
     // Apply board commands locally before sending them to the server to make typing, dragging, etc. more responsive.
     | UpdateBoard command ->
-        let model' = applyBoardCommandToLocalState model command
-        { model' with UnconfirmedMessages = model'.UnconfirmedMessages @ [ command ] }
+        let model' = applyBoardMessage model command
+        { model' with Unconfirmed = List.add command model'.Unconfirmed }
     | _ -> model
 
-/// From Server to Client
+/// Applies a command received by the client from the server.
 let private applyClientCommand model = function
-    | BoardUpdated command' ->
-        let model' = { model with ServerBoard = BoardCommand.update command'.Command model.ServerBoard }
-        let isMyCommand = List.contains command' model.UnconfirmedMessages
-        if isMyCommand then
-            { model' with UnconfirmedMessages = List.remove command' model'.UnconfirmedMessages }
-        else
-            recreateLocalState model'
+    | BoardUpdated message ->
+        let model' = { model with ServerBoard = BoardCommand.update message.Command model.ServerBoard }
+        if List.contains message model.Unconfirmed
+        then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
+        else reapplyUnconfirmed model'
     | WorldInitialized world ->
         { model with
               World = world
-              BoardView = BoardView.setBoard world.Board model.BoardView
               ServerBoard = world.Board
-              UnconfirmedMessages = [] }
-    | RollLogUpdated rollLog ->
-        { model with World = { model.World with Rolls = rollLog } }
+              Unconfirmed = []
+              BoardView = BoardView.setBoard world.Board model.BoardView }
+    | RollLogUpdated rollLog -> { model with World = { model.World with Rolls = rollLog } }
     | RoleChanged role -> { model with Role = role }
 
 let private update message model =
     match message with
-    | Receive command ->
-        applyClientCommand model command, Cmd.none
+    | Receive command -> applyClientCommand model command, Cmd.none
     | Send command
-    | BoardView (BoardView.Command command) ->
-        applyServerCommand model command, Cmd.bridgeSend command
+    | BoardView (BoardView.Command command) -> applyServerCommand model command, Cmd.bridgeSend command
     | BoardView (BoardView.Private message') ->
         let boardView, serverCommand = BoardView.update message' model.BoardView
         let model' = { model with BoardView = boardView }
