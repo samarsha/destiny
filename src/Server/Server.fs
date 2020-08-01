@@ -11,7 +11,7 @@ open Saturn
 open System.IO
 open Thoth.Json.Giraffe
 
-type private Client = { Role : Role }
+type private Client = Client of Role
 
 let private worldVar = MVar.create World.empty
 
@@ -21,9 +21,9 @@ let private random = Random ()
 
 let private init dispatch () =
     MVar.read worldVar |> ClientConnected |> dispatch
-    { Role = Player }, Cmd.none
+    Client Player, Cmd.none
 
-let private update dispatch message client =
+let private update dispatch message (Client role as client) =
     let client' =
         match message with
         | UpdateBoard command ->
@@ -31,18 +31,18 @@ let private update dispatch message client =
             BoardUpdated command |> hub.BroadcastClient
             client
         | RollStat (statId, rollId) ->
-            let world' = rollStat random client.Role statId rollId |> MVar.update worldVar
+            let world' = rollStat random role statId rollId |> MVar.update worldVar
             RollLogUpdated world'.Rolls |> hub.BroadcastClient
             client
         | RollAspect (aspectId, rollId) ->
-            let die = Die client.Role
+            let die = Die role
             let world' = rollAspect random die aspectId rollId |> MVar.update worldVar
             RollLogUpdated world'.Rolls |> hub.BroadcastClient
             RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> hub.BroadcastClient
             client
         | SetRole role ->
             RoleChanged role |> dispatch
-            { Role = role }
+            Client role
     client', Cmd.none
 
 let private app =
