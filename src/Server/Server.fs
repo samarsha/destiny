@@ -73,6 +73,14 @@ let private update context dispatch message client =
         RoleChanged role |> dispatch
         { Role = role }, Cmd.none
 
+let private load () =
+    try
+        File.ReadAllText savePath
+        |> serializer.Deserialize<Universe>
+        |> Some
+    with
+    | :? FileNotFoundException -> None
+
 let private save universeVar =
     let universe = over Universe.boards Timeline.commit |> MVar.update universeVar
     File.WriteAllText (savePath, serializer.SerializeToString universe)
@@ -96,10 +104,10 @@ let private app context =
 [<EntryPoint>]
 let main _ =
     let context =
-        // TODO: Read a saved universe.
-        { Universe = MVar.create Universe.empty
+        { Universe = load () |> Option.defaultValue Universe.empty |> MVar.create
           Hub = ServerHub ()
           Random = Random () }
     new Timer ((fun _ -> save context.Universe), (), saveInterval, saveInterval) |> ignore
+    // TODO: Save the universe before exiting.
     app context |> run
     0
