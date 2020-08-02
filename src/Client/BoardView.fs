@@ -127,14 +127,14 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         div [ Class "stat-group-controls" ] controls
         :: stats
 
-let private viewAspectDie model dispatch (aspect : Aspect) (Die role) =
+let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
     let roleClass =
-        match role with
+        match die.Role with
         | Player -> Class "die-player"
         | DM -> Class "die-dm"
     button
         [ roleClass
-          Disabled (Option.isNone model.Rolling || model.Role <> role)
+          Disabled (Option.isNone model.Rolling || model.Role <> die.Role)
           OnClick <| fun _ ->
               match model.Rolling with
               | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> dispatch
@@ -164,10 +164,10 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
           Some description
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           Some <| button
-              [ OnClick <| fun _ -> AddDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch ]
+              [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
               [ str "+" ]
           Some <| button
-              [ OnClick <| fun _ -> RemoveDie (aspect.Id, Die model.Role) |> boardCommand |> dispatch ]
+              [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
               [ str "-" ] ]
 
 let private viewEntity model dispatch (entity : Entity) =

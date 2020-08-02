@@ -59,7 +59,7 @@ let private update context dispatch message client =
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollAspect (aspectId, rollId) ->
-        let die = Die client.Role
+        let die = { Die.Role = client.Role }
         let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> context.Hub.BroadcastClient

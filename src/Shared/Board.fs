@@ -29,7 +29,7 @@ type Role =
     | Player
     | DM
 
-type Die = Die of Role
+type Die = { Role : Role }
 
 type Aspect =
     { Id : Aspect Id

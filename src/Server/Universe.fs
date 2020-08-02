@@ -35,12 +35,12 @@ module internal Universe =
             { universe with Rolls = rolls' }
         | None -> universe
 
-    let rollAspect (random : Random) (Die role as die) aspectId rollId universe =
+    let rollAspect (random : Random) die aspectId rollId universe =
         match Map.tryFind aspectId (Timeline.present universe.Boards).Aspects with
         | Some aspect when Bag.contains die aspect.Dice ->
             let invoke =
                 { Source = aspect.Description
-                  Role = role
+                  Role = die.Role
                   Result = random.Next (1, 7) }
             let addInvoke roll = { roll with Invokes = List.add invoke roll.Invokes }
             let rolls' = { universe.Rolls with Map = Map.change addInvoke rollId universe.Rolls.Map }
