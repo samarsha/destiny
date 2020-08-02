@@ -13,8 +13,11 @@ open Fake.IO
 Target.initEnvironment ()
 
 let serverPath = Path.getFullName "./src/Server"
+
 let clientPath = Path.getFullName "./src/Client"
+
 let clientDeployPath = Path.combine clientPath "deploy"
+
 let deployDir = Path.getFullName "./deploy"
 
 let platformTool tool winTool =
@@ -29,6 +32,7 @@ let platformTool tool winTool =
         failwith errorMsg
 
 let nodeTool = platformTool "node" "node.exe"
+
 let yarnTool = platformTool "yarn" "yarn.cmd"
 
 let runTool cmd args workingDir =
@@ -46,7 +50,6 @@ let runDotNet cmd workingDir =
     then failwithf "'dotnet %s' failed in %s" cmd workingDir
 
 let openBrowser url =
-    // https://github.com/dotnet/corefx/issues/10361
     Command.ShellCommand url
     |> CreateProcess.fromCommand
     |> CreateProcess.ensureExitCodeWithMessage "opening browser failed"
@@ -88,9 +91,19 @@ Target.create "Run" <| fun _ ->
     |> Async.RunSynchronously
     |> ignore
 
+Target.create "Bundle" <| fun _ ->
+    let serverDir = Path.combine deployDir "Server"
+    let publish = sprintf "publish -c Release -o \"%s\"" serverDir
+    runDotNet publish serverPath
+
+    let clientDir = Path.combine deployDir "Client"
+    let assetsDir = Path.combine clientDir "assets"
+    Shell.copyDir assetsDir clientDeployPath FileFilter.allFiles
+
 "Clean"
     ==> "InstallClient"
     ==> "Build"
+    ==> "Bundle"
 
 "Clean"
     ==> "InstallClient"
