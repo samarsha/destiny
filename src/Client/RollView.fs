@@ -2,7 +2,7 @@
 
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
-open Destiny.Shared.World
+open Destiny.Shared.Roll
 open Fable.React
 open Fable.React.Props
 

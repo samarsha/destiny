@@ -1,4 +1,4 @@
-namespace Destiny.Shared.World
+namespace Destiny.Shared.Roll
 
 open Destiny.Shared
 open Destiny.Shared.Board

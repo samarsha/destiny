@@ -4,7 +4,7 @@ open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
-open Destiny.Shared.World
+open Destiny.Shared.Roll
 open System
 
 type internal Universe =

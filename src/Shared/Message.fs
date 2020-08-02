@@ -2,7 +2,7 @@ namespace Destiny.Shared.Message
 
 open Destiny.Shared
 open Destiny.Shared.Board
-open Destiny.Shared.World
+open Destiny.Shared.Roll
 
 type BoardCommand =
     | AddEntity of Entity Id

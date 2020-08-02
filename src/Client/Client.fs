@@ -4,7 +4,7 @@ open Destiny.Client
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
-open Destiny.Shared.World
+open Destiny.Shared.Roll
 open Elmish
 open Elmish.Bridge
 open Elmish.React
