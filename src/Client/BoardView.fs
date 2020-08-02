@@ -233,7 +233,10 @@ let viewBoard model dispatch =
     let addButton =
         button
             [ Class "add-entity"
-              OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
+              OnClick <| fun _ ->
+                  let entityId = Id.random ()
+                  AddEntity entityId |> boardCommand |> dispatch
+                  StartEdit entityId |> Private |> dispatch ]
             [ icon "Plus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
