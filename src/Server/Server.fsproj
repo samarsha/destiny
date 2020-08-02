@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RootNamespace>Destiny.Server</RootNamespace>
+    <DefaultItemExcludes>$(DefaultItemExcludes); universe.json</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <Import Project="..\Shared\Shared.props" />
+
+  <ItemGroup>
+    <None Include="paket.references" />
+    <Compile Include="MVar.fs" />
+    <Compile Include="Timeline.fs" />
+    <Compile Include="Universe.fs" />
+    <Compile Include="Server.fs" />
+  </ItemGroup>
+
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
