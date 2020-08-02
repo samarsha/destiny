@@ -247,6 +247,8 @@ let viewRollBar model dispatch =
 
 let setBoard board model = { model with Model.Board = board }
 
+let setRole role model = { model with Model.Role = role }
+
 let private dragEntityCommand model (entity : Entity) =
     let targetIndex =
         Drag.targets model.Drag

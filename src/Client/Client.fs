@@ -109,7 +109,10 @@ let private applyServerMessage model = function
         else reapplyUnconfirmed model'
     | BoardReplaced board -> reapplyUnconfirmed { model with ServerBoard = board }
     | RollLogUpdated rollLog -> { model with World = { model.World with Rolls = rollLog } }
-    | RoleChanged role -> { model with Role = role }
+    | RoleChanged role ->
+        { model with
+              Role = role
+              BoardView = BoardView.setRole role model.BoardView }
 
 let private update message model =
     match message with
