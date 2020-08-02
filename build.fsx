@@ -70,11 +70,11 @@ Target.create "InstallClient" <| fun _ ->
 
 Target.create "Build" <| fun _ ->
     runDotNet "build" serverPath
-    runTool yarnTool "webpack-cli -p" __SOURCE_DIRECTORY__
+    runTool yarnTool "webpack-cli --env.production -p" __SOURCE_DIRECTORY__
 
 Target.create "Run" <| fun _ ->
     let server = async { runDotNet "watch run" serverPath }
-    let client = async { runTool yarnTool "webpack-dev-server" __SOURCE_DIRECTORY__ }
+    let client = async { runTool yarnTool "webpack-dev-server --env.development" __SOURCE_DIRECTORY__ }
     let browser =
         async {
             do! Async.Sleep 5000
