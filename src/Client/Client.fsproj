@@ -5,7 +5,9 @@
     <DefineConstants>FABLE_COMPILER</DefineConstants>
     <RootNamespace>Destiny.Client</RootNamespace>
   </PropertyGroup>
+
   <Import Project="..\Shared\Shared.props" />
+
   <ItemGroup>
     <None Include="paket.references" />
     <None Include="index.html" />
@@ -15,5 +17,6 @@
     <Compile Include="RollView.fs" />
     <Compile Include="Client.fs" />
   </ItemGroup>
+
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
