@@ -1,6 +1,7 @@
 module private Destiny.Client.Program
 
 open Destiny.Client
+open Destiny.Client.Tabler
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
@@ -65,8 +66,8 @@ let private view model dispatch =
               str "DM" ]
     let toolbar =
         div [ Class "toolbar" ]
-            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ str "Undo" ]
-              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ str "Redo" ]
+            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [] ]
+              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [] ]
               dmCheckbox ]
     let main =
         div [ Class "main" ]

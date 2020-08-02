@@ -3,6 +3,7 @@
 open System
 
 open Destiny.Client
+open Destiny.Client.Tabler
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Board
@@ -97,7 +98,7 @@ let private viewStat mode model dispatch (stat : Stat) =
         button
             [ Disabled <| Option.isSome model.Rolling
               OnClick <| fun _ -> startRoll dispatch stat.Id ]
-            [ str "🎲" ]
+            [ icon "Dice" [] ]
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
         [ Some name
           Some score
@@ -138,7 +139,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
               match model.Rolling with
               | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> dispatch
               | None -> () ]
-        [ str "🎲" ]
+        [ icon "Dice" [] ]
 
 let private viewAspect mode model dispatch (aspect : Aspect) =
     let classes = String.concat " " <| List.choose id [ Some "aspect"; dragClass aspect.Id model ]
@@ -164,10 +165,10 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           Some <| button
               [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ str "+" ]
+              [ icon "Plus" [] ]
           Some <| button
               [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ str "-" ] ]
+              [ icon "Minus" [] ] ]
 
 let private viewEntity model dispatch (entity : Entity) =
     let classes = String.concat " " <| List.choose id [ Some "entity"; dragClass entity.Id model ]
@@ -183,11 +184,11 @@ let private viewEntity model dispatch (entity : Entity) =
     let hideButton =
         button
             [ OnClick <| fun _ -> CollapseEntity entity.Id |> boardCommand |> dispatch ]
-            [ str <| if entity.Collapsed then "Show" else "Hide" ]
+            [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let editButton =
         button
             [ OnClick <| fun _ -> ToggleEdit entity.Id |> Private |> dispatch ]
-            [ str "📝" ]
+            [ icon "Edit" [] ]
     let addGroupButton =
         button
             [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
@@ -229,7 +230,7 @@ let viewBoard model dispatch =
         button
             [ Class "add-entity"
               OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
-            [ str "+ Entity" ]
+            [ icon "SquarePlus" [ Tabler.Size 64; Tabler.StrokeWidth 1 ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
         [ div [ Class "entities" ] <|

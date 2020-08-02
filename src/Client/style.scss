@@ -38,6 +38,27 @@ textarea {
   font-size: 12pt;
 }
 
+button {
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  margin: 2px;
+  padding: 4px;
+}
+
+button:not([disabled]):hover {
+  background: #eeeeee;
+}
+
+.icon {
+  color: #444;
+  vertical-align: middle;
+}
+
+[disabled] .icon {
+  opacity: 0.4;
+}
+
 [data-autoexpand] {
   position: relative;
 }
@@ -189,7 +210,6 @@ textarea {
 
 .add-entity {
   align-self: center;
-  height: 50px;
   width: 250px;
 }
 
@@ -228,9 +248,15 @@ textarea {
 .die-player {
   border-color: #1097f7b9;
 }
+.die-player .icon {
+  color: #1097f7b9;
+}
 
 .die-dm {
   border-color: #da4d4dc5;
+}
+.die-dm .icon {
+  color: #da4d4dc5;
 }
 
 .roll {

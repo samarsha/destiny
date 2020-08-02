@@ -12,6 +12,7 @@
     <None Include="paket.references" />
     <None Include="index.html" />
     <None Include="style.scss" />
+    <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
     <Compile Include="BoardView.fs" />
     <Compile Include="RollView.fs" />
