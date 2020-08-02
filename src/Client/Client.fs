@@ -57,7 +57,7 @@ let private view model dispatch =
         then div [ Class "connected" ] []
         else div [ Class "connecting" ] [ str "Trying to connect..." ]
     let dmCheckbox =
-        label []
+        label [ Class "dm-toggle" ]
             [ input
                   [ Type "checkbox"
                     Checked (model.Role = DM)

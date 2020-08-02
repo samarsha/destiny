@@ -78,9 +78,15 @@ textarea {
 }
 
 .toolbar {
+  align-items: center;
   background: white;
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
   padding: 10px;
+}
+
+.dm-toggle {
+  margin-left: auto;
 }
 
 .main {
