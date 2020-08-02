@@ -6,6 +6,5 @@ group Client
     Fable.Elmish.Debugger
     Fable.Elmish.HMR
     Fable.Elmish.React
-    Fable.FontAwesome.Free
     Fable.React
     Thoth.Fetch
