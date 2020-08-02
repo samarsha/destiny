@@ -9,7 +9,6 @@ open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
 open Destiny.Shared.Roll
-open Elmish.React
 open Fable.React
 open Fable.React.Props
 
@@ -82,7 +81,7 @@ let private viewStat mode model dispatch (stat : Stat) =
             Class "stat-name"
             OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> boardCommand |> dispatch
             Placeholder "Name this stat"
-            valueOrDefault stat.Name ]
+            Value stat.Name ]
     let score =
         match mode with
         | View -> span [ Class "stat-score" ] [ str <| stat.Score.ToString () ]
@@ -93,7 +92,7 @@ let private viewStat mode model dispatch (stat : Stat) =
                 match Int32.TryParse event.Value with
                 | true, score -> SetStatScore (stat.Id, score) |> boardCommand |> dispatch
                 | _ -> ()
-            valueOrDefault stat.Score ]
+            Value stat.Score ]
     let rollButton =
         button
             [ Disabled <| Option.isSome model.Rolling
@@ -113,7 +112,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
             Class "stat-group-name"
             OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> boardCommand |> dispatch
             Placeholder "Name this group"
-            valueOrDefault group.Name ]
+            Value group.Name ]
     let controls = List.choose id [
         Some name
         whenEdit mode <| button
@@ -153,7 +152,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                         Placeholder "Describe this aspect."
                         OnChange <| fun event ->
                             SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch
-                        valueOrDefault aspect.Description ]
+                        Value aspect.Description ]
                       [] ]
     div [ Class classes
           Key <| aspect.Id.ToString ()
@@ -180,7 +179,7 @@ let private viewEntity model dispatch (entity : Entity) =
             Class "name"
             Placeholder "Name this entity."
             OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
-            valueOrDefault entity.Name ]
+            Value entity.Name ]
     let hideButton =
         button
             [ OnClick <| fun _ -> CollapseEntity entity.Id |> boardCommand |> dispatch ]

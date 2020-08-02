@@ -21,12 +21,14 @@ type private Model =
       BoardView : BoardView.Model
       Rolls : RollLog
       Role : Role
+      Connected : bool
       ServerBoard : Board
       Unconfirmed : BoardMessage list }
 
 type private Message =
     | Receive of ServerMessage
     | Send of ClientMessage
+    | Disconnected
     | BoardView of BoardView.Message
 
 // Model
@@ -37,6 +39,7 @@ let private empty =
       BoardView = BoardView.empty Board.empty role
       Rolls = RollLog.empty
       Role = role
+      Connected = false
       ServerBoard = Board.empty
       Unconfirmed = [] }
 
@@ -49,6 +52,10 @@ let private flipRole = function
     | DM -> Player
 
 let private view model dispatch =
+    let connection =
+        if model.Connected
+        then div [ Class "connected" ] []
+        else div [ Class "connecting" ] [ str "Trying to connect..." ]
     let dmCheckbox =
         label []
             [ input
@@ -65,8 +72,9 @@ let private view model dispatch =
         div [ Class "main" ]
             [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
               RollView.view model.Rolls ]
-    div [ Class "app" ]
-        [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
+    div [ Class "app" ] <|
+        [ connection
+          BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
           toolbar
           main ]
 
@@ -89,7 +97,7 @@ let private reapplyUnconfirmed model =
 
 /// Applies a message sent by the client to the server.
 let private applyClientMessage model = function
-    | UpdateBoard message ->
+    | UpdateBoard message when model.Connected ->
         // Apply board commands before sending them to the server to make typing, dragging, etc. more responsive.
         let model' = applyBoardCommand model message.Command
         { model' with Unconfirmed = List.add message model'.Unconfirmed }
@@ -102,6 +110,7 @@ let private applyServerMessage model = function
               Board = board
               BoardView = BoardView.setBoard board model.BoardView
               Rolls = rolls
+              Connected = true
               ServerBoard = board
               Unconfirmed = [] }
     | BoardUpdated message ->
@@ -127,17 +136,19 @@ let private update message model =
         let model'' = clientMessage |> Option.map (applyClientMessage model') |> Option.defaultValue model'
         let command = clientMessage |> Option.map Cmd.bridgeSend |> Option.defaultValue Cmd.none
         model'', command
+    | Disconnected -> { model with Connected = false }, Cmd.none
 
 let private bridgeConfig =
     Bridge.endpoint Message.socket
     |> Bridge.withMapping Receive
+    |> Bridge.withWhenDown Disconnected
 
 Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
 |> Program.withBridgeConfig bridgeConfig
-|> Program.withReactBatched "app"
+|> Program.withReactSynchronous "app"
 #if DEBUG
 |> Program.withDebugger
 #endif

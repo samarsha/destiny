@@ -57,12 +57,20 @@ textarea {
   word-wrap: break-word;
 }
 
+.connecting,
 .active-roll {
-  background: #1098f7;
   color: #f7f7f2;
   font-size: 14pt;
   padding: 10px;
   text-align: center;
+}
+
+.connecting {
+  background: #c62f4f;
+}
+
+.active-roll {
+  background: #1098f7;
 }
 
 .active-roll button {
