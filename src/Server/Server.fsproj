@@ -14,7 +14,7 @@
     <Compile Include="MVar.fs" />
     <Compile Include="Timeline.fs" />
     <Compile Include="Universe.fs" />
-    <Compile Include="Server.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
