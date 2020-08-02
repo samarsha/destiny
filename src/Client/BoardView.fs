@@ -225,13 +225,16 @@ let private viewDrag model dispatch id =
     |> Option.defaultWith (fun () -> failwith <| "Invalid drag ID: " + id)
 
 let viewBoard model dispatch =
+    let addButton =
+        button
+            [ Class "add-entity"
+              OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
+            [ str "+ Entity" ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
-        [ button
-              [ OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
-              [ str "+" ]
-          div [ Class "entities" ] <|
+        [ div [ Class "entities" ] <|
               Map.joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
+              @ [ addButton ]
           Drag.view (viewDrag model dispatch) model.Drag ]
 
 let viewRollBar model dispatch =
