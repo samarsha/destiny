@@ -5,6 +5,8 @@ open Destiny.Shared.Message
 open Elmish
 open Elmish.Bridge
 open Giraffe.Serialization.Json
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Saturn
 open System
 open System.IO
@@ -107,7 +109,9 @@ let main _ =
         { Universe = load () |> Option.defaultValue Universe.empty |> MVar.create
           Hub = ServerHub ()
           Random = Random () }
+    let host = (app context).Build ()
+    let lifetime = host.Services.GetService<IHostApplicationLifetime> ()
+    lifetime.ApplicationStopping.Register (fun () -> save context.Universe) |> ignore
     new Timer ((fun _ -> save context.Universe), (), saveInterval, saveInterval) |> ignore
-    // TODO: Save the universe before exiting.
-    app context |> run
+    host.Run ()
     0
