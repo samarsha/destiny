@@ -186,12 +186,13 @@ button:not([disabled]):hover {
   width: 60px;
 }
 
-.aspect {
-  border-bottom: 1px solid #ddd;
+.aspects {
+  display: flex;
+  flex-direction: column;
 }
 
-.aspect:last-of-type {
-  border-bottom: none;
+.aspect {
+  border-bottom: 1px solid #ddd;
 }
 
 .aspect-description {

@@ -25,7 +25,8 @@ type PrivateMessage =
     private
     | StartRoll of Roll Id
     | StopRoll
-    | ToggleEdit of Entity Id
+    | StartEdit of Entity Id
+    | StopEdit
     | Drag of Drag.Message
 
 type Message =
@@ -165,10 +166,15 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           Some <| button
               [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ icon "Plus" [] ]
+              [ icon "SquarePlus" [] ]
           Some <| button
               [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ icon "Minus" [] ] ]
+              [ icon "SquareMinus" [] ] ]
+
+let private toggleEdit mode entityId =
+    match mode with
+    | View -> StartEdit entityId
+    | Edit -> StopEdit
 
 let private viewEntity model dispatch (entity : Entity) =
     let classes = String.concat " " <| List.choose id [ Some "entity"; dragClass entity.Id model ]
@@ -182,28 +188,26 @@ let private viewEntity model dispatch (entity : Entity) =
             OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
             Value entity.Name ]
     let hideButton =
-        button
-            [ OnClick <| fun _ -> CollapseEntity entity.Id |> boardCommand |> dispatch ]
-            [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
+        button [ OnClick <| fun _ -> CollapseEntity entity.Id |> boardCommand |> dispatch ]
+               [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let editButton =
-        button
-            [ OnClick <| fun _ -> ToggleEdit entity.Id |> Private |> dispatch ]
-            [ icon "Edit" [] ]
+        button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> Private |> dispatch ]
+               [ icon "Edit" [] ]
     let addGroupButton =
-        button
-            [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
-            [ str "+ Stat Group" ]
+        button [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
+               [ str "+ Stat Group" ]
     let stats =
         Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
         @ Option.toList (whenEdit mode addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
+    let addAspectButton =
+        button [ OnClick <| fun _ ->
+                     AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
+                     StartEdit entity.Id |> Private |> dispatch ]
+               [ icon "Plus" [ Tabler.Size 32; Tabler.StrokeWidth 1.0 ] ]
     let content =
-        List.choose id
-            [ Some <| div [ Class "stats" ] stats
-              Some <| div [ Class "aspects" ] aspects
-              whenEdit mode <| button
-                  [ OnClick <| fun _ -> AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch ]
-                  [ str "+ Aspect" ] ]
+        [ div [ Class "stats" ] stats
+          div [ Class "aspects" ] <| aspects @ [ addAspectButton ] ]
     div [ Class classes
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
@@ -230,7 +234,7 @@ let viewBoard model dispatch =
         button
             [ Class "add-entity"
               OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
-            [ icon "SquarePlus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ] ]
+            [ icon "Plus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
         [ div [ Class "entities" ] <|
@@ -286,9 +290,8 @@ let private updateDrag message model =
 
 let update message model =
     match message with
-    | ToggleEdit id ->
-        let editing' = if model.Editing |> Option.contains id then None else Some id
-        { model with Editing = editing' }, None
+    | StartEdit id -> { model with Editing = Some id }, None
+    | StopEdit -> { model with Editing = None }, None
     | StartRoll rollId -> { model with Rolling = Some rollId }, None
     | StopRoll -> { model with Rolling = None }, None
     | Drag message -> updateDrag message model
