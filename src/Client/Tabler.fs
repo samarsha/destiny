@@ -7,7 +7,7 @@ open Fable.Core.JsInterop
 type IconProperty =
     | Size of int
     | Color of string
-    | StrokeWidth of int
+    | StrokeWidth of float
 
-let inline icon (name : string) (properties : IconProperty list) =
+let inline icon name (properties : IconProperty list) =
     ofImport name "tabler-icons-react" (keyValueList CaseRules.LowerFirst properties) []

@@ -230,7 +230,7 @@ let viewBoard model dispatch =
         button
             [ Class "add-entity"
               OnClick <| fun _ -> Id.random () |> AddEntity |> boardCommand |> dispatch ]
-            [ icon "SquarePlus" [ Tabler.Size 64; Tabler.StrokeWidth 1 ] ]
+            [ icon "SquarePlus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
         [ div [ Class "entities" ] <|
