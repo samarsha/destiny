@@ -6,8 +6,8 @@ open Destiny.Shared.Roll
 
 type BoardCommand =
     | AddEntity of Entity Id
-    | CollapseEntity of Entity Id
     | SetEntityName of Entity Id * string
+    | SetEntityCollapsed of Entity Id * bool
     | MoveEntity of Entity Id * int
     | RemoveEntity of Entity Id
     | AddStatGroup of StatGroup Id * Entity Id
@@ -27,8 +27,8 @@ type BoardCommand =
 module internal BoardCommand =
     let update = function
         | AddEntity id -> Board.addEntity id
-        | CollapseEntity id -> Board.collapseEntity id
         | SetEntityName (id, name) -> Board.setEntityName name id
+        | SetEntityCollapsed (id, collapsed) -> Board.setEntityCollapsed collapsed id
         | MoveEntity (id, index) -> Board.moveEntity index id
         | RemoveEntity id -> Board.removeEntity id
         | AddStatGroup (groupId, entityId) -> Board.addStatGroup groupId entityId

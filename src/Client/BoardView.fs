@@ -188,7 +188,7 @@ let private viewEntity model dispatch (entity : Entity) =
             OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
             Value entity.Name ]
     let hideButton =
-        button [ OnClick <| fun _ -> CollapseEntity entity.Id |> boardCommand |> dispatch ]
+        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> boardCommand |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let editButton =
         button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> Private |> dispatch ]

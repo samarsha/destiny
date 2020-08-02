@@ -164,7 +164,7 @@ module internal Board =
 
     let setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
-    let collapseEntity = Map.change (over Entity.collapsed not) >> over entities
+    let setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
 
     let moveEntity index id = List.remove id >> List.insertAt index id |> over order
 
