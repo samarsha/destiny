@@ -17,11 +17,12 @@ open Elmish.HMR
 #endif
 
 type private Model =
-    { World : World
-      ServerBoard : Board
-      Unconfirmed : BoardMessage list
+    { Board : Board
+      BoardView : BoardView.Model
+      Rolls : RollLog
       Role : Role
-      BoardView : BoardView.Model }
+      ServerBoard : Board
+      Unconfirmed : BoardMessage list }
 
 type private Message =
     | Receive of ServerMessage
@@ -31,13 +32,13 @@ type private Message =
 // Model
 
 let private empty =
-    let world = World.empty
     let role = Player
-    { World = world
-      ServerBoard = Board.empty
-      Unconfirmed = []
+    { Board = Board.empty
+      BoardView = BoardView.empty Board.empty role
+      Rolls = RollLog.empty
       Role = role
-      BoardView = BoardView.empty world.Board role }
+      ServerBoard = Board.empty
+      Unconfirmed = [] }
 
 let private init () = empty, Cmd.none
 
@@ -63,7 +64,7 @@ let private view model dispatch =
     let main =
         div [ Class "main" ]
             [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
-              RollView.view model.World.Rolls ]
+              RollView.view model.Rolls ]
     div [ Class "app" ]
         [ BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
           toolbar
@@ -72,10 +73,10 @@ let private view model dispatch =
 // Update
 
 let private applyBoardCommand model command =
-    let board' = BoardCommand.update command model.World.Board
+    let board = BoardCommand.update command model.Board
     { model with
-          World = { model.World with Board = board' }
-          BoardView = BoardView.setBoard board' model.BoardView }
+          Board = board
+          BoardView = BoardView.setBoard board model.BoardView }
 
 let private reapplyUnconfirmed model =
     let board =
@@ -83,7 +84,7 @@ let private reapplyUnconfirmed model =
         |> List.map (fun message -> BoardCommand.update message.Command)
         |> List.fold (|>) model.ServerBoard
     { model with
-          World = { model.World with Board = board }
+          Board = board
           BoardView = BoardView.setBoard board model.BoardView }
 
 /// Applies a message sent by the client to the server.
@@ -96,23 +97,24 @@ let private applyClientMessage model = function
 
 /// Applies a message received by the client from the server.
 let private applyServerMessage model = function
-    | ClientConnected world ->
+    | ClientConnected (board, rolls) ->
         { model with
-              World = world
-              ServerBoard = world.Board
-              Unconfirmed = []
-              BoardView = BoardView.setBoard world.Board model.BoardView }
+              Board = board
+              BoardView = BoardView.setBoard board model.BoardView
+              Rolls = rolls
+              ServerBoard = board
+              Unconfirmed = [] }
     | BoardUpdated message ->
         let model' = { model with ServerBoard = BoardCommand.update message.Command model.ServerBoard }
         if List.contains message model.Unconfirmed
         then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
         else reapplyUnconfirmed model'
     | BoardReplaced board -> reapplyUnconfirmed { model with ServerBoard = board }
-    | RollLogUpdated rollLog -> { model with World = { model.World with Rolls = rollLog } }
+    | RollLogUpdated rolls -> { model with Rolls = rolls }
     | RoleChanged role ->
         { model with
-              Role = role
-              BoardView = BoardView.setRole role model.BoardView }
+              BoardView = BoardView.setRole role model.BoardView
+              Role = role }
 
 let private update message model =
     match message with

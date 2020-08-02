@@ -55,7 +55,7 @@ module internal BoardMessage =
           Command = command }
 
 type ServerMessage =
-    | ClientConnected of World
+    | ClientConnected of Board * RollLog
     | BoardUpdated of BoardMessage
     | BoardReplaced of Board
     | RollLogUpdated of RollLog

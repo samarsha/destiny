@@ -40,7 +40,8 @@ let private commitBefore = function
     | _ -> false
 
 let private init universeVar dispatch () =
-    MVar.read universeVar |> Universe.toWorld |> ClientConnected |> dispatch
+    let universe = MVar.read universeVar
+    ClientConnected (Timeline.present universe.Boards, universe.Rolls) |> dispatch
     { Role = Player }, Cmd.none
 
 let private update context dispatch message client =

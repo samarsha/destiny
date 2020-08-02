@@ -18,10 +18,6 @@ module internal Universe =
         { Boards = Timeline.singleton Board.empty
           Rolls = RollLog.empty }
 
-    let toWorld universe =
-        { Board = Timeline.present universe.Boards
-          Rolls = universe.Rolls }
-
     let rollStat (random : Random) role statId rollId universe =
         match Map.tryFind statId (Timeline.present universe.Boards).Stats with
         | Some stat ->

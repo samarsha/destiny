@@ -5,7 +5,7 @@
     <Compile Include="..\Shared\Lens.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Id.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\World.fs" LinkBase="Shared Items" />
+    <Compile Include="..\Shared\Roll.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Message.fs" LinkBase="Shared Items" />
   </ItemGroup>
 </Project>

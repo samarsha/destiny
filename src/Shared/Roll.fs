@@ -24,12 +24,3 @@ module internal RollLog =
     let empty =
         { Map = Map.empty
           Order = [] }
-
-type World =
-    { Board : Board
-      Rolls : RollLog }
-
-module internal World =
-    let empty =
-        { Board = Board.empty
-          Rolls = RollLog.empty }
