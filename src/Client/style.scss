@@ -49,10 +49,22 @@ button:not([disabled]):hover {
   position: relative;
 }
 
+[data-autoexpand],
+[data-autoexpand] textarea,
+.preserve-whitespace {
+  white-space: pre-wrap;
+  word-break: break-all;
+  word-wrap: break-word;
+}
+
 [data-autoexpand] textarea {
+  border: 0;
+  box-sizing: border-box;
   height: 100%;
   left: 0;
+  margin: 0;
   position: absolute;
+  resize: none;
   top: 0;
   width: 100%;
 }
@@ -60,8 +72,6 @@ button:not([disabled]):hover {
 [data-autoexpand]::after {
   content: attr(data-autoexpand) " ";
   display: block;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .connecting,
@@ -143,7 +153,7 @@ button:not([disabled]):hover {
 }
 
 .entity-title,
-input.entity-name {
+.entity-name textarea {
   background: #a53860;
   border: 0;
   color: #f7f7f2;
@@ -156,9 +166,13 @@ input.entity-name {
   display: flex;
 }
 
+.entity-name,
+.entity-name textarea {
+  padding: 7px;
+}
+
 .entity-name {
   flex-grow: 1;
-  padding: 7px;
 }
 
 input.entity-name {
@@ -178,36 +192,52 @@ input.entity-name {
 }
 
 .stat-group-name,
+.stat-group-name textarea,
+.stat-name,
+.stat-name textarea,
+.stat-score {
+  padding: 5px 7px;
+}
+
+.stat-group-name,
 .stat-name,
 .stat-score {
   border: 0;
   min-width: 0;
-  padding: 5px 7px;
 }
 
 .stat-group-header,
 .stat {
-  align-items: center;
   display: flex;
 }
 
+.stat-name,
 .stat-group-name {
   flex-grow: 1;
+}
+
+.stat-group-name,
+.stat-group-name textarea {
   font-family: "Noto Sans", sans-serif;
   font-weight: bold;
 }
 
-.stat-name {
-  flex-grow: 1;
+.stat {
+  align-items: center;
 }
 
 .stat-score {
+  max-width: 30px;
+  min-width: 30px;
   padding-left: 0;
   padding-right: 5px;
   text-align: right;
 }
+
 input.stat-score {
-  width: 60px;
+  max-width: 40px;
+  min-width: 40px;
+  padding-right: 0;
 }
 
 .add-stat,
@@ -232,19 +262,9 @@ input.stat-score {
   flex-grow: 1;
 }
 
-.aspect-description textarea {
-  border: 0;
-  box-sizing: border-box;
-  display: block;
-  resize: none;
-}
-
-.aspect [data-autoexpand],
 .aspect-description,
 .aspect-description textarea {
   padding: 7px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .messages {

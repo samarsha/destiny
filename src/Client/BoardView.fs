@@ -75,15 +75,20 @@ let private startRoll dispatch statId =
     StartRoll rollId |> Private |> dispatch 
     RollStat (statId, rollId) |> Send |> dispatch
 
+let private expandingTextarea containerProps textareaProps value =
+    div (upcast Data ("autoexpand", value) :: containerProps)
+        [ textarea (upcast Value value :: textareaProps) [] ]
+
 let private viewStat mode model dispatch (stat : Stat) =
     let name =
         match mode with
-        | View -> span [ Class "stat-name" ] [ str stat.Name ]
-        | Edit -> input [
-            Class "stat-name"
-            OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> boardCommand |> dispatch
-            Placeholder "Name this stat"
-            Value stat.Name ]
+        | View -> span [ Class "stat-name preserve-whitespace" ] [ str stat.Name ]
+        | Edit ->
+            expandingTextarea
+                [ Class "stat-name" ]
+                [ OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> boardCommand |> dispatch
+                  Placeholder "Name this stat" ]
+                stat.Name
     let score =
         match mode with
         | View -> span [ Class "stat-score" ] [ str <| stat.Score.ToString () ]
@@ -111,12 +116,13 @@ let private viewStat mode model dispatch (stat : Stat) =
 let private viewStatGroup mode model dispatch (group : StatGroup) =
     let name =
         match mode with
-        | View -> span [ Class "stat-group-name" ] [ str group.Name ]
-        | Edit -> input [
-            Class "stat-group-name"
-            OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> boardCommand |> dispatch
-            Placeholder "Name this group"
-            Value group.Name ]
+        | View -> span [ Class "stat-group-name preserve-whitespace" ] [ str group.Name ]
+        | Edit ->
+            expandingTextarea
+                [ Class "stat-group-name" ]
+                [ OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> boardCommand |> dispatch
+                  Placeholder "Name this group" ]
+                group.Name
     let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
         whenEdit mode <| button
@@ -149,16 +155,13 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
     let classes = String.concat " " <| List.choose id [ Some "aspect"; dragClass aspect.Id model ]
     let description =
         match mode with
-        | View -> div [ Class "aspect-description" ] [ str aspect.Description ]
+        | View -> div [ Class "aspect-description preserve-whitespace" ] [ str aspect.Description ]
         | Edit ->
-            div [ Class "aspect-description"
-                  Data ("autoexpand", aspect.Description) ]
-                [ textarea
-                      [ Placeholder "Describe this aspect."
-                        OnChange <| fun event ->
-                            SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch
-                        Value aspect.Description ]
-                      [] ]
+            expandingTextarea
+                [ Class "aspect-description" ]
+                [ Placeholder "Describe this aspect."
+                  OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch ]
+                aspect.Description
     div [ Class classes
           Key <| aspect.Id.ToString ()
           Data ("draggable", aspect.Id)
@@ -184,12 +187,13 @@ let private viewEntity model dispatch (entity : Entity) =
     let mode = if model.Editing |> Option.contains entity.Id then Edit else View
     let name =
         match mode with
-        | View -> span [ Class "entity-name" ] [ str entity.Name ]
-        | Edit -> input [
-            Class "entity-name"
-            Placeholder "Name this entity"
-            OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
-            Value entity.Name ]
+        | View -> span [ Class "entity-name preserve-whitespace" ] [ str entity.Name ]
+        | Edit ->
+            expandingTextarea
+                [ Class "entity-name" ]
+                [ Placeholder "Name this entity"
+                  OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch ]
+                entity.Name
     let hideButton =
         button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> boardCommand |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
