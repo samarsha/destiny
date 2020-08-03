@@ -130,12 +130,17 @@ button:not([disabled]):hover {
   padding: 5px;
 }
 
+.add-entity {
+  align-self: center;
+  width: 275px;
+}
+
 .entity {
   background-color: #fff;
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
   margin: 5px;
-  max-width: 250px;
-  min-width: 250px;
+  max-width: 275px;
+  min-width: 275px;
 }
 
 .entity .name {
@@ -207,11 +212,6 @@ input.stat-score {
   padding: 10px;
   white-space: pre-wrap;
   word-wrap: break-word;
-}
-
-.add-entity {
-  align-self: center;
-  width: 250px;
 }
 
 .messages {
