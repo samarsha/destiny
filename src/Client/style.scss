@@ -52,9 +52,9 @@ button:not([disabled]):hover {
 [data-autoexpand],
 [data-autoexpand] textarea,
 .preserve-whitespace {
+  // noinspection CssInvalidPropertyValue
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
-  word-break: break-all;
-  word-wrap: break-word;
 }
 
 [data-autoexpand] textarea {
@@ -139,7 +139,6 @@ button:not([disabled]):hover {
 }
 
 .add-entity {
-  align-self: center;
   margin: 5px;
   width: 275px;
 }
