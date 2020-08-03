@@ -224,7 +224,15 @@ input.stat-score {
   border-bottom: 1px solid #ddd;
 }
 
+.aspect-main {
+  display: flex;
+}
+
 .aspect-description {
+  flex-grow: 1;
+}
+
+.aspect-description textarea {
   border: 0;
   box-sizing: border-box;
   display: block;
@@ -232,7 +240,8 @@ input.stat-score {
 }
 
 .aspect [data-autoexpand],
-.aspect-description {
+.aspect-description,
+.aspect-description textarea {
   padding: 7px;
   white-space: pre-wrap;
   word-wrap: break-word;

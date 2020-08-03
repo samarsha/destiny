@@ -151,10 +151,10 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
         match mode with
         | View -> div [ Class "aspect-description" ] [ str aspect.Description ]
         | Edit ->
-            div [ Data ("autoexpand", aspect.Description) ]
+            div [ Class "aspect-description"
+                  Data ("autoexpand", aspect.Description) ]
                 [ textarea
-                      [ Class "aspect-description"
-                        Placeholder "Describe this aspect."
+                      [ Placeholder "Describe this aspect."
                         OnChange <| fun event ->
                             SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch
                         Value aspect.Description ]
@@ -163,18 +163,16 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
           Key <| aspect.Id.ToString ()
           Data ("draggable", aspect.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
-    <| List.choose id
-        [ whenEdit mode <| button
-              [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
-              [ icon "X" [] ]
-          Some description
-          Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
-          Some <| button
-              [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ icon "SquarePlus" [] ]
-          Some <| button
-              [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-              [ icon "SquareMinus" [] ] ]
+        [ div [ Class "aspect-main" ] <| List.choose id
+              [ Some description
+                whenEdit mode <| button
+                    [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
+                    [ icon "X" [] ] ]
+          span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
+          button [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                 [ icon "SquarePlus" [] ]
+          button [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                 [ icon "SquareMinus" [] ] ]
 
 let private toggleEdit mode entityId =
     match mode with
