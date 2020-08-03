@@ -104,7 +104,9 @@ let private viewStat mode model dispatch (stat : Stat) =
         [ Some name
           Some score
           Some rollButton
-          whenEdit mode <| button [ OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ] [ str "✖" ] ]
+          whenEdit mode <| button
+              [ OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
+              [ icon "X" [] ] ]
 
 let private viewStatGroup mode model dispatch (group : StatGroup) =
     let name =
@@ -115,18 +117,19 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
             OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> boardCommand |> dispatch
             Placeholder "Name this group"
             Value group.Name ]
-    let controls = List.choose id [
+    let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
         whenEdit mode <| button
-            [ OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
-            [ str "+" ]
-        whenEdit mode <| button
             [ OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
-            [ str "✖" ] ]
+            [ icon "X" [] ] ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
-    div [ Class "stat-group"; Key <| group.Id.ToString () ] <|
-        div [ Class "stat-group-controls" ] controls
-        :: stats
+    let addStatButton =
+        button [ Class "add-stat"
+                 Title "Add stat"
+                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
+               [ icon "TemperaturePlus" [] ]
+    div [ Class "stat-group"; Key <| group.Id.ToString () ]
+    <| header :: stats @ Option.toList (whenEdit mode addStatButton)
 
 let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
     let roleClass =
@@ -161,7 +164,9 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
           Data ("draggable", aspect.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
     <| List.choose id
-        [ whenEdit mode <| button [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ] [ str "✖" ]
+        [ whenEdit mode <| button
+              [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
+              [ icon "X" [] ]
           Some description
           Some <| span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           Some <| button
@@ -184,7 +189,7 @@ let private viewEntity model dispatch (entity : Entity) =
         | View -> span [ Class "entity-name" ] [ str entity.Name ]
         | Edit -> input [
             Class "entity-name"
-            Placeholder "Name this entity."
+            Placeholder "Name this entity"
             OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
             Value entity.Name ]
     let hideButton =
@@ -200,27 +205,29 @@ let private viewEntity model dispatch (entity : Entity) =
                   [ icon "X" [] ]
               Some editButton
               Some hideButton ]
-    let title = div [ Class "entity-title" ] <| name :: toolbar
     let addGroupButton =
-        button [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
-               [ str "+ Stat Group" ]
+        button [ Class "add-stat-group"
+                 Title "Add stat group"
+                 OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
+               [ icon "FolderPlus" [] ]
     let stats =
         Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
         @ Option.toList (whenEdit mode addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let addAspectButton =
-        button [ OnClick <| fun _ ->
+        button [ Title "Add aspect"
+                 OnClick <| fun _ ->
                      AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
                      StartEdit entity.Id |> Private |> dispatch ]
                [ icon "Plus" [ Tabler.Size 32; Tabler.StrokeWidth 1.0 ] ]
-    let content =
-        [ div [ Class "stats" ] stats
-          div [ Class "aspects" ] <| aspects @ [ addAspectButton ] ]
     div [ Class classes
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
-    <| title :: if entity.Collapsed then [] else content
+    <| (div [ Class "entity-title" ] <| name :: toolbar)
+    :: if entity.Collapsed then []
+       else [ div [ Class "stats" ] stats
+              div [ Class "aspects" ] <| aspects @ [ addAspectButton ] ]
 
 let private viewDrag model dispatch id =
     let tryView source viewer =

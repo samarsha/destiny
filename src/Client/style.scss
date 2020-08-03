@@ -185,13 +185,14 @@ input.entity-name {
   padding: 5px 7px;
 }
 
-.stat-group-controls,
+.stat-group-header,
 .stat {
   align-items: center;
   display: flex;
 }
 
 .stat-group-name {
+  flex-grow: 1;
   font-family: "Noto Sans", sans-serif;
   font-weight: bold;
 }
@@ -207,6 +208,11 @@ input.entity-name {
 }
 input.stat-score {
   width: 60px;
+}
+
+.add-stat,
+.add-stat-group {
+  width: 100%;
 }
 
 .aspects {
