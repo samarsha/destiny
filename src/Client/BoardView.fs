@@ -181,9 +181,9 @@ let private viewEntity model dispatch (entity : Entity) =
     let mode = if model.Editing |> Option.contains entity.Id then Edit else View
     let name =
         match mode with
-        | View -> div [ Class "name" ] [ str entity.Name ]
+        | View -> span [ Class "entity-name" ] [ str entity.Name ]
         | Edit -> input [
-            Class "name"
+            Class "entity-name"
             Placeholder "Name this entity."
             OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch
             Value entity.Name ]
@@ -193,6 +193,14 @@ let private viewEntity model dispatch (entity : Entity) =
     let editButton =
         button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> Private |> dispatch ]
                [ icon "Edit" [] ]
+    let toolbar =
+        List.choose id
+            [ whenEdit mode <| button
+                  [ OnClick <| fun _ -> RemoveEntity entity.Id |> boardCommand |> dispatch ]
+                  [ icon "X" [] ]
+              Some editButton
+              Some hideButton ]
+    let title = div [ Class "entity-title" ] <| name :: toolbar
     let addGroupButton =
         button [ OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
                [ str "+ Stat Group" ]
@@ -212,14 +220,7 @@ let private viewEntity model dispatch (entity : Entity) =
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
-    <| List.choose id
-        [ Some name
-          Some hideButton
-          Some editButton
-          whenEdit mode <| button
-              [ OnClick <| fun _ -> RemoveEntity entity.Id |> boardCommand |> dispatch ]
-              [ str "✖" ] ]
-        @ if entity.Collapsed then [] else content
+    <| title :: if entity.Collapsed then [] else content
 
 let private viewDrag model dispatch id =
     let tryView source viewer =

@@ -66,8 +66,8 @@ let private view model dispatch =
               str "DM" ]
     let toolbar =
         div [ Class "toolbar" ]
-            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [] ]
-              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [] ]
+            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
+              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
               dmCheckbox ]
     let main =
         div [ Class "main" ]
