@@ -67,11 +67,18 @@ button:not([disabled]):hover {
 }
 
 .connecting,
-.active-roll {
+.active-roll,
+.active-roll .icon {
   color: #f7f7f2;
+}
+
+.connecting,
+.active-roll {
+  align-items: center;
+  display: flex;
   font-size: 14pt;
+  justify-content: center;
   padding: 10px;
-  text-align: center;
 }
 
 .connecting {
@@ -83,7 +90,10 @@ button:not([disabled]):hover {
 }
 
 .active-roll button {
-  margin-left: 10px;
+  margin: 0 0 0 15px;
+}
+.active-roll button:hover {
+  background: #47b0f8;
 }
 
 .toolbar {

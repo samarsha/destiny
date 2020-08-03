@@ -250,7 +250,7 @@ let viewRollBar model dispatch =
     | Some _ ->
         div [ Class "active-roll" ]
             [ str "You're on a roll!"
-              button [ OnClick <| fun _ -> StopRoll |> Private |> dispatch ] [ str "Finish" ] ]
+              button [ OnClick <| fun _ -> StopRoll |> Private |> dispatch ] [ icon "Checkbox" [] ] ]
     | None -> div [ Class "inactive-roll" ] []
 
 // Update
