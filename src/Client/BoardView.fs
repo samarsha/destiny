@@ -65,10 +65,10 @@ let private updateBoard = BoardMessage.create >> UpdateBoard
 
 let private boardCommand = updateBoard >> Send
 
-let private dragClass id model =
+let private dragStyle id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
-    then Some "drag-removed"
-    else None
+    then [ Visibility "hidden" ]
+    else []
 
 let private startRoll dispatch statId =
     let rollId = Id.random ()
@@ -130,7 +130,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
             [ icon "X" [] ] ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
-        button [ Class "add-stat"
+        button [ Class "stat-add"
                  Title "Add stat"
                  OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
                [ icon "TemperaturePlus" [] ]
@@ -152,7 +152,6 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
         [ icon "Dice" [] ]
 
 let private viewAspect mode model dispatch (aspect : Aspect) =
-    let classes = String.concat " " <| List.choose id [ Some "aspect"; dragClass aspect.Id model ]
     let description =
         match mode with
         | View -> div [ Class "aspect-description preserve-whitespace" ] [ str aspect.Description ]
@@ -162,7 +161,8 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                 [ Placeholder "Describe this aspect."
                   OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch ]
                 aspect.Description
-    div [ Class classes
+    div [ Class "aspect"
+          Style <| dragStyle aspect.Id model
           Key <| aspect.Id.ToString ()
           Data ("draggable", aspect.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
@@ -183,7 +183,6 @@ let private toggleEdit mode entityId =
     | Edit -> StopEdit
 
 let private viewEntity model dispatch (entity : Entity) =
-    let classes = String.concat " " <| List.choose id [ Some "entity"; dragClass entity.Id model ]
     let mode = if model.Editing |> Option.contains entity.Id then Edit else View
     let name =
         match mode with
@@ -208,7 +207,7 @@ let private viewEntity model dispatch (entity : Entity) =
               Some editButton
               Some hideButton ]
     let addGroupButton =
-        button [ Class "add-stat-group"
+        button [ Class "stat-add"
                  Title "Add stat group"
                  OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
                [ icon "FolderPlus" [] ]
@@ -222,11 +221,12 @@ let private viewEntity model dispatch (entity : Entity) =
                      AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
                      StartEdit entity.Id |> Private |> dispatch ]
                [ icon "Plus" [ Tabler.Size 32; Tabler.StrokeWidth 1.0 ] ]
-    div [ Class classes
+    div [ Class "entity"
+          Style <| dragStyle entity.Id model
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
           Drag.draggableListener (Drag >> Private >> dispatch) ]
-    <| (div [ Class "entity-title" ] <| name :: toolbar)
+    <| (div [ Class "entity-header" ] <| name :: toolbar)
     :: if entity.Collapsed then []
        else [ div [ Class "stats" ] stats
               div [ Class "aspects" ] <| aspects @ [ addAspectButton ] ]
@@ -242,7 +242,7 @@ let private viewDrag model dispatch id =
 let viewBoard model dispatch =
     let addButton =
         button
-            [ Class "add-entity"
+            [ Class "entity-add"
               OnClick <| fun _ ->
                   let entityId = Id.random ()
                   AddEntity entityId |> boardCommand |> dispatch

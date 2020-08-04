@@ -11,7 +11,7 @@
   <ItemGroup>
     <None Include="paket.references" />
     <None Include="index.html" />
-    <None Include="style.scss" />
+    <None Include="style.sass" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
     <Compile Include="BoardView.fs" />

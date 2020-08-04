@@ -1,0 +1,263 @@
+﻿@import "~fontsource-noto-sans/index.css"
+@import "~fontsource-roboto/index.css"
+
+$background: #f7f7f2
+$primary: #a53860
+$accent: #1098f7
+
+$font-body: "Roboto", sans-serif
+$font-header: "Noto Sans", sans-serif
+
+$entity-width: 275px
+
+@mixin shadow
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05)
+
+html, body, #app, .app
+  height: 100%
+
+body
+  background-color: $background
+  font:
+    family: $font-body
+    size: 12pt
+  margin: 0
+
+.app
+  display: flex
+  flex-direction: column
+
+input, textarea
+  font: inherit
+
+button
+  background-color: transparent
+  border-width: 0
+  padding: 4px
+
+  &:not([disabled]):hover
+    background: #eee
+
+  &[disabled]
+    opacity: 0.4
+
+.icon
+  color: #444
+  vertical-align: middle
+
+.preserve-whitespace
+  // noinspection CssInvalidPropertyValue
+  overflow-wrap: anywhere
+  white-space: pre-wrap
+
+[data-autoexpand]
+  @extend .preserve-whitespace
+  position: relative
+
+  textarea
+    border: 0
+    box-sizing: border-box
+    height: 100%
+    left: 0
+    margin: 0
+    position: absolute
+    resize: none
+    top: 0
+    width: 100%
+
+  &::after
+    content: attr(data-autoexpand) " "
+
+[data-draggable]
+  position: relative
+
+.dragging
+  .entity, > .aspect
+    @include shadow
+    background-color: white
+    margin: 0
+    width: $entity-width
+
+%notification
+  align-items: center
+  color: $background
+  display: flex
+  font-size: 14pt
+  justify-content: center
+  padding: 10px
+
+  button
+    margin-left: 15px
+
+    &:hover
+      background: #47b0f8
+
+  .icon
+    color: $background
+
+.active-roll
+  @extend %notification
+  background: $accent
+
+.connecting
+  @extend %notification
+  background: #c62f4f
+
+.toolbar
+  @include shadow
+  align-items: center
+  background-color: white
+  display: flex
+  padding: 10px
+
+  .dm-toggle
+    margin-left: auto
+
+.main
+  display: flex
+
+.main, .board
+  flex-grow: 1
+
+.main, .board, .entities
+  overflow-y: auto
+
+.entities
+  align-items: flex-start
+  display: flex
+  flex-wrap: wrap
+  padding: 5px
+
+.entity
+  @include shadow
+  background-color: white
+
+  &, &-add
+    margin: 5px
+    width: $entity-width
+
+  &-header
+    display: flex
+
+    button:hover
+      background: #d63d75
+
+    .icon
+      color: $background
+
+  &-header, &-name textarea
+    background: $primary
+    color: $background
+    font:
+      family: $font-header
+      size: 14pt
+
+  &-name
+    flex-grow: 1
+
+    &, textarea
+      padding: 7px
+
+.stats
+  border-bottom: 1px solid #ccc
+
+.stat
+  align-items: center
+
+  &-add
+    width: 100%
+
+  &, &-group-header
+    display: flex
+
+  &-group-name, &-name
+    flex-grow: 1
+
+  &-group-name, &-group-name textarea
+    font:
+      family: $font-header
+      weight: bold
+    
+  &-group-name, &-group-name textarea, &-name, &-name textarea, &-score
+    padding: 5px 7px
+
+  &-score
+    border: 0
+    padding:
+      left: 0
+      right: 5px
+    text-align: right
+
+input.stat-score
+  padding-right: 0
+  width: 40px
+
+.aspects
+  display: flex
+  flex-direction: column
+
+.aspect
+  border-bottom: 1px solid #ddd
+  
+  &-main
+    display: flex
+    
+  &-description
+    flex-grow: 1
+    
+    &, textarea
+      padding: 7px
+
+.messages
+  @include shadow
+  background-color: white
+  overflow-y: auto
+  padding: 0 10px
+  width: 280px
+
+.die
+  border:
+    color: black
+    radius: 2px
+    style: solid
+    width: 2px
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.25)
+  display: inline-block
+  line-height: 24px
+  text-align: center
+  width: 24px
+  
+  &-good, &-bad
+    font-weight: bold
+    
+  &-good
+    color: #28c428
+  
+  &-bad
+    color: #e72e56
+  
+  &-player
+    $color: #1097f7b9
+    border-color: $color
+
+    .icon
+      color: $color
+  
+  &-dm
+    $color: #da4d4dc5
+    border-color: $color
+
+    .icon
+      color: $color
+
+.roll
+  font-size: 16pt
+  padding: 0.4em
+  
+  &-line
+    padding: 2px 0
+
+.annotation
+  color: rgb(50, 50, 50)
+  font-size: 12pt
+  padding-left: 1em

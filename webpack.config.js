@@ -6,7 +6,7 @@ const webpack = require("webpack");
 
 const project = "./src/Client/Client.fsproj";
 
-const style = "./src/Client/style.scss";
+const style = "./src/Client/style.sass";
 
 const assetsDir = "./src/Client/assets";
 
