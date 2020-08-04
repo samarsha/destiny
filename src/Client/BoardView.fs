@@ -131,7 +131,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
-                 Title "Add stat"
+                 Title "Add a stat"
                  OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
                [ icon "TemperaturePlus" [] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
@@ -172,9 +172,13 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                     [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
                     [ icon "X" [] ] ]
           span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
-          button [ OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+          button [ Class "die-control"
+                   Title "Add a free invoke"
+                   OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
                  [ icon "SquarePlus" [] ]
-          button [ OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+          button [ Class "die-control"
+                   Title "Remove a free invoke"
+                   OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
                  [ icon "SquareMinus" [] ] ]
 
 let private toggleEdit mode entityId =
@@ -208,7 +212,7 @@ let private viewEntity model dispatch (entity : Entity) =
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
-                 Title "Add stat group"
+                 Title "Add a stat group"
                  OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
                [ icon "FolderPlus" [] ]
     let stats =
@@ -216,7 +220,7 @@ let private viewEntity model dispatch (entity : Entity) =
         @ Option.toList (whenEdit mode addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let addAspectButton =
-        button [ Title "Add aspect"
+        button [ Title "Add an aspect"
                  OnClick <| fun _ ->
                      AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
                      StartEdit entity.Id |> Private |> dispatch ]

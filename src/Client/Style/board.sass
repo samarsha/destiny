@@ -85,6 +85,10 @@ input.stat-score
 .aspect
   border-bottom: 1px solid #ddd
 
+  &:hover
+    .die-control
+      visibility: visible
+
   &-main
     display: flex
 
@@ -93,6 +97,9 @@ input.stat-score
 
     &, textarea
       padding: 7px
+
+.die-control
+  visibility: hidden
 
 .dragging
   .entity, > .aspect
