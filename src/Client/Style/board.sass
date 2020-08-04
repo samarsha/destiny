@@ -1,5 +1,7 @@
-﻿@use "theme"
+﻿@use "sass:color"
+@use "theme"
 
+$border-color: color.scale(theme.$bright, $lightness: -15%)
 $entity-width: 275px
 
 .board
@@ -45,7 +47,7 @@ $entity-width: 275px
       padding: 7px
 
 .stats
-  border-bottom: 1px solid #ccc
+  border-bottom: 1px solid $border-color
 
 .stat
   align-items: center
@@ -83,7 +85,7 @@ input.stat-score
   flex-direction: column
 
 .aspect
-  border-bottom: 1px solid #ddd
+  border-bottom: 1px solid $border-color
 
   &:hover
     .die-control

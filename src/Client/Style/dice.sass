@@ -1,4 +1,5 @@
-﻿@use "theme"
+﻿@use "sass:color"
+@use "theme"
 
 .die
   border:
@@ -6,7 +7,7 @@
     radius: 2px
     style: solid
     width: 2px
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.25)
+  box-shadow: 0 0 2px color.scale(theme.$dark, $alpha: -75%)
   display: inline-block
   line-height: 24px
   text-align: center
@@ -43,6 +44,5 @@
     padding: 2px 0
 
 .annotation
-  color: rgb(50, 50, 50)
   font-size: 12pt
   padding-left: 1em

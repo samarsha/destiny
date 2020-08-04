@@ -1,6 +1,9 @@
-﻿@import "~fontsource-noto-sans"
+﻿@use "sass:color"
+
+@import "~fontsource-noto-sans"
 @import "~fontsource-roboto"
 
+$foreground: #323232
 $background: #f7f7f2
 $primary: #a53860
 $accent: #1098f7
@@ -12,4 +15,4 @@ $font-body: "Roboto", sans-serif
 $font-header: "Noto Sans", sans-serif
 
 @mixin shadow
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05)
+  box-shadow: 0 5px 10px color.scale($dark, $alpha: -95%)
