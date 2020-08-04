@@ -19,13 +19,15 @@ body
   display: flex
   flex-direction: column
 
-input, textarea
+button, input, textarea
   font: inherit
 
 button
   background-color: transparent
   border-width: 0
+  font-family: theme.$font-header
   padding: 4px
+  text-align: left
 
   &:hover
     background-color: color.scale(theme.$bright, $lightness: -5%)
@@ -35,6 +37,11 @@ button
 
     &:hover
       background: transparent
+
+  label
+    padding-left: 5px
+    position: relative
+    top: 2px
 
 .icon
   color: theme.$foreground

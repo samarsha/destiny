@@ -110,7 +110,8 @@ let private viewStat mode model dispatch (stat : Stat) =
           Some score
           Some rollButton
           whenEdit mode <| button
-              [ OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
+              [ Class "stat-remove"
+                OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
               [ icon "Trash" [] ] ]
 
 let private viewStatGroup mode model dispatch (group : StatGroup) =
@@ -126,14 +127,15 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
     let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
         whenEdit mode <| button
-            [ OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
+            [ Class "stat-remove"
+              OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
             [ icon "Trash" [] ] ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
-                 Title "Add a stat"
                  OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
-               [ icon "TemperaturePlus" [] ]
+               [ icon "Plus" []
+                 label [] [ str "Stat" ] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
     <| header :: stats @ Option.toList (whenEdit mode addStatButton)
 
@@ -169,7 +171,8 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
         [ div [ Class "aspect-main" ] <| List.choose id
               [ Some description
                 whenEdit mode <| button
-                    [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
+                    [ Class "aspect-remove"
+                      OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
                     [ icon "Trash" [] ] ]
           span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           button [ Class "die-control"
@@ -212,19 +215,20 @@ let private viewEntity model dispatch (entity : Entity) =
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
-                 Title "Add a stat group"
                  OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
-               [ icon "FolderPlus" [] ]
+               [ icon "FolderPlus" []
+                 label [] [ str "Stat Group" ] ]
     let stats =
         Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
         @ Option.toList (whenEdit mode addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let addAspectButton =
-        button [ Title "Add an aspect"
+        button [ Class "aspect-add"
                  OnClick <| fun _ ->
                      AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
                      StartEdit entity.Id |> Private |> dispatch ]
-               [ icon "Plus" [ Tabler.Size 32; Tabler.StrokeWidth 1.0 ] ]
+               [ icon "Plus" []
+                 label [] [ str "Aspect" ] ]
     div [ Class "entity"
           Style <| dragStyle entity.Id model
           Key <| entity.Id.ToString ()
@@ -247,11 +251,13 @@ let viewBoard model dispatch =
     let addButton =
         button
             [ Class "entity-add"
+              Style [ FontSize "20pt" ]
               OnClick <| fun _ ->
                   let entityId = Id.random ()
                   AddEntity entityId |> boardCommand |> dispatch
                   StartEdit entityId |> Private |> dispatch ]
-            [ icon "Plus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ] ]
+            [ icon "Plus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ]
+              label [] [ str "Entity" ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
         [ div [ Class "entities" ] <|

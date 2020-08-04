@@ -24,6 +24,12 @@ $entity-width: 275px
     margin: 5px
     width: $entity-width
 
+  &-add
+    text-align: center
+
+  &-add, &-add .icon
+    color: theme.$secondary
+
   &-header
     display: flex
 
@@ -52,6 +58,9 @@ $entity-width: 275px
 .stat
   align-items: center
 
+  &-add, &-add .icon, &-remove .icon
+    color: theme.$secondary
+  
   &-add
     width: 100%
 
@@ -91,6 +100,9 @@ input.stat-score
     .die-control
       visibility: visible
 
+  &-add, &-add .icon, &-remove .icon
+    color: theme.$secondary
+      
   &-main
     display: flex
 
