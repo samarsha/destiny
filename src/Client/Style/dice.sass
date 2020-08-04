@@ -1,0 +1,46 @@
+﻿.die
+  border:
+    color: black
+    radius: 2px
+    style: solid
+    width: 2px
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.25)
+  display: inline-block
+  line-height: 24px
+  text-align: center
+  width: 24px
+
+  &-good, &-bad
+    font-weight: bold
+
+  &-good
+    color: #28c428
+
+  &-bad
+    color: #e72e56
+
+  &-player
+    $color: #1097f7b9
+    border-color: $color
+
+    .icon
+      color: $color
+
+  &-dm
+    $color: #da4d4dc5
+    border-color: $color
+
+    .icon
+      color: $color
+
+.roll
+  font-size: 16pt
+  padding: 0.4em
+
+  &-line
+    padding: 2px 0
+
+.annotation
+  color: rgb(50, 50, 50)
+  font-size: 12pt
+  padding-left: 1em

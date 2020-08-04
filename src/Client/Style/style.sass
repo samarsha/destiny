@@ -1,0 +1,77 @@
+﻿@use "theme"
+@use "header"
+@use "board"
+@use "dice"
+
+html, body, #app, .app
+  height: 100%
+
+body
+  background-color: theme.$background
+  font:
+    family: theme.$font-body
+    size: 12pt
+  margin: 0
+
+.app
+  display: flex
+  flex-direction: column
+
+input, textarea
+  font: inherit
+
+button
+  background-color: transparent
+  border-width: 0
+  padding: 4px
+
+  &:hover
+    background: #eee
+
+  &[disabled]
+    opacity: 0.4
+
+    &:hover
+      background: transparent
+
+.icon
+  color: #444
+  vertical-align: middle
+
+.main
+  display: flex
+  flex-grow: 1
+  overflow-y: auto
+
+.messages
+  @include theme.shadow
+  background-color: white
+  overflow-y: auto
+  padding: 0 10px
+  width: 280px
+
+.preserve-whitespace
+  // noinspection CssInvalidPropertyValue
+  overflow-wrap: anywhere
+  white-space: pre-wrap
+
+[data-autoexpand]
+  @extend .preserve-whitespace
+  position: relative
+
+  textarea
+    border: 0
+    box-sizing: border-box
+    height: 100%
+    left: 0
+    margin: 0
+    position: absolute
+    resize: none
+    top: 0
+    width: 100%
+
+  &::after
+    content: attr(data-autoexpand) " "
+
+[data-draggable]
+  position: relative

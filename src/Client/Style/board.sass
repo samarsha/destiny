@@ -1,0 +1,102 @@
+﻿@use "theme"
+
+$entity-width: 275px
+
+.board
+  flex-grow: 1
+
+.board, .entities
+  overflow-y: auto
+
+.entities
+  align-items: flex-start
+  display: flex
+  flex-wrap: wrap
+  padding: 5px
+
+.entity
+  @include theme.shadow
+  background-color: white
+
+  &, &-add
+    margin: 5px
+    width: $entity-width
+
+  &-header
+    display: flex
+
+    button:hover
+      background: #d63d75
+
+    .icon
+      color: theme.$background
+
+  &-header, &-name textarea
+    background: theme.$primary
+    color: theme.$background
+    font:
+      family: theme.$font-header
+      size: 14pt
+
+  &-name
+    flex-grow: 1
+
+    &, textarea
+      padding: 7px
+
+.stats
+  border-bottom: 1px solid #ccc
+
+.stat
+  align-items: center
+
+  &-add
+    width: 100%
+
+  &, &-group-header
+    display: flex
+
+  &-group-name, &-name
+    flex-grow: 1
+
+  &-group-name, &-group-name textarea
+    font:
+      family: theme.$font-header
+      weight: bold
+
+  &-group-name, &-group-name textarea, &-name, &-name textarea, &-score
+    padding: 5px 7px
+
+  &-score
+    border: 0
+    padding:
+      left: 0
+      right: 5px
+    text-align: right
+
+input.stat-score
+  padding-right: 0
+  width: 40px
+
+.aspects
+  display: flex
+  flex-direction: column
+
+.aspect
+  border-bottom: 1px solid #ddd
+
+  &-main
+    display: flex
+
+  &-description
+    flex-grow: 1
+
+    &, textarea
+      padding: 7px
+
+.dragging
+  .entity, > .aspect
+    @include theme.shadow
+    background-color: white
+    margin: 0
+    width: $entity-width

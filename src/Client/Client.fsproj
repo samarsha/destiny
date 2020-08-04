@@ -11,7 +11,11 @@
   <ItemGroup>
     <None Include="paket.references" />
     <None Include="index.html" />
-    <None Include="style.sass" />
+    <None Include="Style\theme.sass" />
+    <None Include="Style\header.sass" />
+    <None Include="Style\board.sass" />
+    <None Include="Style\dice.sass" />
+    <None Include="Style\style.sass" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
     <Compile Include="BoardView.fs" />

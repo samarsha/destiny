@@ -1,0 +1,36 @@
+﻿@use "theme"
+
+%notification
+  align-items: center
+  color: theme.$background
+  display: flex
+  font-size: 14pt
+  justify-content: center
+  padding: 10px
+
+  button
+    margin-left: 15px
+
+    &:hover
+      background: #47b0f8
+
+  .icon
+    color: theme.$background
+
+.active-roll
+  @extend %notification
+  background: theme.$accent
+
+.connecting
+  @extend %notification
+  background: #c62f4f
+
+.toolbar
+  @include theme.shadow
+  align-items: center
+  background-color: white
+  display: flex
+  padding: 10px
+
+  .dm-toggle
+    margin-left: auto
