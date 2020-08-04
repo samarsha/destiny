@@ -16,7 +16,7 @@ $entity-width: 275px
 
 .entity
   @include theme.shadow
-  background-color: white
+  background-color: theme.$bright
 
   &, &-add
     margin: 5px
@@ -104,6 +104,6 @@ input.stat-score
 .dragging
   .entity, > .aspect
     @include theme.shadow
-    background-color: white
+    background-color: theme.$bright
     margin: 0
     width: $entity-width
