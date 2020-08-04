@@ -22,7 +22,7 @@ let private viewDie role result =
         |> Class
     span [ classes ] [ str <| result.ToString () ]
 
-let private viewAnnotation text = span [ Class "annotation" ] [ str text ]
+let private viewAnnotation text = span [ Class "annotation preserve-whitespace" ] [ str text ]
 
 let private viewInvoke (invoke : Invoke) =
     div [ Class "roll-line" ]
