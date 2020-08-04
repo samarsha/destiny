@@ -111,7 +111,7 @@ let private viewStat mode model dispatch (stat : Stat) =
           Some rollButton
           whenEdit mode <| button
               [ OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
-              [ icon "X" [] ] ]
+              [ icon "Trash" [] ] ]
 
 let private viewStatGroup mode model dispatch (group : StatGroup) =
     let name =
@@ -127,7 +127,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         Some name
         whenEdit mode <| button
             [ OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
-            [ icon "X" [] ] ]
+            [ icon "Trash" [] ] ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
@@ -170,7 +170,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
               [ Some description
                 whenEdit mode <| button
                     [ OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
-                    [ icon "X" [] ] ]
+                    [ icon "Trash" [] ] ]
           span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
           button [ Class "die-control"
                    Title "Add a free invoke"
@@ -207,7 +207,7 @@ let private viewEntity model dispatch (entity : Entity) =
         List.choose id
             [ whenEdit mode <| button
                   [ OnClick <| fun _ -> RemoveEntity entity.Id |> boardCommand |> dispatch ]
-                  [ icon "X" [] ]
+                  [ icon "Trash" [] ]
               Some editButton
               Some hideButton ]
     let addGroupButton =
