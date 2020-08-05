@@ -56,10 +56,7 @@ let private tryFindStringId map id =
 
 // View
 
-let private whenEdit mode item =
-    match mode with
-    | Edit -> Some item
-    | View -> None
+let private when' condition item = if condition then Some item else None
 
 let private updateBoard = BoardMessage.create >> UpdateBoard
 
@@ -109,7 +106,7 @@ let private viewStat mode model dispatch (stat : Stat) =
         [ Some name
           Some score
           Some rollButton
-          whenEdit mode <| button
+          when' (mode = Edit) <| button
               [ Class "stat-remove"
                 OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
               [ icon "Trash" [] ] ]
@@ -126,7 +123,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
                 group.Name
     let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
-        whenEdit mode <| button
+        when' (mode = Edit) <| button
             [ Class "stat-remove"
               OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
             [ icon "Trash" [] ] ]
@@ -137,7 +134,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
-    <| header :: stats @ Option.toList (whenEdit mode addStatButton)
+    <| header :: stats @ Option.toList (when' (mode = Edit) addStatButton)
 
 let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
     let roleClass =
@@ -154,35 +151,42 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
         [ icon "Dice" [] ]
 
 let private viewAspect mode model dispatch (aspect : Aspect) =
+    let dice =
+        span [ Class "aspect-dice" ] <| List.choose id
+            [ when' (not <| Bag.isEmpty aspect.Dice) <| button
+                  [ Class "die-control"
+                    Title "Remove a free invoke"
+                    OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                  [ icon "SquareMinus" [] ]
+              Some <| button
+                  [ Class "die-control"
+                    Title "Add a free invoke"
+                    OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                  [ icon "SquarePlus" [] ] ]
+            @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
     let description =
         match mode with
-        | View -> div [ Class "aspect-description preserve-whitespace" ] [ str aspect.Description ]
+        | View ->
+            [ span [ Class "aspect-description preserve-whitespace" ] [ str aspect.Description ]
+              dice ]
         | Edit ->
-            expandingTextarea
-                [ Class "aspect-description" ]
-                [ Placeholder "Describe this aspect."
-                  OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch ]
-                aspect.Description
-    div [ Class "aspect"
-          Style <| dragStyle aspect.Id model
-          Key <| aspect.Id.ToString ()
-          Data ("draggable", aspect.Id)
-          Drag.draggableListener (Drag >> Private >> dispatch) ]
-        [ div [ Class "aspect-main" ] <| List.choose id
-              [ Some description
-                whenEdit mode <| button
-                    [ Class "aspect-remove"
-                      OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
-                    [ icon "Trash" [] ] ]
-          span [] (Bag.toSeq aspect.Dice |> Seq.map (viewAspectDie model dispatch aspect))
-          button [ Class "die-control"
-                   Title "Add a free invoke"
-                   OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-                 [ icon "SquarePlus" [] ]
-          button [ Class "die-control"
-                   Title "Remove a free invoke"
-                   OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
-                 [ icon "SquareMinus" [] ] ]
+            [ expandingTextarea
+                  [ Class "aspect-description" ]
+                  [ Placeholder "Describe this aspect."
+                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch ]
+                  aspect.Description ]
+    List.map Some description
+    @ [ when' (mode = Edit) <| button
+            [ Class "aspect-remove"
+              OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
+            [ icon "Trash" [] ]
+        when' (mode = Edit) dice ]
+    |> List.choose id
+    |> div [ Class "aspect"
+             Style <| dragStyle aspect.Id model
+             Key <| aspect.Id.ToString ()
+             Data ("draggable", aspect.Id)
+             Drag.draggableListener (Drag >> Private >> dispatch) ]
 
 let private toggleEdit mode entityId =
     match mode with
@@ -208,7 +212,7 @@ let private viewEntity model dispatch (entity : Entity) =
                [ icon "Edit" [] ]
     let toolbar =
         List.choose id
-            [ whenEdit mode <| button
+            [ when' (mode = Edit) <| button
                   [ OnClick <| fun _ -> RemoveEntity entity.Id |> boardCommand |> dispatch ]
                   [ icon "Trash" [] ]
               Some editButton
@@ -220,7 +224,7 @@ let private viewEntity model dispatch (entity : Entity) =
                  label [] [ str "Stat Group" ] ]
     let stats =
         Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
-        @ Option.toList (whenEdit mode addGroupButton)
+        @ Option.toList (when' (mode = Edit) addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let addAspectButton =
         button [ Class "aspect-add"

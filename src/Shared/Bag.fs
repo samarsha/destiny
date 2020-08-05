@@ -7,6 +7,8 @@ type 'a Bag when 'a : comparison = private Bag of Map<'a, Count>
 module internal Bag =
     let empty = Bag (Map.empty)
 
+    let isEmpty (Bag bag) = Map.isEmpty bag
+
     let add value (Bag bag) =
         let count =
             Map.tryFind value bag
@@ -22,6 +24,6 @@ module internal Bag =
 
     let contains value (Bag bag) = Map.containsKey value bag
 
-    let toSeq (Bag bag) =
-        Map.toSeq bag
-        |> Seq.collect (fun (value, count) -> Seq.replicate count value)
+    let toList (Bag bag) =
+        Map.toList bag
+        |> List.collect (fun (value, count) -> List.replicate count value)

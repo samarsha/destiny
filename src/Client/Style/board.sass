@@ -102,15 +102,17 @@ input.stat-score
 
   &-add, &-add .icon, &-remove .icon
     color: theme.$primary
-      
-  &-main
-    display: flex
 
   &-description
-    flex-grow: 1
-
     &, textarea
       padding: 7px
+        bottom: 0
+
+  &-dice
+    float: right
+
+span.aspect-description
+  display: inline-block
 
 .die-control
   visibility: hidden
