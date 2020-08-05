@@ -94,7 +94,11 @@ input.stat-score
   flex-direction: column
 
 .aspect
+  $padding: 7px
+
   border-bottom: 1px solid $border-color
+  padding: $padding
+    bottom: 0
 
   &:hover
     .die-control
@@ -103,16 +107,12 @@ input.stat-score
   &-add, &-add .icon, &-remove .icon
     color: theme.$primary
 
-  &-description
-    &, textarea
-      padding: 7px
-        bottom: 0
+  &-remove
+    margin-left: -$padding
 
   &-dice
     float: right
-
-span.aspect-description
-  display: inline-block
+    margin-right: -$padding
 
 .die-control
   visibility: hidden
