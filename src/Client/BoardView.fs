@@ -268,7 +268,7 @@ let viewBoard model dispatch =
                   let entityId = Id.random ()
                   AddEntity entityId |> boardCommand |> dispatch
                   StartEdit entityId |> Private |> dispatch ]
-            [ icon "Plus" [ Tabler.Size 64; Tabler.StrokeWidth 1.0 ]
+            [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
