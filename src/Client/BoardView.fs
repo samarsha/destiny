@@ -169,7 +169,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
         |> div [ Class "aspect-dice"
                  ref' <| fun element ->
                      let element' = element :?> HTMLElement
-                     let onFirstLine = element'.offsetTop < element'.offsetHeight
+                     let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
                      element.classList.toggle ("aspect-dice-top", onFirstLine) |> ignore ]
     let description =
         match mode with
