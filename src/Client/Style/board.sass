@@ -104,6 +104,11 @@ input.stat-score
     .die-control
       visibility: visible
 
+  &::after
+    clear: both
+    content: ""
+    display: block
+
   &-add, &-add .icon, &-remove .icon
     color: theme.$primary
 
@@ -121,5 +126,6 @@ input.stat-score
   .entity, > .aspect
     @include theme.shadow
     background-color: theme.$bright
+    box-sizing: border-box
     margin: 0
     width: $entity-width
