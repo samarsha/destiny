@@ -1,5 +1,6 @@
 ﻿module internal Destiny.Client.RollView
 
+open Destiny.Client.Helpers
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Roll
@@ -48,8 +49,6 @@ let private viewRoll roll =
 let private render rolls =
     Map.joinMap viewRoll rolls.Map rolls.Order
     |> div [ Class "messages"
-             Ref <| fun element ->
-                 if not <| isNull element
-                 then element.scrollTop <- element.scrollHeight ]
+             ref' <| fun element -> element.scrollTop <- element.scrollHeight ]
 
 let view = FunctionComponent.Of (render, memoizeWith = equalsButFunctions)

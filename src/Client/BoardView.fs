@@ -2,7 +2,9 @@
 
 open System
 
+open Browser.Types
 open Destiny.Client
+open Destiny.Client.Helpers
 open Destiny.Client.Tabler
 open Destiny.Shared
 open Destiny.Shared.Bag
@@ -152,7 +154,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
 
 let private viewAspect mode model dispatch (aspect : Aspect) =
     let dice =
-        span [ Class "aspect-dice" ] <| List.choose id
+        List.choose id
             [ when' (not <| Bag.isEmpty aspect.Dice) <| button
                   [ Class "die-control"
                     Title "Remove a free invoke"
@@ -164,10 +166,16 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                     OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
                   [ icon "SquarePlus" [] ] ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
+        |> div [ Class "aspect-dice"
+                 ref' <| fun element ->
+                     let element' = element :?> HTMLElement
+                     let onFirstLine = element'.offsetTop < element'.offsetHeight
+                     element.classList.toggle ("aspect-dice-top", onFirstLine) |> ignore ]
     let description =
         match mode with
         | View ->
-            [ span [ Class "aspect-description preserve-whitespace" ] [ str aspect.Description ]
+            [ span [ Class "aspect-description preserve-whitespace" ]
+                   [ str aspect.Description ]
               dice ]
         | Edit ->
             [ expandingTextarea
