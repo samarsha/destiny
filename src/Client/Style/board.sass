@@ -49,6 +49,9 @@ $entity-width: 275px
   &-name
     flex-grow: 1
 
+    &:empty::before
+      content: " "
+
     &, textarea
       padding: 7px
 
