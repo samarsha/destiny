@@ -5,48 +5,53 @@ open Destiny.Shared.Bag
 open Destiny.Shared.Collections
 open Destiny.Shared.Lens
 
-type Stat =
-    { Id : Stat Id
-      Name : string
-      Score : int }
-
-module private Stat =
-    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
-
-    let score = { Get = (fun s -> s.Score); Set = fun v s -> { s with Score = v } }
-
-type StatGroup =
-    { Id : StatGroup Id
-      Name : string
-      Stats : Stat Id list }
-
-module private StatGroup =
-    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
-
-    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
-
 type Role =
     | Player
     | DM
 
 type Die = { Role : Role }
 
-type Aspect =
+type Stat =
+    { Id : Stat Id
+      Group : StatGroup Id
+      Name : string
+      Score : int }
+
+and StatGroup =
+    { Id : StatGroup Id
+      Entity : Entity Id
+      Name : string
+      Stats : Stat Id list }
+
+and Aspect =
     { Id : Aspect Id
+      Entity : Entity Id
       Description : string
       Dice : Die Bag }
 
-module private Aspect =
-    let description = { Get = (fun s -> s.Description); Set = fun v s -> { s with Description = v } }
-
-    let dice = { Get = (fun s -> s.Dice); Set = fun v s -> { s with Dice = v } }
-
-type Entity =
+and Entity =
     { Id : Entity Id
       Name : string
       StatGroups : StatGroup Id list
       Aspects : Aspect Id list
       Collapsed : bool }
+
+module private Stat =
+    let name = { Get = (fun (s : Stat) -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let score = { Get = (fun s -> s.Score); Set = fun v s -> { s with Score = v } }
+
+module private StatGroup =
+    let name = { Get = (fun (s : StatGroup) -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
+
+module private Aspect =
+    let entity = { Get = (fun s -> s.Entity); Set = fun v s -> { s with Entity = v } }
+
+    let description = { Get = (fun s -> s.Description); Set = fun v s -> { s with Description = v } }
+
+    let dice = { Get = (fun s -> s.Dice); Set = fun v s -> { s with Dice = v } }
 
 module private Entity =
     let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
@@ -91,6 +96,7 @@ module internal Board =
     let addStat statId groupId =
         let stat =
             { Id = statId
+              Group = groupId
               Name = ""
               Score = 0 }
         over statGroups (Map.change (List.add statId |> over StatGroup.stats) groupId) >>
@@ -109,6 +115,7 @@ module internal Board =
     let addStatGroup groupId entityId =
         let group =
             { Id = groupId
+              Entity = entityId
               Name = ""
               Stats = [] }
         over entities (Map.change (List.add groupId |> over Entity.statGroups) entityId) >>
@@ -130,6 +137,7 @@ module internal Board =
     let addAspect aspectId entityId =
         let aspect =
             { Id = aspectId
+              Entity = entityId
               Description = ""
               Dice = Bag.empty }
         over entities (Map.change (List.add aspectId |> over Entity.aspects) entityId) >>
@@ -142,9 +150,10 @@ module internal Board =
     let removeDie die = Map.change (Bag.remove die |> over Aspect.dice) >> over aspects
 
     let moveAspect aspectId entityId index =
-        Map.map (fun _ -> List.remove aspectId |> over Entity.aspects)
-        >> Map.change (List.insertAt index aspectId |> over Entity.aspects) entityId
-        |> over entities
+        let remove = Map.map (fun _ -> List.remove aspectId |> over Entity.aspects)
+        let add = Map.change (List.insertAt index aspectId |> over Entity.aspects) entityId
+        let setParent = Map.change (Aspect.entity .<- entityId) aspectId
+        remove >> add |> over entities >> (setParent |> over aspects)
 
     let removeAspect id =
         over entities (Map.map <| fun _ -> List.remove id |> over Entity.aspects) >>

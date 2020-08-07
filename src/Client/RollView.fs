@@ -34,14 +34,14 @@ let private viewInvoke (invoke : Invoke) =
 let private viewRoll roll =
     let baseRoll =
         div [ Class "roll-line" ]
-            [ viewDie roll.Role roll.StatResult
-              str <| " + " + roll.StatBase.ToString ()
-              viewAnnotation roll.StatName ]
+            [ viewDie roll.Role roll.Result
+              str <| " + " + roll.Modifier.ToString ()
+              viewAnnotation roll.Name ]
     let invokes = List.map viewInvoke roll.Invokes
     let total =
-        roll.StatResult
-        + roll.StatBase
-        + List.sumBy (fun invoke -> invoke.Result) roll.Invokes
+        roll.Result +
+        roll.Modifier +
+        (roll.Invokes |> List.sumBy (fun invoke -> invoke.Result))
     let equals =
         div [] [ str <| " = " + total.ToString () ]
     div [ Class "roll" ] <| baseRoll :: invokes @ [ equals ]

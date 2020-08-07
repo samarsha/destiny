@@ -11,9 +11,9 @@ type Invoke =
 type Roll =
     { Id : Roll Id
       Role : Role
-      StatName : string
-      StatResult : int
-      StatBase : int
+      Name : string
+      Result : int
+      Modifier : int
       Invokes : Invoke list }
 
 type RollLog =

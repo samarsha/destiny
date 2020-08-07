@@ -19,15 +19,23 @@ module internal Universe =
           Rolls = RollLog.empty }
 
     let rollStat (random : Random) role statId rollId universe =
-        match Map.tryFind statId (Timeline.present universe.Boards).Stats with
+        let board = Timeline.present universe.Boards
+        match Map.tryFind statId board.Stats with
         | Some stat ->
+            let entity =
+                Map.tryFind stat.Group board.StatGroups
+                |> Option.bind (fun group -> Map.tryFind group.Entity board.Entities)
+            let name =
+                match entity with
+                | Some entity' -> entity'.Name + ": " + stat.Name
+                | None -> stat.Name
             // TODO: Verify that the roll ID doesn't exist.
             let roll =
                 { Id = rollId
                   Role = role
-                  StatName = stat.Name
-                  StatResult = random.Next (1, 7)
-                  StatBase = stat.Score
+                  Name = name
+                  Result = random.Next (1, 7)
+                  Modifier = stat.Score
                   Invokes = [] }
             let rolls' =
                 { Map = Map.add rollId roll universe.Rolls.Map
@@ -36,10 +44,15 @@ module internal Universe =
         | None -> universe
 
     let rollAspect (random : Random) die aspectId rollId universe =
-        match Map.tryFind aspectId (Timeline.present universe.Boards).Aspects with
+        let board = Timeline.present universe.Boards
+        match Map.tryFind aspectId board.Aspects with
         | Some aspect when Bag.contains die aspect.Dice ->
+            let source =
+                match Map.tryFind aspect.Entity board.Entities with
+                | Some entity -> entity.Name + ": " + aspect.Description
+                | None -> aspect.Description
             let invoke =
-                { Source = aspect.Description
+                { Source = source
                   Role = die.Role
                   Result = random.Next (1, 7) }
             let addInvoke roll = { roll with Invokes = List.add invoke roll.Invokes }
