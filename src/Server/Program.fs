@@ -27,16 +27,16 @@ let private savePath = "universe.json"
 let private serializer = ThothSerializer () :> IJsonSerializer
 
 let private commitBefore = function
-    | AddEntity
-    | RemoveEntity
-    | AddStatGroup
-    | RemoveStatGroup
-    | AddStat
-    | RemoveStat
-    | AddAspect
-    | RemoveAspect
-    | AddDie
-    | RemoveDie -> true
+    | AddEntity _
+    | RemoveEntity _
+    | AddStatGroup _
+    | RemoveStatGroup _
+    | AddStat _
+    | RemoveStat _
+    | AddAspect _
+    | RemoveAspect _
+    | AddDie _
+    | RemoveDie _ -> true
     | _ -> false
 
 let private init universeVar dispatch () =

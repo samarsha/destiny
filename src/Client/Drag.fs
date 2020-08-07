@@ -128,7 +128,7 @@ let view viewById = function
 let update message model =
     match message, model with
     | Start tentative, _ -> Tentative tentative
-    | Move, Inactive -> Inactive
+    | Move _, Inactive -> Inactive
     | Move (position, targets), Tentative tentative ->
         if distance position tentative.PointerPosition < threshold
         then model
