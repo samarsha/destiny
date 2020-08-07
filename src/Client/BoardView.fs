@@ -167,7 +167,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                   [ icon "SquarePlus" [] ] ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
         |> div [ Class "aspect-dice"
-                 ref' <| fun element ->
+                 ref <| fun element ->
                      let element' = element :?> HTMLElement
                      let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
                      element.classList.toggle ("aspect-dice-top", onFirstLine) |> ignore ]

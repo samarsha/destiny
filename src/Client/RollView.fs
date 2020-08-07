@@ -49,6 +49,6 @@ let private viewRoll roll =
 let private render rolls =
     Map.joinMap viewRoll rolls.Map rolls.Order
     |> div [ Class "messages"
-             ref' <| fun element -> element.scrollTop <- element.scrollHeight ]
+             ref <| fun element -> element.scrollTop <- element.scrollHeight ]
 
 let view = FunctionComponent.Of (render, memoizeWith = equalsButFunctions)
