@@ -1,4 +1,4 @@
-﻿module internal Destiny.Client.Helpers
+﻿module internal Destiny.Client.React
 
 open Fable.React.Props
 

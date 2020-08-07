@@ -4,7 +4,7 @@ open System
 
 open Browser.Types
 open Destiny.Client
-open Destiny.Client.Helpers
+open Destiny.Client.React
 open Destiny.Client.Tabler
 open Destiny.Shared
 open Destiny.Shared.Bag
@@ -14,6 +14,8 @@ open Destiny.Shared.Message
 open Destiny.Shared.Roll
 open Fable.React
 open Fable.React.Props
+
+open Destiny.Client.Option
 
 type Model =
     private
@@ -35,7 +37,9 @@ type Message =
     | Send of ClientMessage
     | Private of PrivateMessage
 
-type private Mode = View | Edit
+type private Mode =
+    | View
+    | Edit
 
 // Model
 
@@ -46,15 +50,40 @@ let empty board role =
       Editing = None
       Drag = Drag.empty }
 
-let private entityIndex model id = List.tryFindIndex ((=) id) model.Board.Order
+let private entityIndex (board : Board) id = List.tryFindIndex ((=) id) board.Order
 
-let private aspectIndex model aspectId entityId =
-    Map.tryFind entityId model.Board.Entities
+let private aspectIndex board aspectId entityId =
+    Map.tryFind entityId board.Entities
     |> Option.bind (fun entity -> List.tryFindIndex ((=) aspectId) entity.Aspects)
 
 let private tryFindStringId map id =
     Id.tryParse id
     |> Option.bind (fun id' -> Map.tryFind id' map)
+
+let private tryDragEntity model =
+    let targetIndex target =
+        match Id.tryParse target |> Option.bind (entityIndex model.Board) with
+        | Some index -> Some (target, index)
+        | None -> None
+    option {
+        let! entity = Drag.current model.Drag |> Option.bind (tryFindStringId model.Board.Entities)
+        let! target, index = Drag.targets model.Drag |> List.choose targetIndex |> List.tryHead
+        return target, MoveEntity (entity.Id, index)
+    }
+
+let private tryDragAspect model =
+    let tryFindTarget map = Drag.targets model.Drag |> List.choose (tryFindStringId map) |> List.tryHead
+    option {
+        let! aspect = Drag.current model.Drag |> Option.bind (tryFindStringId model.Board.Aspects)
+        let! parent = tryFindTarget model.Board.Entities
+        match tryFindTarget model.Board.Aspects with
+        | Some target ->
+            let! index = aspectIndex model.Board target.Id parent.Id
+            return target.Id.ToString (), MoveAspect (aspect.Id, parent.Id, index)
+        | None ->
+            if List.isEmpty parent.Aspects
+            then return parent.Id.ToString (), MoveAspect (aspect.Id, parent.Id, 0)
+    }
 
 // View
 
@@ -68,6 +97,13 @@ let private dragStyle id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
     then [ Visibility "hidden" ]
     else []
+
+let private dragTargetClass id model =
+    let isTarget id model =
+        match tryDragEntity model |> Option.orElseWith (fun () -> tryDragAspect model) with
+        | Some (target, _) when id = target -> true
+        | _ -> false
+    if isTarget id model then "drag-target" else ""
 
 let private startRoll dispatch statId =
     let rollId = Id.random ()
@@ -190,7 +226,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
             [ icon "Trash" [] ]
         when' (mode = Edit) dice ]
     |> List.choose id
-    |> div [ Class "aspect"
+    |> div [ Class <| "aspect " + dragTargetClass (aspect.Id.ToString ()) model
              Style <| dragStyle aspect.Id model
              Key <| aspect.Id.ToString ()
              Data ("draggable", aspect.Id)
@@ -241,7 +277,7 @@ let private viewEntity model dispatch (entity : Entity) =
                      StartEdit entity.Id |> Private |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
-    div [ Class "entity"
+    div [ Class <| "entity " + dragTargetClass (entity.Id.ToString ()) model
           Style <| dragStyle entity.Id model
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
@@ -291,37 +327,16 @@ let setBoard board model = { model with Model.Board = board }
 
 let setRole role model = { model with Model.Role = role }
 
-let private dragEntityCommand model (entity : Entity) =
-    let targetIndex =
-        Drag.targets model.Drag
-        |> List.choose (Id.tryParse >> Option.bind (entityIndex model))
-        |> List.tryHead
-    match targetIndex with
-    | Some index -> MoveEntity (entity.Id, index) |> updateBoard |> Some
-    | None -> None
-
-let private dragAspectCommand model (aspect : Aspect) =
-    let tryFindTarget map = Drag.targets model.Drag |> List.choose (tryFindStringId map) |> List.tryHead
-    match tryFindTarget model.Board.Entities,
-          tryFindTarget model.Board.Aspects with
-    | Some parent, Some target ->
-        aspectIndex model target.Id parent.Id
-        |> Option.map (fun index -> MoveAspect (aspect.Id, parent.Id, index) |> updateBoard)
-    | Some parent, None ->
-        if List.isEmpty parent.Aspects
-        then MoveAspect (aspect.Id, parent.Id, 0) |> updateBoard |> Some
-        else None
-    | _ -> None
-
 let private updateDrag message model =
-    let model' = { model with Drag = Drag.update message model.Drag }
-    let command = Drag.current model'.Drag |> Option.bind (fun id ->
-        match tryFindStringId model'.Board.Entities id,
-              tryFindStringId model'.Board.Aspects id with
-        | Some entity', _ -> dragEntityCommand model' entity'
-        | _, Some aspect' -> dragAspectCommand model' aspect'
-        | _ -> None)
-    model', command
+    let drag', event = Drag.update message model.Drag
+    let command =
+        match event with
+        | Drag.Drop ->
+            tryDragEntity model
+            |> Option.orElseWith (fun () -> tryDragAspect model)
+            |> Option.map (snd >> updateBoard)
+        | Drag.Nothing -> None
+    { model with Drag = drag' }, command
 
 let update message model =
     match message with

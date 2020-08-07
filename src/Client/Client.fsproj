@@ -16,7 +16,8 @@
     <None Include="Style\board.sass" />
     <None Include="Style\dice.sass" />
     <None Include="Style\style.sass" />
-    <Compile Include="Helpers.fs" />
+    <Compile Include="Option.fs" />
+    <Compile Include="React.fs" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
     <Compile Include="BoardView.fs" />

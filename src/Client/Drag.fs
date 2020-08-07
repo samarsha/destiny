@@ -40,6 +40,10 @@ type Message =
     | Move of Position * string list
     | Stop
 
+type Event =
+    | Nothing
+    | Drop
+
 // Model
 
 let empty = Inactive
@@ -127,16 +131,27 @@ let view viewById = function
 
 let update message model =
     match message, model with
-    | Start tentative, _ -> Tentative tentative
-    | Move _, Inactive -> Inactive
+    | Start tentative, _ -> Tentative tentative, Nothing
+    | Move _, Inactive -> Inactive, Nothing
     | Move (position, targets), Tentative tentative ->
         if distance position tentative.PointerPosition < threshold
-        then model
-        else Active { Source = tentative.Id
-                      Targets = List.filter ((<>) tentative.Id) targets
-                      Offset = position -- tentative.DraggablePosition
-                      PointerPosition = position }
+        then model, Nothing
+        else
+            let model' =
+                Active {
+                    Source = tentative.Id
+                    Targets = List.filter ((<>) tentative.Id) targets
+                    Offset = position -- tentative.DraggablePosition
+                    PointerPosition = position
+                }
+            model', Nothing
     | Move (position, targets), Active active ->
-        Active { active with Targets = List.filter ((<>) active.Source) targets
-                             PointerPosition = position }
-    | Stop, _ -> Inactive
+        let model' =
+            Active {
+                active with
+                    Targets = List.filter ((<>) active.Source) targets
+                    PointerPosition = position
+            }
+        model', Nothing
+    | Stop, Active _ -> Inactive, Drop
+    | Stop, _ -> Inactive, Nothing

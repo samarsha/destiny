@@ -17,3 +17,7 @@ module internal List =
         List.take index xs @ value :: List.skip index xs
 
     let initial (xs : _ list) = xs.[.. List.length xs - 2]
+
+    let orElse ifEmpty = function
+        | [] -> ifEmpty
+        | xs -> xs

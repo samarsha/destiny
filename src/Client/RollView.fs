@@ -1,6 +1,6 @@
 ﻿module internal Destiny.Client.RollView
 
-open Destiny.Client.Helpers
+open Destiny.Client.React
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Roll
