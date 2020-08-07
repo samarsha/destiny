@@ -20,6 +20,7 @@ body
   flex-direction: column
 
 button, input, textarea
+  background-color: inherit
   color: inherit
   font: inherit
 
@@ -81,6 +82,7 @@ button
 
   &::after
     content: attr(data-autoexpand) " "
+    visibility: hidden
 
 [data-draggable]
   position: relative
