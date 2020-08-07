@@ -25,17 +25,18 @@ type Model =
           Editing : Entity Id option
           Drag : Drag.Model }
 
-type PrivateMessage =
+type Event =
+    | Nothing
+    | Send of ClientMessage
+
+type Message =
     private
     | StartRoll of Roll Id
     | StopRoll
     | StartEdit of Entity Id
     | StopEdit
     | Drag of Drag.Message
-
-type Message =
-    | Send of ClientMessage
-    | Private of PrivateMessage
+    | Event of Event
 
 type private Mode =
     | View
@@ -89,9 +90,9 @@ let private tryDragAspect model =
 
 let private when' condition item = if condition then Some item else None
 
-let private updateBoard = BoardMessage.create >> UpdateBoard
+let private command = BoardMessage.create >> UpdateBoard >> Send
 
-let private boardCommand = updateBoard >> Send
+let private commandEvent = command >> Event
 
 let private dragStyle id model =
     if Drag.current model.Drag |> Option.contains (id.ToString ())
@@ -107,8 +108,8 @@ let private dragTargetClass id model =
 
 let private startRoll dispatch statId =
     let rollId = Id.random ()
-    StartRoll rollId |> Private |> dispatch 
-    RollStat (statId, rollId) |> Send |> dispatch
+    StartRoll rollId |> dispatch 
+    RollStat (statId, rollId) |> Send |> Event |> dispatch
 
 let private expandingTextarea containerProps textareaProps value =
     div (upcast Data ("autoexpand", value) :: containerProps)
@@ -121,7 +122,7 @@ let private viewStat mode model dispatch (stat : Stat) =
         | Edit ->
             expandingTextarea
                 [ Class "stat-name" ]
-                [ OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> boardCommand |> dispatch
+                [ OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this stat" ]
                 stat.Name
     let score =
@@ -132,7 +133,7 @@ let private viewStat mode model dispatch (stat : Stat) =
             Type "number"
             OnChange <| fun event ->
                 match Int32.TryParse event.Value with
-                | true, score -> SetStatScore (stat.Id, score) |> boardCommand |> dispatch
+                | true, score -> SetStatScore (stat.Id, score) |> commandEvent |> dispatch
                 | _ -> ()
             Value stat.Score ]
     let rollButton =
@@ -146,7 +147,7 @@ let private viewStat mode model dispatch (stat : Stat) =
           Some rollButton
           when' (mode = Edit) <| button
               [ Class "stat-remove"
-                OnClick <| fun _ -> RemoveStat stat.Id |> boardCommand |> dispatch ]
+                OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
               [ icon "Trash" [] ] ]
 
 let private viewStatGroup mode model dispatch (group : StatGroup) =
@@ -156,19 +157,19 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         | Edit ->
             expandingTextarea
                 [ Class "stat-group-name" ]
-                [ OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> boardCommand |> dispatch
+                [ OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this group" ]
                 group.Name
     let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
         when' (mode = Edit) <| button
             [ Class "stat-remove"
-              OnClick <| fun _ -> RemoveStatGroup group.Id |> boardCommand |> dispatch ]
+              OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
             [ icon "Trash" [] ] ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> boardCommand |> dispatch ]
+                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
@@ -184,7 +185,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
           Disabled (Option.isNone model.Rolling || model.Role <> die.Role)
           OnClick <| fun _ ->
               match model.Rolling with
-              | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> dispatch
+              | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> Event |> dispatch
               | None -> () ]
         [ icon "Dice" [] ]
 
@@ -194,12 +195,12 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
             [ when' (not <| Bag.isEmpty aspect.Dice) <| button
                   [ Class "die-control"
                     Title "Remove a free invoke"
-                    OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                    OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
                   [ icon "SquareMinus" [] ]
               Some <| button
                   [ Class "die-control"
                     Title "Add a free invoke"
-                    OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> boardCommand |> dispatch ]
+                    OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
                   [ icon "SquarePlus" [] ] ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
         |> div [ Class "aspect-dice"
@@ -217,12 +218,12 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
             [ expandingTextarea
                   [ Class "aspect-description" ]
                   [ Placeholder "Describe this aspect."
-                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> boardCommand |> dispatch ]
+                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch ]
                   aspect.Description ]
     List.map Some description
     @ [ when' (mode = Edit) <| button
             [ Class "aspect-remove"
-              OnClick <| fun _ -> RemoveAspect aspect.Id |> boardCommand |> dispatch ]
+              OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
             [ icon "Trash" [] ]
         when' (mode = Edit) dice ]
     |> List.choose id
@@ -230,7 +231,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
              Style <| dragStyle aspect.Id model
              Key <| aspect.Id.ToString ()
              Data ("draggable", aspect.Id)
-             Drag.draggableListener (Drag >> Private >> dispatch) ]
+             Drag.draggableListener (Drag >> dispatch) ]
 
 let private toggleEdit mode entityId =
     match mode with
@@ -246,24 +247,24 @@ let private viewEntity model dispatch (entity : Entity) =
             expandingTextarea
                 [ Class "entity-name" ]
                 [ Placeholder "Name this entity"
-                  OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> boardCommand |> dispatch ]
+                  OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> commandEvent |> dispatch ]
                 entity.Name
     let hideButton =
-        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> boardCommand |> dispatch ]
+        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let editButton =
-        button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> Private |> dispatch ]
+        button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
     let toolbar =
         List.choose id
             [ when' (mode = Edit) <| button
-                  [ OnClick <| fun _ -> RemoveEntity entity.Id |> boardCommand |> dispatch ]
+                  [ OnClick <| fun _ -> RemoveEntity entity.Id |> commandEvent |> dispatch ]
                   [ icon "Trash" [] ]
               Some editButton
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> boardCommand |> dispatch ]
+                 OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> commandEvent |> dispatch ]
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
@@ -273,15 +274,15 @@ let private viewEntity model dispatch (entity : Entity) =
     let addAspectButton =
         button [ Class "aspect-add"
                  OnClick <| fun _ ->
-                     AddAspect (Id.random (), entity.Id) |> boardCommand |> dispatch
-                     StartEdit entity.Id |> Private |> dispatch ]
+                     AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch
+                     StartEdit entity.Id |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
     div [ Class <| "entity " + dragTargetClass (entity.Id.ToString ()) model
           Style <| dragStyle entity.Id model
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
-          Drag.draggableListener (Drag >> Private >> dispatch) ]
+          Drag.draggableListener (Drag >> dispatch) ]
     <| (div [ Class "entity-header" ] <| name :: toolbar)
     :: if entity.Collapsed then []
        else [ div [ Class "stats" ] stats
@@ -302,12 +303,12 @@ let viewBoard model dispatch =
               Style [ FontSize "20pt" ]
               OnClick <| fun _ ->
                   let entityId = Id.random ()
-                  AddEntity entityId |> boardCommand |> dispatch
-                  StartEdit entityId |> Private |> dispatch ]
+                  AddEntity entityId |> commandEvent |> dispatch
+                  StartEdit entityId |> dispatch ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
-         :: Drag.areaListeners model.Drag (Drag >> Private >> dispatch))
+         :: Drag.areaListeners model.Drag (Drag >> dispatch))
         [ div [ Class "entities" ] <|
               Map.joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
               @ [ addButton ]
@@ -318,7 +319,7 @@ let viewRollBar model dispatch =
     | Some _ ->
         div [ Class "active-roll" ]
             [ str "You're on a roll!"
-              button [ OnClick <| fun _ -> StopRoll |> Private |> dispatch ] [ icon "Checkbox" [] ] ]
+              button [ OnClick <| fun _ -> StopRoll |> dispatch ] [ icon "Checkbox" [] ] ]
     | None -> div [ Class "inactive-roll" ] []
 
 // Update
@@ -329,19 +330,21 @@ let setRole role model = { model with Model.Role = role }
 
 let private updateDrag message model =
     let drag', event = Drag.update message model.Drag
-    let command =
+    let event' =
         match event with
         | Drag.Drop ->
             tryDragEntity model
             |> Option.orElseWith (fun () -> tryDragAspect model)
-            |> Option.map (snd >> updateBoard)
-        | Drag.Nothing -> None
-    { model with Drag = drag' }, command
+            |> Option.map (snd >> command)
+            |> Option.defaultValue Nothing
+        | Drag.Nothing -> Nothing
+    { model with Drag = drag' }, event'
 
 let update message model =
     match message with
-    | StartEdit id -> { model with Editing = Some id }, None
-    | StopEdit -> { model with Editing = None }, None
-    | StartRoll rollId -> { model with Rolling = Some rollId }, None
-    | StopRoll -> { model with Rolling = None }, None
+    | StartEdit id -> { model with Editing = Some id }, Nothing
+    | StopEdit -> { model with Editing = None }, Nothing
+    | StartRoll rollId -> { model with Rolling = Some rollId }, Nothing
+    | StopRoll -> { model with Rolling = None }, Nothing
     | Drag message -> updateDrag message model
+    | Event event -> model, event

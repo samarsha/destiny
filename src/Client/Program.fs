@@ -126,17 +126,16 @@ let private applyServerMessage model = function
               BoardView = BoardView.setRole role model.BoardView
               Role = role }
 
-let private update message model =
+let rec private update message model =
     match message with
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
-    | Send clientMessage
-    | BoardView (BoardView.Send clientMessage) -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
-    | BoardView (BoardView.Private message') ->
-        let boardView, clientMessage = BoardView.update message' model.BoardView
+    | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
+    | BoardView message ->
+        let boardView, event = BoardView.update message model.BoardView
         let model' = { model with BoardView = boardView }
-        let model'' = clientMessage |> Option.map (applyClientMessage model') |> Option.defaultValue model'
-        let command = clientMessage |> Option.map Cmd.bridgeSend |> Option.defaultValue Cmd.none
-        model'', command
+        match event with
+        | BoardView.Nothing -> model', Cmd.none
+        | BoardView.Send clientMessage -> update (Send clientMessage) model'
     | Disconnected -> { model with Connected = false }, Cmd.none
 
 let private bridgeConfig =
