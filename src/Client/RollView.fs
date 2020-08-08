@@ -23,20 +23,22 @@ let private viewDie role result =
         |> Class
     span [ classes ] [ str <| result.ToString () ]
 
-let private viewAnnotation text = span [ Class "annotation preserve-whitespace" ] [ str text ]
-
 let private viewInvoke (invoke : Invoke) =
     div [ Class "roll-line" ]
         [ str " + "
           viewDie invoke.Role invoke.Result
-          viewAnnotation invoke.Source ]
+          span [ Class "annotation preserve-whitespace"
+                 Title invoke.Entity ]
+               [ str invoke.Aspect ] ]
 
 let private viewRoll roll =
     let baseRoll =
         div [ Class "roll-line" ]
             [ viewDie roll.Role roll.Result
               str <| " + " + roll.Modifier.ToString ()
-              viewAnnotation roll.Name ]
+              span [ Class "annotation preserve-whitespace"
+                     Title roll.Entity ]
+                   [ str roll.Stat ] ]
     let invokes = List.map viewInvoke roll.Invokes
     let total =
         roll.Result +
@@ -44,7 +46,11 @@ let private viewRoll roll =
         (roll.Invokes |> List.sumBy (fun invoke -> invoke.Result))
     let equals =
         div [] [ str <| " = " + total.ToString () ]
-    div [ Class "roll" ] <| baseRoll :: invokes @ [ equals ]
+    div [ Class "roll" ] <|
+        span [] [ str roll.Entity ]
+        :: baseRoll
+        :: invokes
+        @ [ equals ]
 
 let private render rolls =
     Map.joinMap viewRoll rolls.Map rolls.Order

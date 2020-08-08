@@ -1,4 +1,4 @@
-﻿module internal Destiny.Client.Option
+﻿module internal Destiny.Shared.Option
 
 type OptionBuilder () =
     member _.Bind (option, binder) = Option.bind binder option

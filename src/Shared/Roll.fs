@@ -4,14 +4,16 @@ open Destiny.Shared
 open Destiny.Shared.Board
 
 type Invoke =
-    { Source : string
+    { Entity : string
+      Aspect : string
       Role : Role
       Result : int }
 
 type Roll =
     { Id : Roll Id
+      Entity : string
+      Stat : string
       Role : Role
-      Name : string
       Result : int
       Modifier : int
       Invokes : Invoke list }
