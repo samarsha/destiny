@@ -45,9 +45,9 @@ let private viewRoll roll =
         roll.Modifier +
         (roll.Invokes |> List.sumBy (fun invoke -> invoke.Result))
     let equals =
-        div [] [ str <| " = " + total.ToString () ]
+        div [ Class "roll-line" ] [ str <| " = " + total.ToString () ]
     div [ Class "roll" ] <|
-        span [] [ str roll.Entity ]
+        div [ Class "roll-entity" ] [ str roll.Entity ]
         :: baseRoll
         :: invokes
         @ [ equals ]
