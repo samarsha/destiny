@@ -2,7 +2,7 @@
 
 GROUP Build
 STORAGE: NONE
-RESTRICTION: == netstandard2.1
+RESTRICTION: == netstandard2.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     BlackFox.VsWhere (1.1)
@@ -274,8 +274,10 @@ NUGET
       System.Reflection.Primitives (>= 4.3)
       System.Runtime (>= 4.3)
     System.Reflection.Emit (4.7)
+      System.Reflection.Emit.ILGeneration (>= 4.7)
     System.Reflection.Emit.ILGeneration (4.7)
     System.Reflection.Emit.Lightweight (4.7)
+      System.Reflection.Emit.ILGeneration (>= 4.7)
     System.Reflection.Extensions (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)

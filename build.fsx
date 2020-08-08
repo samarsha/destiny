@@ -1,9 +1,5 @@
-#r "paket: groupref build //"
+#r "paket: groupref build"
 #load "./.fake/build.fsx/intellisense.fsx"
-
-#if !FAKE
-#r "netstandard"
-#endif
 
 open Fake.Core
 open Fake.Core.TargetOperators
