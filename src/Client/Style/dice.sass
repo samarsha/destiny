@@ -37,18 +37,33 @@
       color: $color
 
 .roll
+  display: table
   font-size: 16pt
   margin-bottom: 10px
+  width: 100%
 
   &-entity
     background-color: color.scale(theme.$secondary, $alpha: -90%)
-    font-size: 12pt
-    margin-bottom: 5px
+    display: table-caption
+    font:
+      size: 12pt
+      weight: normal
+    margin:
+      bottom: 5px
+      top: 0
     padding: 7px 10px
 
-  &-line
-    padding: 2px 10px
+  &-row
+    display: table-row
 
-.annotation
-  font-size: 12pt
-  padding-left: 1em
+  &-result, &-annotation
+    display: table-cell
+    vertical-align: middle
+
+  &-result
+    padding: 2px 5px 2px 10px
+    width: 75px
+
+  &-annotation
+    font-size: 12pt
+    padding: 2px 10px 2px 0
