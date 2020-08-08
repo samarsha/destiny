@@ -15,7 +15,7 @@ open Destiny.Shared.Roll
 open Fable.React
 open Fable.React.Props
 
-open Destiny.Shared.Option
+open Destiny.Shared.Collections.OptionBuilder
 
 type Model =
     private

@@ -2,7 +2,6 @@
   <ItemGroup>
     <Compile Include="..\Shared\Bag.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Collections.fs" LinkBase="Shared Items" />
-    <Compile Include="..\Shared\Option.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Lens.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Id.fs" LinkBase="Shared Items" />
     <Compile Include="..\Shared\Board.fs" LinkBase="Shared Items" />
