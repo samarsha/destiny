@@ -24,7 +24,7 @@ type BoardCommand =
     | AddDie of Aspect Id * Die
     | RemoveDie of Aspect Id * Die
 
-module internal BoardCommand =
+module BoardCommand =
     let update = function
         | AddEntity id -> Board.addEntity id
         | SetEntityName (id, name) -> Board.setEntityName name id
@@ -49,7 +49,7 @@ type BoardMessage =
     { Id : BoardMessage Id
       Command : BoardCommand }
 
-module internal BoardMessage =
+module BoardMessage =
     let create command =
         { Id = Id.random ()
           Command = command }
@@ -69,5 +69,5 @@ type ClientMessage =
     | Redo
     | SetRole of Role
 
-module internal Message =
+module Message =
     let socket = "/socket"

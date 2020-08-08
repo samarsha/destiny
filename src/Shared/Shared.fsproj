@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RootNamespace>Destiny.Shared</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Bag.fs" />
+    <Compile Include="Collections.fs" />
+    <Compile Include="Lens.fs" />
+    <Compile Include="Id.fs" />
+    <Compile Include="Board.fs" />
+    <Compile Include="Roll.fs" />
+    <Compile Include="Message.fs" />
+  </ItemGroup>
+
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

@@ -8,7 +8,7 @@ type 'a Id =
 
     override this.ToString () = match this with Id guid -> guid.ToString () 
 
-module internal Id =
+module Id =
     let tryParse (str : string) =
         match Guid.TryParse str with
         | true, guid -> Some <| Id guid

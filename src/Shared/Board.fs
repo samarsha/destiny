@@ -69,7 +69,7 @@ type Board =
       Aspects : Map<Aspect Id, Aspect>
       Order : Entity Id list }
 
-module internal Board =
+module Board =
     let private entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
 
     let private statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
@@ -93,7 +93,7 @@ module internal Board =
 
     // Stats
 
-    let addStat statId groupId =
+    let internal addStat statId groupId =
         let stat =
             { Id = statId
               Group = groupId
@@ -102,17 +102,17 @@ module internal Board =
         over statGroups (Map.change (List.add statId |> over StatGroup.stats) groupId) >>
         over stats (Map.add statId stat)
 
-    let setStatName name = Map.change (Stat.name .<- name) >> over stats
+    let internal setStatName name = Map.change (Stat.name .<- name) >> over stats
 
-    let setStatScore score = Map.change (Stat.score .<- score) >> over stats
+    let internal setStatScore score = Map.change (Stat.score .<- score) >> over stats
 
-    let removeStat id =
+    let internal removeStat id =
         over statGroups (Map.map <| fun _ -> over StatGroup.stats (List.remove id)) >>
         over stats (Map.remove id)
 
     // Stat Groups
 
-    let addStatGroup groupId entityId =
+    let internal addStatGroup groupId entityId =
         let group =
             { Id = groupId
               Entity = entityId
@@ -121,9 +121,9 @@ module internal Board =
         over entities (Map.change (List.add groupId |> over Entity.statGroups) entityId) >>
         over statGroups (Map.add groupId group)
 
-    let setStatGroupName name = Map.change (StatGroup.name .<- name) >> over statGroups
+    let internal setStatGroupName name = Map.change (StatGroup.name .<- name) >> over statGroups
 
-    let removeStatGroup id board =
+    let internal removeStatGroup id board =
         match Map.tryFind id board.StatGroups with
         | Some group ->
             board
@@ -134,7 +134,7 @@ module internal Board =
 
     // Aspects
 
-    let addAspect aspectId entityId =
+    let internal addAspect aspectId entityId =
         let aspect =
             { Id = aspectId
               Entity = entityId
@@ -143,25 +143,25 @@ module internal Board =
         over entities (Map.change (List.add aspectId |> over Entity.aspects) entityId) >>
         over aspects (Map.add aspectId aspect)
 
-    let setAspectDescription description = Map.change (Aspect.description .<- description) >> over aspects
+    let internal setAspectDescription description = Map.change (Aspect.description .<- description) >> over aspects
 
-    let addDie die = Map.change (Bag.add die |> over Aspect.dice) >> over aspects
+    let internal addDie die = Map.change (Bag.add die |> over Aspect.dice) >> over aspects
 
     let removeDie die = Map.change (Bag.remove die |> over Aspect.dice) >> over aspects
 
-    let moveAspect aspectId entityId index =
+    let internal moveAspect aspectId entityId index =
         let remove = Map.map (fun _ -> List.remove aspectId |> over Entity.aspects)
         let add = Map.change (List.insertAt index aspectId |> over Entity.aspects) entityId
         let setParent = Map.change (Aspect.entity .<- entityId) aspectId
         remove >> add |> over entities >> (setParent |> over aspects)
 
-    let removeAspect id =
+    let internal removeAspect id =
         over entities (Map.map <| fun _ -> List.remove id |> over Entity.aspects) >>
         over aspects (Map.remove id)
 
     // Entities
 
-    let addEntity id =
+    let internal addEntity id =
         let entity =
             { Id = id
               Name = ""
@@ -171,13 +171,13 @@ module internal Board =
         over entities (Map.add id entity) >>
         over order (fun order -> order @ [ id ])
 
-    let setEntityName name = Map.change (Entity.name .<- name) >> over entities
+    let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
-    let setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
+    let internal setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
 
-    let moveEntity index id = List.remove id >> List.insertAt index id |> over order
+    let internal moveEntity index id = List.remove id >> List.insertAt index id |> over order
 
-    let removeEntity id board =
+    let internal removeEntity id board =
         match Map.tryFind id board.Entities with
         | Some entity ->
             board

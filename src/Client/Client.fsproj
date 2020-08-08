@@ -1,21 +1,22 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <DefineConstants>FABLE_COMPILER</DefineConstants>
     <RootNamespace>Destiny.Client</RootNamespace>
+    <DefineConstants>FABLE_COMPILER</DefineConstants>
   </PropertyGroup>
 
-  <Import Project="..\Shared\Shared.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Shared.fsproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="paket.references" />
-    <None Include="index.html" />
     <None Include="Style\theme.sass" />
     <None Include="Style\header.sass" />
     <None Include="Style\board.sass" />
     <None Include="Style\dice.sass" />
     <None Include="Style\style.sass" />
+    <None Include="index.html" />
     <Compile Include="React.fs" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />

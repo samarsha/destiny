@@ -22,7 +22,7 @@ type RollLog =
     { Map : Map<Roll Id, Roll>
       Order : Roll Id list }
 
-module internal RollLog =
+module RollLog =
     let empty =
         { Map = Map.empty
           Order = [] }
