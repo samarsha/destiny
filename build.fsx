@@ -10,89 +10,64 @@ Target.initEnvironment ()
 
 let serverPath = Path.getFullName "./src/Server"
 
-let clientPath = Path.getFullName "./src/Client"
+let clientDeployPath = Path.getFullName "./src/Client/deploy"
 
-let clientDeployPath = Path.combine clientPath "deploy"
-
-let deployDir = Path.getFullName "./deploy"
+let deployPath = Path.getFullName "./deploy"
 
 let platformTool tool winTool =
-    let tool = if Environment.isUnix then tool else winTool
-    match ProcessUtils.tryFindFileOnPath tool with
-    | Some t -> t
-    | _ ->
-        let errorMsg =
-            tool + " was not found in path. " +
-            "Please install it and make sure it's available from your path. " +
-            "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
-        failwith errorMsg
+    if Environment.isUnix then tool else winTool
+    |> ProcessUtils.tryFindFileOnPath
+    |> Option.defaultWith (fun () -> tool + " was not found in your path. " |> failwith)
 
-let nodeTool = platformTool "node" "node.exe"
+let yarn = platformTool "yarn" "yarn.cmd"
 
-let yarnTool = platformTool "yarn" "yarn.cmd"
-
-let runTool cmd args workingDir =
-    let arguments = args |> String.split ' ' |> Arguments.OfArgs
-    Command.RawCommand (cmd, arguments)
+let runTool command args workingDir =
+    let args' = args |> String.split ' ' |> Arguments.OfArgs
+    Command.RawCommand (command, args')
     |> CreateProcess.fromCommand
     |> CreateProcess.withWorkingDirectory workingDir
     |> CreateProcess.ensureExitCode
     |> Proc.run
     |> ignore
 
-let runDotNet cmd workingDir =
-    let result = DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
+let runDotNet command workingDir =
+    let result = DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) command ""
     if result.ExitCode <> 0
-    then failwithf "'dotnet %s' failed in %s" cmd workingDir
+    then failwithf "'dotnet %s' failed in %s" command workingDir
 
 let openBrowser url =
     Command.ShellCommand url
     |> CreateProcess.fromCommand
-    |> CreateProcess.ensureExitCodeWithMessage "opening browser failed"
+    |> CreateProcess.ensureExitCode
     |> Proc.run
     |> ignore
 
 Target.create "Clean" <| fun _ ->
-    [ deployDir
-      clientDeployPath ]
-    |> Shell.cleanDirs
+    [ deployPath; clientDeployPath ] |> Shell.cleanDirs
 
 Target.create "InstallClient" <| fun _ ->
-    printfn "Node version:"
-    runTool nodeTool "--version" __SOURCE_DIRECTORY__
-    printfn "Yarn version:"
-    runTool yarnTool "--version" __SOURCE_DIRECTORY__
-    runTool yarnTool "install --frozen-lockfile" __SOURCE_DIRECTORY__
+    runTool yarn "install --frozen-lockfile" __SOURCE_DIRECTORY__
 
 Target.create "Build" <| fun _ ->
     runDotNet "build" serverPath
-    runTool yarnTool "webpack-cli --env.production -p" __SOURCE_DIRECTORY__
+    runTool yarn "webpack-cli --env.production -p" __SOURCE_DIRECTORY__
 
 Target.create "Run" <| fun _ ->
     let server = async { runDotNet "watch run" serverPath }
-    let client = async { runTool yarnTool "webpack-dev-server --env.development" __SOURCE_DIRECTORY__ }
+    let client = async { runTool yarn "webpack-dev-server --env.development" __SOURCE_DIRECTORY__ }
     let browser =
         async {
             do! Async.Sleep 5000
             openBrowser "http://localhost:8080"
         }
-    let vsCodeSession = Environment.hasEnvironVar "vsCodeSession"
-    let safeClientOnly = Environment.hasEnvironVar "safeClientOnly"
-    let tasks =
-        [ if not safeClientOnly then yield server
-          yield client
-          if not vsCodeSession then yield browser ]
-    tasks
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> ignore
+    Async.Parallel [ server; client; browser ] |> Async.RunSynchronously |> ignore
 
 Target.create "Bundle" <| fun _ ->
-    let serverDir = Path.combine deployDir "Server"
+    let serverDir = Path.combine deployPath "Server"
     let publish = sprintf "publish -c Release -o \"%s\"" serverDir
     runDotNet publish serverPath
 
-    let clientDir = Path.combine deployDir "Client"
+    let clientDir = Path.combine deployPath "Client"
     let assetsDir = Path.combine clientDir "assets"
     Shell.copyDir assetsDir clientDeployPath FileFilter.allFiles
 
