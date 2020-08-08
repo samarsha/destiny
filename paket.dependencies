@@ -1,4 +1,4 @@
-version 5.249.0
+version 5.241.2
 
 group Build
     source https://api.nuget.org/v3/index.json
