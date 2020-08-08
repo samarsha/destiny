@@ -8,11 +8,11 @@ const project = "./src/Client/Client.fsproj";
 
 const style = "./src/Client/Style/style.sass";
 
-const assetsDir = "./src/Client/assets";
+const assetsDir = "src/Client/assets";
 
 const htmlWebpackPlugin = new HtmlWebpackPlugin({
   filename: "index.html",
-  template: "./src/Client/index.html"
+  template: "src/Client/index.html"
 });
 
 const babel = {
@@ -31,7 +31,7 @@ module.exports = env => ({
     : { app: [ project ], style: [ style ] },
 
   output: {
-    path: path.resolve("./src/Client/deploy"),
+    path: path.resolve("src/Client/deploy"),
     filename: env.production ? "[name].[contenthash].js" : "[name].js",
     publicPath: "/"
   },

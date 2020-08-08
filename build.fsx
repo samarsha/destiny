@@ -1,5 +1,5 @@
 #r "paket: groupref build"
-#load "./.fake/build.fsx/intellisense.fsx"
+#load ".fake/build.fsx/intellisense.fsx"
 
 open Fake.Core
 open Fake.Core.TargetOperators
@@ -8,11 +8,11 @@ open Fake.IO
 
 Target.initEnvironment ()
 
-let serverPath = Path.getFullName "./src/Server"
+let serverPath = Path.getFullName "src/Server"
 
-let clientDeployPath = Path.getFullName "./src/Client/deploy"
+let clientDeployPath = Path.getFullName "src/Client/deploy"
 
-let deployPath = Path.getFullName "./deploy"
+let deployPath = Path.getFullName "deploy"
 
 let platformTool tool winTool =
     if Environment.isUnix then tool else winTool
