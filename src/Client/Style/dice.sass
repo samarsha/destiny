@@ -1,6 +1,9 @@
 ﻿@use "sass:color"
 @use "theme"
 
+$player: #0896f5
+$dm: #db1717
+
 .die
   border:
     color: theme.$dark
@@ -23,18 +26,16 @@
     color: #e72e56
 
   &-player
-    $color: #0896f5
-    border-color: $color
+    border-color: $player
 
     .icon
-      color: $color
+      color: $player
 
   &-dm
-    $color: #db1717
-    border-color: $color
+    border-color: $dm
 
     .icon
-      color: $color
+      color: $dm
 
 .roll
   display: table
@@ -43,7 +44,6 @@
   width: 100%
 
   &-entity
-    background-color: color.scale(theme.$secondary, $alpha: -90%)
     display: table-caption
     font:
       family: theme.$font-header
@@ -52,6 +52,12 @@
       bottom: 5px
       top: 0
     padding: 7px 10px
+
+  &-entity-player
+    background-color: color.scale($player, $alpha: -90%)
+
+  &-entity-dm
+    background-color: color.scale($dm, $alpha: -90%)
 
   &-row
     display: table-row

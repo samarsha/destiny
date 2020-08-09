@@ -33,6 +33,10 @@ let private viewInvoke (invoke : Invoke) =
                [ str invoke.Aspect ] ]
 
 let private viewRoll roll =
+    let roleClass =
+        match roll.Role with
+        | Player -> "roll-entity-player"
+        | DM -> "roll-entity-dm"
     let baseRoll =
         div [ Class "roll-row" ]
             [ span [ Class "roll-result" ]
@@ -49,7 +53,7 @@ let private viewRoll roll =
     let equals =
         div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ]
     div [ Class "roll" ] <|
-        h3 [ Class "roll-entity" ] [ str roll.Entity ]
+        h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
         :: baseRoll
         :: invokes
         @ [ equals ]
