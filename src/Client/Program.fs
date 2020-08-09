@@ -19,32 +19,32 @@ open Elmish.HMR
 #endif
 
 type private Model =
-    { Role : Role
+    { ActiveRoll : Roll Id option
       Board : Board
       BoardView : BoardView.Model
-      Rolls : RollLog
-      ActiveRoll : Roll Id option
       Connected : bool
+      Role : Role
+      Rolls : RollLog
       ServerBoard : Board
       Unconfirmed : BoardMessage list }
 
 type private Message =
+    | BoardView of BoardView.Message
+    | Disconnected
     | Receive of ServerMessage
     | Send of ClientMessage
-    | Disconnected
-    | BoardView of BoardView.Message
     | SetActiveRoll of Roll Id option
 
 // Model
 
 let private empty =
     let role = Player
-    { Role = role
+    { ActiveRoll = None
       Board = Board.empty
-      BoardView = BoardView.empty Board.empty role
-      Rolls = RollLog.empty
-      ActiveRoll = None
+      BoardView = BoardView.empty
       Connected = false
+      Role = role
+      Rolls = RollLog.empty
       ServerBoard = Board.empty
       Unconfirmed = [] }
 
@@ -80,32 +80,28 @@ let private view model dispatch =
               button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
               spareRollButton
               dmCheckbox ]
+    let boardModel = BoardView.makeViewModel model.BoardView model.ActiveRoll model.Board model.Role
     let main =
         div [ Class "main" ]
-            [ BoardView.viewBoard model.BoardView (BoardView >> dispatch)
+            [ BoardView.viewBoard boardModel (BoardView >> dispatch)
               RollView.view model.Rolls ]
     div [ Class "app" ] <|
         [ connection
-          BoardView.viewRollBar model.BoardView (BoardView >> dispatch)
+          BoardView.viewRollBar boardModel (BoardView >> dispatch)
           toolbar
           main ]
 
 // Update
 
 let private applyBoardCommand model command =
-    let board = BoardCommand.update command model.Board
-    { model with
-          Board = board
-          BoardView = BoardView.setBoard board model.BoardView }
+    { model with Board = BoardCommand.update command model.Board }
 
 let private reapplyUnconfirmed model =
     let board =
         model.Unconfirmed
         |> List.map (fun message -> BoardCommand.update message.Command)
         |> List.fold (|>) model.ServerBoard
-    { model with
-          Board = board
-          BoardView = BoardView.setBoard board model.BoardView }
+    { model with Board = board }
 
 /// Applies a message sent by the client to the server.
 let private applyClientMessage model = function
@@ -120,9 +116,8 @@ let private applyServerMessage model = function
     | ClientConnected (board, rolls) ->
         { model with
               Board = board
-              BoardView = BoardView.setBoard board model.BoardView
-              Rolls = rolls
               Connected = true
+              Rolls = rolls
               ServerBoard = board
               Unconfirmed = [] }
     | BoardUpdated message ->
@@ -132,28 +127,20 @@ let private applyServerMessage model = function
         else reapplyUnconfirmed model'
     | BoardReplaced board -> reapplyUnconfirmed { model with ServerBoard = board }
     | RollLogUpdated rolls -> { model with Rolls = rolls }
-    | RoleChanged role ->
-        { model with
-              BoardView = BoardView.setRole role model.BoardView
-              Role = role }
-
-let private setActiveRoll model rollId =
-    { model with
-          ActiveRoll = rollId
-          BoardView = BoardView.setActiveRoll rollId model.BoardView }
+    | RoleChanged role -> { model with Role = role }
 
 let rec private update message model =
     match message with
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
     | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
-    | SetActiveRoll rollId -> setActiveRoll model rollId, Cmd.none
+    | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
     | BoardView message ->
-        let boardView, event = BoardView.update message model.BoardView
+        let boardView, event = BoardView.update message model.BoardView model.Board
         let model' = { model with BoardView = boardView }
         match event with
         | BoardView.Nothing -> model', Cmd.none
         | BoardView.Send clientMessage -> update (Send clientMessage) model'
-        | BoardView.SetActiveRoll rollId -> setActiveRoll model rollId, Cmd.none
+        | BoardView.SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
     | Disconnected -> { model with Connected = false }, Cmd.none
 
 let private bridgeConfig =
