@@ -299,9 +299,7 @@ let private viewEntity model dispatch (entity : Entity) =
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
     let addAspectButton =
         button [ Class "aspect-add"
-                 OnClick <| fun _ ->
-                     AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch
-                     StartEdit entity.Id |> dispatch ]
+                 OnClick <| fun _ -> AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
     div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
@@ -327,10 +325,7 @@ let viewBoard model dispatch =
         button
             [ Class "entity-add"
               Style [ FontSize "20pt" ]
-              OnClick <| fun _ ->
-                  let id = Id.random ()
-                  AddEntity id |> commandEvent |> dispatch
-                  StartEdit id |> dispatch ]
+              OnClick <| fun _ -> Id.random () |> AddEntity |> commandEvent |> dispatch ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
@@ -368,8 +363,14 @@ let private updateEvent event model =
         match command with
         | AddStat (id, _) -> { model with Model.JustAdded = StatId id |> Some }
         | AddStatGroup (id, _) -> { model with JustAdded = StatGroupId id |> Some }
-        | AddAspect (id, _) -> { model with JustAdded = AspectId id |> Some }
-        | AddEntity id -> { model with JustAdded = EntityId id |> Some }
+        | AddAspect (aspectId, entityId) ->
+            { model with
+                  Editing = Some entityId
+                  JustAdded = AspectId aspectId |> Some }
+        | AddEntity id ->
+            { model with
+                  Editing = Some id
+                  JustAdded = EntityId id |> Some }
         | _ -> model
     | _ -> model
 
