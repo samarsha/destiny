@@ -41,7 +41,7 @@ let private viewRoll roll =
         div [ Class "roll-row" ]
             [ span [ Class "roll-result" ]
                    [ viewDie roll.Role roll.Result
-                     str <| " + " + roll.Modifier.ToString () ]
+                     str <| if roll.Modifier <> 0 then " + " + roll.Modifier.ToString () else "" ]
               span [ Class "roll-annotation preserve-whitespace"
                      Title roll.Entity ]
                    [ str roll.Stat ] ]
@@ -51,12 +51,14 @@ let private viewRoll roll =
         roll.Modifier +
         (roll.Invokes |> List.sumBy (fun invoke -> invoke.Result))
     let equals =
-        div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ]
+        if roll.Modifier <> 0 || not <| List.isEmpty roll.Invokes
+        then div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ] |> Some
+        else None
     div [ Class "roll" ] <|
         h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
         :: baseRoll
         :: invokes
-        @ [ equals ]
+        @ Option.toList equals
 
 let private render rolls =
     Map.joinMap viewRoll rolls.Map rolls.Order
