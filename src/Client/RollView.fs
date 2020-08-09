@@ -41,7 +41,7 @@ let private viewRoll roll =
         div [ Class "roll-row" ]
             [ span [ Class "roll-result" ]
                    [ viewDie roll.Role roll.Result
-                     str <| if roll.Modifier <> 0 then " + " + roll.Modifier.ToString () else "" ]
+                     str <| if roll.Modifier = 0 then "" else " + " + roll.Modifier.ToString () ]
               span [ Class "roll-annotation preserve-whitespace"
                      Title roll.Entity ]
                    [ str roll.Stat ] ]
@@ -51,9 +51,9 @@ let private viewRoll roll =
         roll.Modifier +
         (roll.Invokes |> List.sumBy (fun invoke -> invoke.Result))
     let equals =
-        if roll.Modifier <> 0 || not <| List.isEmpty roll.Invokes
-        then div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ] |> Some
-        else None
+        if roll.Modifier = 0 && List.isEmpty roll.Invokes
+        then None
+        else div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ] |> Some
     div [ Class "roll" ] <|
         h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
         :: baseRoll
