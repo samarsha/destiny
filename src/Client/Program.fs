@@ -62,7 +62,8 @@ let private view model dispatch =
         then div [ Class "connected" ] []
         else div [ Class "connecting" ] [ str "Trying to connect..." ]
     let spareRollButton =
-        button [ OnClick <| fun _ ->
+        button [ Title "Roll a spare die"
+                 OnClick <| fun _ ->
                      let rollId = model.ActiveRoll |> Option.defaultWith Id.random
                      Some rollId |> SetActiveRoll |> dispatch
                      RollSpare rollId |> Send |> dispatch ]
