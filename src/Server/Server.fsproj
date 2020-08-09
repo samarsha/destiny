@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Destiny.Server</AssemblyName>
     <RootNamespace>Destiny.Server</RootNamespace>
     <DefaultItemExcludes>$(DefaultItemExcludes); universe.json</DefaultItemExcludes>
   </PropertyGroup>

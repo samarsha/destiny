@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>Destiny.Shared</AssemblyName>
     <RootNamespace>Destiny.Shared</RootNamespace>
   </PropertyGroup>
 
