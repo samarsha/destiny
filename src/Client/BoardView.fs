@@ -47,7 +47,6 @@ type Message =
     private
     | Drag of Drag.Message
     | Event of Event
-    | JustAdded of BoardId
     | StartEdit of Entity Id
     | StopEdit
 
@@ -194,10 +193,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ ->
-                     let id = Id.random ()
-                     AddStat (id, group.Id) |> commandEvent |> dispatch
-                     StatId id |> JustAdded |> dispatch ]
+                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
@@ -294,10 +290,7 @@ let private viewEntity model dispatch (entity : Entity) =
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ ->
-                     let id = Id.random ()
-                     AddStatGroup (id, entity.Id) |> commandEvent |> dispatch
-                     StatGroupId id |> JustAdded |> dispatch ]
+                 OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> commandEvent |> dispatch ]
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
@@ -307,9 +300,7 @@ let private viewEntity model dispatch (entity : Entity) =
     let addAspectButton =
         button [ Class "aspect-add"
                  OnClick <| fun _ ->
-                     let id = Id.random ()
-                     AddAspect (id, entity.Id) |> commandEvent |> dispatch
-                     AspectId id |> JustAdded |> dispatch
+                     AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch
                      StartEdit entity.Id |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
@@ -339,7 +330,6 @@ let viewBoard model dispatch =
               OnClick <| fun _ ->
                   let id = Id.random ()
                   AddEntity id |> commandEvent |> dispatch
-                  EntityId id |> JustAdded |> dispatch
                   StartEdit id |> dispatch ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
@@ -372,12 +362,22 @@ let private updateDrag message drag board =
         | Drag.Nothing -> Nothing
     drag', event'
 
+let private updateEvent event model =
+    match event with
+    | Send (UpdateBoard { Command = command }) ->
+        match command with
+        | AddStat (id, _) -> { model with Model.JustAdded = StatId id |> Some }
+        | AddStatGroup (id, _) -> { model with JustAdded = StatGroupId id |> Some }
+        | AddAspect (id, _) -> { model with JustAdded = AspectId id |> Some }
+        | AddEntity id -> { model with JustAdded = EntityId id |> Some }
+        | _ -> model
+    | _ -> model
+
 let update message (model : Model) board =
     match message with
     | Drag dragMessage ->
         let drag, event = updateDrag dragMessage model.Drag board
         { model with Drag = drag }, event
-    | Event event -> model, event
-    | JustAdded id -> { model with JustAdded = Some id }, Nothing
+    | Event event -> updateEvent event model, event
     | StartEdit id -> { model with Editing = Some id }, Nothing
     | StopEdit -> { model with Editing = None; JustAdded = None }, Nothing
