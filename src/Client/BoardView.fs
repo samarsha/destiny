@@ -17,10 +17,17 @@ open Fable.React.Props
 
 open Destiny.Shared.Collections.OptionBuilder
 
+type private BoardId =
+    | AspectId of Aspect Id
+    | EntityId of Entity Id
+    | StatGroupId of StatGroup Id
+    | StatId of Stat Id
+
 type Model =
     private
         { Drag : Drag.Model
-          Editing : Entity Id option }
+          Editing : Entity Id option
+          JustAdded : BoardId option }
 
 type ViewModel =
     private
@@ -28,6 +35,7 @@ type ViewModel =
           Board : Board
           Drag : Drag.Model
           Editing : Entity Id option
+          JustAdded : BoardId option
           Role : Role }
 
 type Event =
@@ -37,30 +45,29 @@ type Event =
 
 type Message =
     private
-    | StartEdit of Entity Id
-    | StopEdit
     | Drag of Drag.Message
     | Event of Event
+    | JustAdded of BoardId
+    | StartEdit of Entity Id
+    | StopEdit
 
 type private Mode =
     | View
     | Edit
 
-type private BoardId =
-    | AspectId of Aspect Id
-    | EntityId of Entity Id
-
 // Model
 
 let empty =
     { Editing = None
-      Drag = Drag.empty }
+      Drag = Drag.empty
+      JustAdded = None }
 
 let makeViewModel (model : Model) activeRoll board role =
     { ActiveRoll = activeRoll
       Board = board
       Drag = model.Drag
       Editing = model.Editing
+      JustAdded = model.JustAdded
       Role = role }
 
 let private entityIndex (board : Board) id = List.tryFindIndex ((=) id) board.Order
@@ -138,7 +145,8 @@ let private viewStat mode model dispatch (stat : Stat) =
         | Edit ->
             expandingTextarea
                 [ Class "stat-name" ]
-                [ OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> commandEvent |> dispatch
+                [ AutoFocus <| Option.contains (StatId stat.Id) model.JustAdded
+                  OnChange <| fun event -> SetStatName (stat.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this stat" ]
                 stat.Name
     let score =
@@ -173,7 +181,8 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         | Edit ->
             expandingTextarea
                 [ Class "stat-group-name" ]
-                [ OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> commandEvent |> dispatch
+                [ AutoFocus <| Option.contains (StatGroupId group.Id) model.JustAdded
+                  OnChange <| fun event -> SetStatGroupName (group.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this group" ]
                 group.Name
     let header = div [ Class "stat-group-header" ] <| List.choose id [
@@ -185,7 +194,10 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
     let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
+                 OnClick <| fun _ ->
+                     let id = Id.random ()
+                     AddStat (id, group.Id) |> commandEvent |> dispatch
+                     StatId id |> JustAdded |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
     div [ Class "stat-group"; Key <| group.Id.ToString () ]
@@ -233,8 +245,9 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
         | Edit ->
             [ expandingTextarea
                   [ Class "aspect-description" ]
-                  [ Placeholder "Describe this aspect."
-                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch ]
+                  [ AutoFocus <| Option.contains (AspectId aspect.Id) model.JustAdded
+                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch
+                    Placeholder "Describe this aspect." ]
                   aspect.Description ]
     List.map Some description
     @ [ when' (mode = Edit) <| button
@@ -262,8 +275,9 @@ let private viewEntity model dispatch (entity : Entity) =
         | Edit ->
             expandingTextarea
                 [ Class "entity-name" ]
-                [ Placeholder "Name this entity"
-                  OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> commandEvent |> dispatch ]
+                [ AutoFocus <| Option.contains (EntityId entity.Id) model.JustAdded
+                  OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> commandEvent |> dispatch
+                  Placeholder "Name this entity" ]
                 entity.Name
     let hideButton =
         button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
@@ -280,7 +294,10 @@ let private viewEntity model dispatch (entity : Entity) =
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> commandEvent |> dispatch ]
+                 OnClick <| fun _ ->
+                     let id = Id.random ()
+                     AddStatGroup (id, entity.Id) |> commandEvent |> dispatch
+                     StatGroupId id |> JustAdded |> dispatch ]
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
@@ -290,7 +307,9 @@ let private viewEntity model dispatch (entity : Entity) =
     let addAspectButton =
         button [ Class "aspect-add"
                  OnClick <| fun _ ->
-                     AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch
+                     let id = Id.random ()
+                     AddAspect (id, entity.Id) |> commandEvent |> dispatch
+                     AspectId id |> JustAdded |> dispatch
                      StartEdit entity.Id |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
@@ -318,9 +337,10 @@ let viewBoard model dispatch =
             [ Class "entity-add"
               Style [ FontSize "20pt" ]
               OnClick <| fun _ ->
-                  let entityId = Id.random ()
-                  AddEntity entityId |> commandEvent |> dispatch
-                  StartEdit entityId |> dispatch ]
+                  let id = Id.random ()
+                  AddEntity id |> commandEvent |> dispatch
+                  EntityId id |> JustAdded |> dispatch
+                  StartEdit id |> dispatch ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
@@ -358,5 +378,6 @@ let update message (model : Model) board =
         let drag, event = updateDrag dragMessage model.Drag board
         { model with Drag = drag }, event
     | Event event -> model, event
+    | JustAdded id -> { model with JustAdded = Some id }, Nothing
     | StartEdit id -> { model with Editing = Some id }, Nothing
-    | StopEdit -> { model with Editing = None }, Nothing
+    | StopEdit -> { model with Editing = None; JustAdded = None }, Nothing
