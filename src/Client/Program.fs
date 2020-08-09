@@ -2,6 +2,7 @@ module private Destiny.Client.Program
 
 open Destiny.Client
 open Destiny.Client.Tabler
+open Destiny.Shared
 open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
@@ -18,10 +19,11 @@ open Elmish.HMR
 #endif
 
 type private Model =
-    { Board : Board
+    { Role : Role
+      Board : Board
       BoardView : BoardView.Model
       Rolls : RollLog
-      Role : Role
+      ActiveRoll : Roll Id option
       Connected : bool
       ServerBoard : Board
       Unconfirmed : BoardMessage list }
@@ -31,15 +33,17 @@ type private Message =
     | Send of ClientMessage
     | Disconnected
     | BoardView of BoardView.Message
+    | SetActiveRoll of Roll Id option
 
 // Model
 
 let private empty =
     let role = Player
-    { Board = Board.empty
+    { Role = role
+      Board = Board.empty
       BoardView = BoardView.empty Board.empty role
       Rolls = RollLog.empty
-      Role = role
+      ActiveRoll = None
       Connected = false
       ServerBoard = Board.empty
       Unconfirmed = [] }
@@ -57,17 +61,23 @@ let private view model dispatch =
         if model.Connected
         then div [ Class "connected" ] []
         else div [ Class "connecting" ] [ str "Trying to connect..." ]
+    let spareRollButton =
+        button [ OnClick <| fun _ ->
+                     let rollId = model.ActiveRoll |> Option.defaultWith Id.random
+                     Some rollId |> SetActiveRoll |> dispatch
+                     RollSpare rollId |> Send |> dispatch ]
+               [ icon "Dice" [ Tabler.Size 32 ] ]
     let dmCheckbox =
         label [ Class "dm-toggle" ]
-            [ input
-                  [ Type "checkbox"
-                    Checked (model.Role = DM)
-                    OnChange <| fun _ -> flipRole model.Role |> SetRole |> Send |> dispatch ]
+            [ input [ Type "checkbox"
+                      Checked (model.Role = DM)
+                      OnChange <| fun _ -> flipRole model.Role |> SetRole |> Send |> dispatch ]
               str "DM" ]
     let toolbar =
         div [ Class "toolbar" ]
             [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
               button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
+              spareRollButton
               dmCheckbox ]
     let main =
         div [ Class "main" ]
@@ -126,16 +136,23 @@ let private applyServerMessage model = function
               BoardView = BoardView.setRole role model.BoardView
               Role = role }
 
+let private setActiveRoll model rollId =
+    { model with
+          ActiveRoll = rollId
+          BoardView = BoardView.setActiveRoll rollId model.BoardView }
+
 let rec private update message model =
     match message with
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
     | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
+    | SetActiveRoll rollId -> setActiveRoll model rollId, Cmd.none
     | BoardView message ->
         let boardView, event = BoardView.update message model.BoardView
         let model' = { model with BoardView = boardView }
         match event with
         | BoardView.Nothing -> model', Cmd.none
         | BoardView.Send clientMessage -> update (Send clientMessage) model'
+        | BoardView.SetActiveRoll rollId -> setActiveRoll model rollId, Cmd.none
     | Disconnected -> { model with Connected = false }, Cmd.none
 
 let private bridgeConfig =

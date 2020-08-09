@@ -19,20 +19,19 @@ open Destiny.Shared.Collections.OptionBuilder
 
 type Model =
     private
-        { Board : Board
-          Role : Role
-          Rolling : Roll Id option
+        { Role : Role
+          Board : Board
+          ActiveRoll : Roll Id option
           Editing : Entity Id option
           Drag : Drag.Model }
 
 type Event =
     | Nothing
     | Send of ClientMessage
+    | SetActiveRoll of Roll Id option
 
 type Message =
     private
-    | StartRoll of Roll Id
-    | StopRoll
     | StartEdit of Entity Id
     | StopEdit
     | Drag of Drag.Message
@@ -45,9 +44,9 @@ type private Mode =
 // Model
 
 let empty board role =
-    { Board = board
-      Role = role
-      Rolling = None
+    { Role = role
+      Board = board
+      ActiveRoll = None
       Editing = None
       Drag = Drag.empty }
 
@@ -108,7 +107,7 @@ let private dragTargetClass id model =
 
 let private startRoll dispatch statId =
     let rollId = Id.random ()
-    StartRoll rollId |> dispatch 
+    Some rollId |> SetActiveRoll |> Event |> dispatch 
     RollStat (statId, rollId) |> Send |> Event |> dispatch
 
 let private expandingTextarea containerProps textareaProps value =
@@ -138,7 +137,7 @@ let private viewStat mode model dispatch (stat : Stat) =
             Value stat.Score ]
     let rollButton =
         button
-            [ Disabled <| Option.isSome model.Rolling
+            [ Disabled <| Option.isSome model.ActiveRoll
               OnClick <| fun _ -> startRoll dispatch stat.Id ]
             [ icon "Dice" [] ]
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
@@ -182,9 +181,9 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
         | DM -> Class "die-dm"
     button
         [ roleClass
-          Disabled (Option.isNone model.Rolling || model.Role <> die.Role)
+          Disabled (Option.isNone model.ActiveRoll || model.Role <> die.Role)
           OnClick <| fun _ ->
-              match model.Rolling with
+              match model.ActiveRoll with
               | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> Event |> dispatch
               | None -> () ]
         [ icon "Dice" [] ]
@@ -315,18 +314,20 @@ let viewBoard model dispatch =
           Drag.view (viewDrag model dispatch) model.Drag ]
 
 let viewRollBar model dispatch =
-    match model.Rolling with
+    match model.ActiveRoll with
     | Some _ ->
         div [ Class "active-roll" ]
             [ str "You're on a roll!"
-              button [ OnClick <| fun _ -> StopRoll |> dispatch ] [ icon "Checkbox" [] ] ]
+              button [ OnClick <| fun _ -> SetActiveRoll None |> Event |> dispatch ] [ icon "Checkbox" [] ] ]
     | None -> div [ Class "inactive-roll" ] []
 
 // Update
 
+let setRole role model = { model with Model.Role = role }
+
 let setBoard board model = { model with Model.Board = board }
 
-let setRole role model = { model with Model.Role = role }
+let setActiveRoll roll model = { model with ActiveRoll = roll }
 
 let private updateDrag message model =
     let drag', event = Drag.update message model.Drag
@@ -344,7 +345,5 @@ let update message model =
     match message with
     | StartEdit id -> { model with Editing = Some id }, Nothing
     | StopEdit -> { model with Editing = None }, Nothing
-    | StartRoll rollId -> { model with Rolling = Some rollId }, Nothing
-    | StopRoll -> { model with Rolling = None }, Nothing
     | Drag message -> updateDrag message model
     | Event event -> model, event

@@ -55,7 +55,10 @@ let private update context dispatch message client =
         BoardUpdated message |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollStat (statId, rollId) ->
-        let universe = Universe.rollStat context.Random client.Role statId rollId |> MVar.update context.Universe
+        let universe =
+            (statId, rollId)
+            ||> Universe.rollStat context.Random { Role = client.Role }
+            |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollAspect (aspectId, rollId) ->
@@ -63,6 +66,13 @@ let private update context dispatch message client =
         let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> context.Hub.BroadcastClient
+        client, Cmd.none
+    | RollSpare rollId ->
+        let universe =
+            rollId
+            |> Universe.rollSpare context.Random { Role = client.Role }
+            |> MVar.update context.Universe
+        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
     | Undo ->
         let universe = over Universe.boards Timeline.undo |> MVar.update context.Universe

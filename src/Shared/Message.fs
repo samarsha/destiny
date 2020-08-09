@@ -65,6 +65,7 @@ type ClientMessage =
     | UpdateBoard of BoardMessage
     | RollStat of Stat Id * Roll Id
     | RollAspect of Aspect Id * Roll Id
+    | RollSpare of Roll Id
     | Undo
     | Redo
     | SetRole of Role
