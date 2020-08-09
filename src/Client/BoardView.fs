@@ -46,6 +46,10 @@ type private Mode =
     | View
     | Edit
 
+type private BoardId =
+    | AspectId of Aspect Id
+    | EntityId of Entity Id
+
 // Model
 
 let empty =
@@ -71,13 +75,14 @@ let private tryFindStringId map id =
 
 let private tryDragEntity drag board =
     let targetIndex target =
-        match Id.tryParse target |> Option.bind (entityIndex board) with
-        | Some index -> Some (target, index)
-        | None -> None
+        let id = Id.tryParse target
+        match id, Option.bind (entityIndex board) id with
+        | Some id', Some index -> Some (id', index)
+        | _ -> None
     option {
         let! entity = Drag.current drag |> Option.bind (tryFindStringId board.Entities)
         let! target, index = Drag.targets drag |> List.choose targetIndex |> List.tryHead
-        return target, MoveEntity (entity.Id, index)
+        return EntityId target, MoveEntity (entity.Id, index)
     }
 
 let private tryDragAspect drag board =
@@ -88,10 +93,10 @@ let private tryDragAspect drag board =
         match tryFindTarget board.Aspects with
         | Some target ->
             let! index = aspectIndex board target.Id parent.Id
-            return target.Id.ToString (), MoveAspect (aspect.Id, parent.Id, index)
+            return AspectId target.Id, MoveAspect (aspect.Id, parent.Id, index)
         | None ->
             if List.isEmpty parent.Aspects
-            then return parent.Id.ToString (), MoveAspect (aspect.Id, parent.Id, 0)
+            then return EntityId parent.Id, MoveAspect (aspect.Id, parent.Id, 0)
     }
 
 // View
@@ -238,7 +243,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
             [ icon "Trash" [] ]
         when' (mode = Edit) dice ]
     |> List.choose id
-    |> div [ Class <| "aspect " + dragTargetClass (aspect.Id.ToString ()) model
+    |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
              Key <| aspect.Id.ToString ()
              Data ("draggable", aspect.Id)
@@ -289,7 +294,7 @@ let private viewEntity model dispatch (entity : Entity) =
                      StartEdit entity.Id |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
-    div [ Class <| "entity " + dragTargetClass (entity.Id.ToString ()) model
+    div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
           Style <| dragStyle entity.Id model.Drag
           Key <| entity.Id.ToString ()
           Data ("draggable", entity.Id)
