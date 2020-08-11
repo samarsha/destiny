@@ -137,6 +137,7 @@ let private applyClientMessage model = function
 let private applyServerMessage model = function
     | ClientConnected (world, rolls) ->
         { model with
+              ActiveBoard = List.tryHead world.BoardList
               Connected = true
               Rolls = rolls
               ServerWorld = world
