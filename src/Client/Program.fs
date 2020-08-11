@@ -98,10 +98,11 @@ let private view model dispatch =
             (div [] [])
             (BoardView >> dispatch |> flip BoardView.viewRollBar)
     let tabBar =
-        TabBar.view
-            (TabBar >> dispatch)
-            (Map.joinMap id model.World.Boards model.World.BoardList)
-            (fun board -> board.Name)
+        TabBar >> dispatch |> TabBar.view
+            { TabBar.Tabs = Map.joinMap id model.World.Boards model.World.BoardList
+              TabBar.Active = activeBoard model
+              TabBar.Format = fun board -> board.Name
+              TabBar.Kind = "Board" } 
     let main =
         div [ Class "main" ]
             [ boardView
@@ -172,12 +173,14 @@ let rec private updateBoardView message model =
 
 and private updateTabBar message model =
     match message with
-    | TabBar.ChangeTab board -> { model with ActiveBoard = Some board.Id }, Cmd.none
-    | TabBar.RemoveTab board -> update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
     | TabBar.AddTab ->
         let id = Id.random ()
         let model', command = update (AddBoard id |> WorldMessage.create |> UpdateWorld |> Send) model
         { model' with ActiveBoard = Some id }, command
+    | TabBar.SwitchTab board -> { model with ActiveBoard = Some board.Id }, Cmd.none
+    | TabBar.SetTabName (board, name) ->
+        update (SetBoardName (board.Id, name) |> WorldMessage.create |> UpdateWorld |> Send) model
+    | TabBar.RemoveTab board -> update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
 
 and private update message model =
     match message with
