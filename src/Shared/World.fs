@@ -235,7 +235,12 @@ module World =
 
     let internal setBoardName name = Map.change (Board.name .<- name) >> over boards
 
-    let internal removeBoard id =
-        // TODO: Remove all entities that are not in any other board.
-        over boards (Map.remove id)
-        >> over boardList (List.remove id)
+    let internal removeBoard id world =
+        // TODO: This assumes each entity is only in one board at a time.
+        match Map.tryFind id world.Boards with
+        | Some board ->
+            world
+            |> over boards (Map.remove id)
+            |> over boardList (List.remove id)
+            |> flip (flip removeEntity id |> flip |> List.fold) board.Entities
+        | None -> world
