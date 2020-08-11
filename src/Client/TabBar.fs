@@ -18,9 +18,10 @@ let private viewTab dispatch format tab =
                   [ icon "X" [] ] ]
 
 let private viewNewTab dispatch =
-    button [ Class "tab"
+    button [ Class "tab-add"
              OnClick <| fun _ -> dispatch AddTab ]
-           [ icon "Plus" [] ]
+           [ icon "Plus" []
+             label [] [ str "Board" ] ]
 
 let view dispatch tabs format =
     tabs
