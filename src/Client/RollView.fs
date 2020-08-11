@@ -1,9 +1,9 @@
 ﻿module internal Destiny.Client.RollView
 
 open Destiny.Client.React
-open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Roll
+open Destiny.Shared.World
 open Fable.React
 open Fable.React.Props
 
@@ -32,7 +32,7 @@ let private viewInvoke (invoke : Invoke) =
                  Title invoke.Entity ]
                [ str invoke.Aspect ] ]
 
-let private viewRoll roll =
+let private viewRoll (roll : Roll) =
     let roleClass =
         match roll.Role with
         | Player -> "roll-entity-player"

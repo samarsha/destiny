@@ -9,9 +9,11 @@ type 'a Id =
     override this.ToString () = match this with Id guid -> guid.ToString () 
 
 module Id =
-    let tryParse (str : string) =
-        match Guid.TryParse str with
-        | true, guid -> Some <| Id guid
+    let tryParse (s : string) =
+        match Guid.TryParse s with
+        | true, guid -> Id guid |> Some
         | _ -> None
 
-    let random () = Id <| Guid.NewGuid ()
+    let parse (s : string) = Guid.Parse s |> Id
+
+    let random () = Guid.NewGuid () |> Id

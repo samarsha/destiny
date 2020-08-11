@@ -1,7 +1,7 @@
 open Destiny.Server
-open Destiny.Shared.Board
 open Destiny.Shared.Lens
 open Destiny.Shared.Message
+open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Giraffe.Serialization.Json
@@ -41,18 +41,18 @@ let private commitBefore = function
 
 let private init universeVar dispatch () =
     let universe = MVar.read universeVar
-    ClientConnected (Timeline.present universe.Boards, universe.Rolls) |> dispatch
+    ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch
     { Role = Player }, Cmd.none
 
 let private update context dispatch message client =
     match message with
-    | UpdateBoard message ->
+    | UpdateWorld message ->
         if commitBefore message.Command then Timeline.commit else id
-        >> Timeline.update (BoardCommand.update message.Command)
-        |> over Universe.boards
+        >> Timeline.update (WorldCommand.update message.Command)
+        |> over Universe.history
         |> MVar.update context.Universe
         |> ignore
-        BoardUpdated message |> context.Hub.BroadcastClient
+        WorldUpdated message |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollStat (statId, rollId) ->
         let universe =
@@ -65,7 +65,7 @@ let private update context dispatch message client =
         let die = { Die.Role = client.Role }
         let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
-        RemoveDie (aspectId, die) |> BoardMessage.create |> BoardUpdated |> context.Hub.BroadcastClient
+        RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> context.Hub.BroadcastClient
         client, Cmd.none
     | RollSpare rollId ->
         let universe =
@@ -75,12 +75,12 @@ let private update context dispatch message client =
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
     | Undo ->
-        let universe = over Universe.boards Timeline.undo |> MVar.update context.Universe
-        Timeline.present universe.Boards |> BoardReplaced |> context.Hub.BroadcastClient
+        let universe = over Universe.history Timeline.undo |> MVar.update context.Universe
+        Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
         client, Cmd.none
     | Redo ->
-        let universe = over Universe.boards Timeline.redo |> MVar.update context.Universe
-        Timeline.present universe.Boards |> BoardReplaced |> context.Hub.BroadcastClient
+        let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
+        Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
         client, Cmd.none
     | SetRole role ->
         RoleChanged role |> dispatch
@@ -95,7 +95,7 @@ let private load () =
     | :? FileNotFoundException -> None
 
 let private save universeVar =
-    let universe = over Universe.boards Timeline.commit |> MVar.update universeVar
+    let universe = over Universe.history Timeline.commit |> MVar.update universeVar
     File.WriteAllText (savePath, serializer.SerializeToString universe)
 
 let private router context =

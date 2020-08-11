@@ -1,7 +1,7 @@
 namespace Destiny.Shared.Roll
 
 open Destiny.Shared
-open Destiny.Shared.Board
+open Destiny.Shared.World
 
 type Invoke =
     { Entity : string
