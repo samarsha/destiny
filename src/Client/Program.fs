@@ -125,12 +125,20 @@ let private reapplyUnconfirmed model =
         |> List.fold (|>) model.ServerWorld
     { model with World = world }
 
+let private validateActiveBoard model =
+    let activeBoard' = model.ActiveBoard |> Option.bind (fun board ->
+        if Map.containsKey board model.World.Boards
+        then Some board
+        else List.tryHead model.World.BoardList)
+    { model with ActiveBoard = activeBoard' }
+
 /// Applies a message sent by the client to the server.
 let private applyClientMessage model = function
     | UpdateWorld message when model.Connected ->
         // Apply world commands before sending them to the server to make typing, dragging, etc. more responsive.
         let model' = applyWorldCommand model message.Command
         { model' with Unconfirmed = List.add message model'.Unconfirmed }
+        |> validateActiveBoard
     | _ -> model
 
 /// Applies a message received by the client from the server.
@@ -148,7 +156,8 @@ let private applyServerMessage model = function
         if List.contains message model.Unconfirmed
         then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
         else reapplyUnconfirmed model'
-    | WorldReplaced world -> reapplyUnconfirmed { model with ServerWorld = world }
+        |> validateActiveBoard
+    | WorldReplaced world -> reapplyUnconfirmed { model with ServerWorld = world } |> validateActiveBoard
     | RollLogUpdated rolls -> { model with Rolls = rolls }
     | RoleChanged role -> { model with Role = role }
 
@@ -164,13 +173,7 @@ let rec private updateBoardView message model =
 and private updateTabBar message model =
     match message with
     | TabBar.ChangeTab board -> { model with ActiveBoard = Some board.Id }, Cmd.none
-    | TabBar.RemoveTab board ->
-        let model', command = update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
-        let activeBoard' =
-            if Option.contains board.Id model'.ActiveBoard
-            then List.tryHead model'.World.BoardList
-            else model'.ActiveBoard
-        { model' with ActiveBoard = activeBoard' }, command
+    | TabBar.RemoveTab board -> update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
     | TabBar.AddTab ->
         let id = Id.random ()
         let model', command = update (AddBoard id |> WorldMessage.create |> UpdateWorld |> Send) model
