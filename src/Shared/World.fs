@@ -95,12 +95,16 @@ module private Catalog =
           StatGroups = Map.empty }
 
 module private Board =
+    let internal name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+
     let internal entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
 
 module World =
     let private catalog = { Get = (fun s -> s.Catalog); Set = fun v s -> { s with Catalog = v } }
 
     let private boards = { Get = (fun s -> s.Boards); Set = fun v s -> { s with Boards = v } }
+
+    let private boardList = { Get = (fun s -> s.BoardList); Set = fun v s -> { s with BoardList = v } }
 
     let private entities = catalog .>> Catalog.entities
 
@@ -218,3 +222,20 @@ module World =
             |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
             |> flip (flip removeAspect |> List.fold) entity.Aspects
         | None -> world
+
+    // Boards
+
+    let internal addBoard id =
+        let board =
+            { Id = id
+              Name = ""
+              Entities = [] }
+        over boards (Map.add board.Id board)
+        >> over boardList (List.add board.Id)
+
+    let internal setBoardName name = Map.change (Board.name .<- name) >> over boards
+
+    let internal removeBoard id =
+        // TODO: Remove all entities that are not in any other board.
+        over boards (Map.remove id)
+        >> over boardList (List.remove id)

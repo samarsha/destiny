@@ -5,6 +5,9 @@ open Destiny.Shared.Roll
 open Destiny.Shared.World
 
 type WorldCommand =
+    | AddBoard of Board Id
+    | SetBoardName of Board Id * string
+    | RemoveBoard of Board Id
     | AddEntity of Entity Id * Board Id
     | SetEntityName of Entity Id * string
     | SetEntityCollapsed of Entity Id * bool
@@ -26,6 +29,9 @@ type WorldCommand =
 
 module WorldCommand =
     let update = function
+        | AddBoard id -> World.addBoard id
+        | SetBoardName (id, name) -> World.setBoardName name id
+        | RemoveBoard id -> World.removeBoard id
         | AddEntity (entityId, boardId) -> World.addEntity entityId boardId
         | SetEntityName (id, name) -> World.setEntityName name id
         | SetEntityCollapsed (id, collapsed) -> World.setEntityCollapsed collapsed id

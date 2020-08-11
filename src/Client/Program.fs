@@ -36,6 +36,7 @@ type private Message =
     | Receive of ServerMessage
     | Send of ClientMessage
     | SetActiveRoll of Roll Id option
+    | TabBar of Board TabBar.Message
 
 // Model
 
@@ -96,6 +97,11 @@ let private view model dispatch =
         boardModel |> Option.unwrap
             (div [] [])
             (BoardView >> dispatch |> flip BoardView.viewRollBar)
+    let tabBar =
+        TabBar.view
+            (TabBar >> dispatch)
+            (Map.joinMap id model.World.Boards model.World.BoardList)
+            (fun board -> board.Name)
     let main =
         div [ Class "main" ]
             [ boardView
@@ -104,6 +110,7 @@ let private view model dispatch =
         [ connection
           rollBar
           toolbar
+          tabBar
           main ]
 
 // Update
@@ -144,20 +151,38 @@ let private applyServerMessage model = function
     | RollLogUpdated rolls -> { model with Rolls = rolls }
     | RoleChanged role -> { model with Role = role }
 
-let rec private update message model =
+let rec private updateBoardView message model =
+    activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->
+        let boardView, event = BoardView.update message model.BoardView model.World.Catalog board
+        let model' = { model with BoardView = boardView }
+        match event with
+        | BoardView.Nothing -> model', Cmd.none
+        | BoardView.Send clientMessage -> update (Send clientMessage) model'
+        | BoardView.SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none)
+
+and private updateTabBar message model =
     match message with
+    | TabBar.ChangeTab board -> { model with ActiveBoard = Some board.Id }, Cmd.none
+    | TabBar.RemoveTab board ->
+        let model', command = update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
+        let activeBoard' =
+            if Option.contains board.Id model'.ActiveBoard
+            then List.tryHead model'.World.BoardList
+            else model'.ActiveBoard
+        { model' with ActiveBoard = activeBoard' }, command
+    | TabBar.AddTab ->
+        let id = Id.random ()
+        let model', command = update (AddBoard id |> WorldMessage.create |> UpdateWorld |> Send) model
+        { model' with ActiveBoard = Some id }, command
+
+and private update message model =
+    match message with
+    | BoardView boardMessage -> updateBoardView boardMessage model
+    | Disconnected -> { model with Connected = false }, Cmd.none
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
     | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
     | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
-    | BoardView message ->
-        activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->
-            let boardView, event = BoardView.update message model.BoardView model.World.Catalog board
-            let model' = { model with BoardView = boardView }
-            match event with
-            | BoardView.Nothing -> model', Cmd.none
-            | BoardView.Send clientMessage -> update (Send clientMessage) model'
-            | BoardView.SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none)
-    | Disconnected -> { model with Connected = false }, Cmd.none
+    | TabBar tabMessage -> updateTabBar tabMessage model
 
 let private bridgeConfig =
     Bridge.endpoint Message.socket
