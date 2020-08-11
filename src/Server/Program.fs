@@ -27,6 +27,8 @@ let private savePath = "universe.json"
 let private serializer = ThothSerializer () :> IJsonSerializer
 
 let private commitBefore = function
+    | AddBoard _
+    | RemoveBoard _
     | AddEntity _
     | RemoveEntity _
     | AddStatGroup _
