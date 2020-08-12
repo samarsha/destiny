@@ -1,6 +1,7 @@
 ﻿@use "sass:color"
 @use "theme"
 @use "header"
+@use "tabs"
 @use "board"
 @use "dice"
 
@@ -54,8 +55,8 @@ button
   overflow-y: auto
 
 .messages
-  @include theme.shadow
   background-color: theme.$bright
+  border-left: 1px solid color.scale(theme.$bright, $lightness: -15%)
   overflow-y: auto
   width: 280px
 
