@@ -70,6 +70,13 @@ let private flipRole = function
 let private activeBoard model =
     model.ActiveBoard |> Option.bind (flip Map.tryFind model.World.Boards)
 
+let private viewSaveList model dispatch =
+    model.World.Catalog.Entities
+    |> Map.filter (fun _ entity -> entity.Saved)
+    |> Map.toList
+    |> List.map (fun (_, entity) -> li [] [ str entity.Name ])
+    |> ul [ Class "save-list" ]
+
 let private viewSidebar model dispatch =
     let selectedClass panel = if model.Sidebar = panel then Class "sidebar-selected" else Class ""
     let selector =
@@ -83,7 +90,7 @@ let private viewSidebar model dispatch =
     let content =
         match model.Sidebar with
         | RollLog -> RollView.view model.Rolls
-        | SaveList -> div [ Class "save-list" ] [ str "TODO" ]
+        | SaveList -> viewSaveList model dispatch
     div [ Class "sidebar" ]
         [ selector
           content ]

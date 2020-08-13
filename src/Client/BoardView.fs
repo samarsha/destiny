@@ -277,17 +277,21 @@ let private viewEntity model dispatch (entity : Entity) =
                   OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this entity" ]
                 entity.Name
-    let hideButton =
-        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
-               [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let editButton =
         button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
+    let saveButton =
+        button [ OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
+               [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
+    let hideButton =
+        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
+               [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let toolbar =
         List.choose id
             [ when' (mode = Edit) <| button
                   [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
                   [ icon "Trash" [] ]
+              Some saveButton
               Some editButton
               Some hideButton ]
     let addGroupButton =

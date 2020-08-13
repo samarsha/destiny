@@ -35,7 +35,8 @@ and Entity =
       Name : string
       StatGroups : StatGroup Id list
       Aspects : Aspect Id list
-      Collapsed : bool }
+      Collapsed : bool
+      Saved : bool }
 
 type Catalog =
     { Entities : Map<Entity Id, Entity>
@@ -78,6 +79,8 @@ module private Entity =
     let aspects = { Get = (fun (s : Entity) -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
 
     let collapsed = { Get = (fun s -> s.Collapsed); Set = fun v s -> { s with Collapsed = v } }
+
+    let saved = { Get = (fun s -> s.Saved); Set = fun v s -> { s with Saved = v } }
 
 module private Catalog =
     let entities = { Get = (fun (s : Catalog) -> s.Entities); Set = fun v s -> { s with Entities = v } }
@@ -201,13 +204,16 @@ module World =
               Name = ""
               StatGroups = []
               Aspects = []
-              Collapsed = false }
+              Collapsed = false
+              Saved = false }
         over entities (Map.add entityId entity) >>
         over boards (Map.change (List.add entityId |> over Board.entities) boardId)
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
     let internal setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
+
+    let internal setEntitySaved saved = Map.change (Entity.saved .<- saved) >> over entities
 
     let internal moveEntity index entityId boardId =
         Map.change (List.remove entityId >> List.insertAt index entityId |> over Board.entities) boardId

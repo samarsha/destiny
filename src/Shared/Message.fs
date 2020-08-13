@@ -11,6 +11,7 @@ type WorldCommand =
     | AddEntity of Entity Id * Board Id
     | SetEntityName of Entity Id * string
     | SetEntityCollapsed of Entity Id * bool
+    | SetEntitySaved of Entity Id * bool
     | MoveEntity of Entity Id * Board Id * int
     | RemoveEntity of Entity Id * Board Id
     | AddStatGroup of StatGroup Id * Entity Id
@@ -35,6 +36,7 @@ module WorldCommand =
         | AddEntity (entityId, boardId) -> World.addEntity entityId boardId
         | SetEntityName (id, name) -> World.setEntityName name id
         | SetEntityCollapsed (id, collapsed) -> World.setEntityCollapsed collapsed id
+        | SetEntitySaved (id, saved) -> World.setEntitySaved saved id
         | MoveEntity (entityId, boardId, index) -> World.moveEntity index entityId boardId
         | RemoveEntity (entityId, boardId) -> World.removeEntity entityId boardId
         | AddStatGroup (groupId, entityId) -> World.addStatGroup groupId entityId
