@@ -35,7 +35,8 @@ and Entity =
       Name : string
       StatGroups : StatGroup Id list
       Aspects : Aspect Id list
-      Collapsed : bool }
+      Collapsed : bool
+      Saved : bool }
 
 type Catalog =
     { Entities : Map<Entity Id, Entity>
@@ -78,6 +79,8 @@ module private Entity =
     let aspects = { Get = (fun (s : Entity) -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
 
     let collapsed = { Get = (fun s -> s.Collapsed); Set = fun v s -> { s with Collapsed = v } }
+
+    let saved = { Get = (fun s -> s.Saved); Set = fun v s -> { s with Saved = v } }
 
 module private Catalog =
     let entities = { Get = (fun (s : Catalog) -> s.Entities); Set = fun v s -> { s with Entities = v } }
@@ -201,13 +204,16 @@ module World =
               Name = ""
               StatGroups = []
               Aspects = []
-              Collapsed = false }
-        over entities (Map.add entityId entity) >>
-        over boards (Map.change (List.add entityId |> over Board.entities) boardId)
+              Collapsed = false
+              Saved = false }
+        over entities (Map.addIfNew entityId entity) >>
+        over boards (Map.change (List.addIfNew entityId |> over Board.entities) boardId)
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
     let internal setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
+
+    let internal setEntitySaved saved = Map.change (Entity.saved .<- saved) >> over entities
 
     let internal moveEntity index entityId boardId =
         Map.change (List.remove entityId >> List.insertAt index entityId |> over Board.entities) boardId
@@ -216,11 +222,14 @@ module World =
     let internal removeEntity entityId boardId world =
         match Map.tryFind entityId world.Catalog.Entities with
         | Some entity ->
-            world
-            |> over boards (Map.change (List.remove entityId |> over Board.entities) boardId)
-            |> over entities (Map.remove entityId)
-            |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
-            |> flip (flip removeAspect |> List.fold) entity.Aspects
+            if entity.Saved
+            then world |> over boards (Map.change (List.remove entityId |> over Board.entities) boardId)
+            else
+                world
+                |> over boards (Map.map (fun _ -> List.remove entityId |> over Board.entities))
+                |> over entities (Map.remove entityId)
+                |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
+                |> flip (flip removeAspect |> List.fold) entity.Aspects
         | None -> world
 
     // Boards
@@ -236,7 +245,6 @@ module World =
     let internal setBoardName name = Map.change (Board.name .<- name) >> over boards
 
     let internal removeBoard id world =
-        // TODO: This assumes each entity is only in one board at a time.
         match Map.tryFind id world.Boards with
         | Some board ->
             world

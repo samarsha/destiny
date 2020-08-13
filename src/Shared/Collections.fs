@@ -3,6 +3,11 @@ namespace Destiny.Shared.Collections
 module List =
     let add value xs = xs @ [ value ]
 
+    let addIfNew value xs =
+        if List.contains value xs
+        then xs
+        else add value xs
+
     let remove value = List.filter ((<>) value)
 
     let internal insertAt index value xs =
@@ -11,6 +16,11 @@ module List =
     let initial (xs : _ list) = xs.[.. List.length xs - 2]
 
 module Map =
+    let addIfNew key value map =
+        if Map.containsKey key map
+        then map
+        else Map.add key value map
+
     let change f key map =
         match Map.tryFind key map with
         | Some value -> Map.add key (f value) map

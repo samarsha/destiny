@@ -57,11 +57,39 @@ button
 .screen
   flex-grow: 1
 
-.messages
+.sidebar
   background-color: theme.$bright
   border-left: 1px solid color.scale(theme.$bright, $lightness: -15%)
   overflow-y: auto
   width: 280px
+
+  &-selector
+    display: flex
+
+    button
+      flex-grow: 1
+      text-align: center
+
+    .icon
+      color: color.scale(theme.$dark, $lightness: 70%)
+
+  &-selected .icon
+    color: theme.$dark
+
+.save-list
+  margin: 0
+  padding: 0
+
+.save-item
+  display: flex
+  font-size: 14pt
+
+  &, .icon
+    color: theme.$primary
+
+  button
+    flex-grow: 1
+    padding: 7px
 
 .preserve-whitespace
   // noinspection CssInvalidPropertyValue

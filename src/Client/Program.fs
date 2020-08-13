@@ -19,6 +19,10 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+type private Sidebar =
+    | RollLog
+    | SaveList
+
 type private Model =
     { ActiveBoard : Board Id option
       ActiveRoll : Roll Id option
@@ -27,6 +31,7 @@ type private Model =
       Role : Role
       Rolls : RollLog
       ServerWorld : World
+      Sidebar : Sidebar
       Unconfirmed : WorldMessage list
       World : World }
 
@@ -36,6 +41,7 @@ type private Message =
     | Receive of ServerMessage
     | Send of ClientMessage
     | SetActiveRoll of Roll Id option
+    | SetSidebar of Sidebar
     | TabBar of Board TabBar.Message
 
 // Model
@@ -49,6 +55,7 @@ let private empty =
       Role = role
       Rolls = RollLog.empty
       ServerWorld = World.empty
+      Sidebar = RollLog
       Unconfirmed = []
       World = World.empty }
 
@@ -62,6 +69,40 @@ let private flipRole = function
 
 let private activeBoard model =
     model.ActiveBoard |> Option.bind (flip Map.tryFind model.World.Boards)
+
+let private viewSaveList model dispatch =
+    let viewItem (entity : Entity) =
+        let onClick _ =
+            match model.ActiveBoard with
+            | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
+            | None -> ()
+        li [ Class "save-item" ]
+           [ button [ OnClick onClick ]
+                    [ icon "UserPlus" []
+                      label [] [ str entity.Name ] ] ]
+    model.World.Catalog.Entities
+    |> Map.filter (fun _ entity -> entity.Saved)
+    |> Map.toList
+    |> List.map (snd >> viewItem)
+    |> ul [ Class "save-list" ]
+
+let private viewSidebar model dispatch =
+    let selectedClass panel = if model.Sidebar = panel then Class "sidebar-selected" else Class ""
+    let selector =
+        div [ Class "sidebar-selector" ]
+            [ button [ selectedClass RollLog
+                       OnClick <| fun _ -> SetSidebar RollLog |> dispatch ]
+                     [ icon "Messages" [ Tabler.Size 32 ] ]
+              button [ selectedClass SaveList
+                       OnClick <| fun _ -> SetSidebar SaveList |> dispatch ]
+                     [ icon "Users" [ Tabler.Size 32 ] ] ]
+    let content =
+        match model.Sidebar with
+        | RollLog -> RollView.view model.Rolls
+        | SaveList -> viewSaveList model dispatch
+    div [ Class "sidebar" ]
+        [ selector
+          content ]
 
 let private view model dispatch =
     let connection =
@@ -111,7 +152,7 @@ let private view model dispatch =
                     [ toolbar
                       tabBar
                       boardView ]
-                RollView.view model.Rolls ] ]
+                viewSidebar model dispatch ] ]
 
 // Update
 
@@ -188,6 +229,7 @@ and private update message model =
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
     | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
     | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
+    | SetSidebar sidebar -> { model with Sidebar = sidebar }, Cmd.none
     | TabBar tabMessage -> updateTabBar tabMessage model
 
 let private bridgeConfig =
