@@ -72,11 +72,14 @@ let private activeBoard model =
 
 let private viewSaveList model dispatch =
     let viewItem (entity : Entity) =
-        li [ OnClick <| fun _ ->
-                 match model.ActiveBoard with
-                 | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
-                 | None -> () ]
-           [ str entity.Name ]
+        let onClick _ =
+            match model.ActiveBoard with
+            | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
+            | None -> ()
+        li [ Class "save-item" ]
+           [ button [ OnClick onClick ]
+                    [ icon "UserPlus" []
+                      label [] [ str entity.Name ] ] ]
     model.World.Catalog.Entities
     |> Map.filter (fun _ entity -> entity.Saved)
     |> Map.toList
