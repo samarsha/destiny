@@ -222,11 +222,14 @@ module World =
     let internal removeEntity entityId boardId world =
         match Map.tryFind entityId world.Catalog.Entities with
         | Some entity ->
-            world
-            |> over boards (Map.change (List.remove entityId |> over Board.entities) boardId)
-            |> over entities (Map.remove entityId)
-            |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
-            |> flip (flip removeAspect |> List.fold) entity.Aspects
+            if entity.Saved
+            then world |> over boards (Map.change (List.remove entityId |> over Board.entities) boardId)
+            else
+                world
+                |> over boards (Map.map (fun _ -> List.remove entityId |> over Board.entities))
+                |> over entities (Map.remove entityId)
+                |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
+                |> flip (flip removeAspect |> List.fold) entity.Aspects
         | None -> world
 
     // Boards
@@ -242,7 +245,6 @@ module World =
     let internal setBoardName name = Map.change (Board.name .<- name) >> over boards
 
     let internal removeBoard id world =
-        // TODO: This assumes each entity is only in one board at a time.
         match Map.tryFind id world.Boards with
         | Some board ->
             world
