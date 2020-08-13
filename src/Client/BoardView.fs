@@ -8,10 +8,10 @@ open Destiny.Client.React
 open Destiny.Client.Tabler
 open Destiny.Shared
 open Destiny.Shared.Bag
-open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
 open Destiny.Shared.Roll
+open Destiny.Shared.World
 open Fable.React
 open Fable.React.Props
 
@@ -33,6 +33,7 @@ type ViewModel =
     private
         { ActiveRoll : Roll Id option
           Board : Board
+          Catalog : Catalog
           Drag : Drag.Model
           Editing : Entity Id option
           JustAdded : BoardId option
@@ -61,44 +62,45 @@ let empty =
       Drag = Drag.empty
       JustAdded = None }
 
-let makeViewModel (model : Model) activeRoll board role =
+let makeViewModel (model : Model) activeRoll board catalog role =
     { ActiveRoll = activeRoll
       Board = board
+      Catalog = catalog
       Drag = model.Drag
       Editing = model.Editing
       JustAdded = model.JustAdded
       Role = role }
 
-let private entityIndex (board : Board) id = List.tryFindIndex ((=) id) board.Order
+let private entityIndex board id = List.tryFindIndex ((=) id) board.Entities
 
-let private aspectIndex board aspectId entityId =
-    Map.tryFind entityId board.Entities
+let private aspectIndex (catalog : Catalog) aspectId entityId =
+    Map.tryFind entityId catalog.Entities
     |> Option.bind (fun entity -> List.tryFindIndex ((=) aspectId) entity.Aspects)
 
 let private tryFindStringId map id =
     Id.tryParse id
     |> Option.bind (fun id' -> Map.tryFind id' map)
 
-let private tryDragEntity drag board =
+let private tryDragEntity drag (catalog : Catalog) board =
     let targetIndex target =
         let id = Id.tryParse target
         match id, Option.bind (entityIndex board) id with
         | Some id', Some index -> Some (id', index)
         | _ -> None
     option {
-        let! entity = Drag.current drag |> Option.bind (tryFindStringId board.Entities)
+        let! entity = Drag.current drag |> Option.bind (tryFindStringId catalog.Entities)
         let! target, index = Drag.targets drag |> List.choose targetIndex |> List.tryHead
-        return EntityId target, MoveEntity (entity.Id, index)
+        return EntityId target, MoveEntity (entity.Id, board.Id, index)
     }
 
-let private tryDragAspect drag board =
+let private tryDragAspect drag catalog =
     let tryFindTarget map = Drag.targets drag |> List.choose (tryFindStringId map) |> List.tryHead
     option {
-        let! aspect = Drag.current drag |> Option.bind (tryFindStringId board.Aspects)
-        let! parent = tryFindTarget board.Entities
-        match tryFindTarget board.Aspects with
+        let! aspect = Drag.current drag |> Option.bind (tryFindStringId catalog.Aspects)
+        let! parent = tryFindTarget catalog.Entities
+        match tryFindTarget catalog.Aspects with
         | Some target ->
-            let! index = aspectIndex board target.Id parent.Id
+            let! index = aspectIndex catalog target.Id parent.Id
             return AspectId target.Id, MoveAspect (aspect.Id, parent.Id, index)
         | None ->
             if List.isEmpty parent.Aspects
@@ -109,7 +111,7 @@ let private tryDragAspect drag board =
 
 let private when' condition item = if condition then Some item else None
 
-let private command = BoardMessage.create >> UpdateBoard >> Send
+let private command = WorldMessage.create >> UpdateWorld >> Send
 
 let private commandEvent = command >> Event
 
@@ -121,8 +123,8 @@ let private dragStyle id drag =
 let private dragTargetClass id model =
     let isTarget id model =
         let action =
-            tryDragEntity model.Drag model.Board
-            |> Option.orElseWith (fun () -> tryDragAspect model.Drag model.Board)
+            tryDragEntity model.Drag model.Catalog model.Board
+            |> Option.orElseWith (fun () -> tryDragAspect model.Drag model.Catalog)
         match action with
         | Some (target, _) when id = target -> true
         | _ -> false
@@ -190,7 +192,7 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
             [ Class "stat-remove"
               OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
             [ icon "Trash" [] ] ]
-    let stats = Map.joinMap (viewStat mode model dispatch) model.Board.Stats group.Stats
+    let stats = Map.joinMap (viewStat mode model dispatch) model.Catalog.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
                  OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
@@ -284,7 +286,7 @@ let private viewEntity model dispatch (entity : Entity) =
     let toolbar =
         List.choose id
             [ when' (mode = Edit) <| button
-                  [ OnClick <| fun _ -> RemoveEntity entity.Id |> commandEvent |> dispatch ]
+                  [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
                   [ icon "Trash" [] ]
               Some editButton
               Some hideButton ]
@@ -294,9 +296,9 @@ let private viewEntity model dispatch (entity : Entity) =
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
-        Map.joinMap (viewStatGroup mode model dispatch) model.Board.StatGroups entity.StatGroups
+        Map.joinMap (viewStatGroup mode model dispatch) model.Catalog.StatGroups entity.StatGroups
         @ Option.toList (when' (mode = Edit) addGroupButton)
-    let aspects = Map.joinMap (viewAspect mode model dispatch) model.Board.Aspects entity.Aspects
+    let aspects = Map.joinMap (viewAspect mode model dispatch) model.Catalog.Aspects entity.Aspects
     let addAspectButton =
         button [ Class "aspect-add"
                  OnClick <| fun _ -> AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch ]
@@ -316,8 +318,8 @@ let private viewDrag model dispatch id =
     let tryView source viewer =
         tryFindStringId source id
         |> Option.map (viewer { model with ViewModel.Drag = Drag.empty } dispatch)
-    tryView model.Board.Entities viewEntity
-    |> Option.orElseWith (fun () -> tryView model.Board.Aspects <| viewAspect View)
+    tryView model.Catalog.Entities viewEntity
+    |> Option.orElseWith (fun () -> tryView model.Catalog.Aspects <| viewAspect View)
     |> Option.defaultWith (fun () -> failwith <| "Invalid drag ID: " + id)
 
 let viewBoard model dispatch =
@@ -325,13 +327,13 @@ let viewBoard model dispatch =
         button
             [ Class "entity-add"
               Style [ FontSize "20pt" ]
-              OnClick <| fun _ -> Id.random () |> AddEntity |> commandEvent |> dispatch ]
+              OnClick <| fun _ -> AddEntity (Id.random (), model.Board.Id) |> commandEvent |> dispatch ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> dispatch))
         [ div [ Class "entities" ] <|
-              Map.joinMap (viewEntity model dispatch) model.Board.Entities model.Board.Order
+              Map.joinMap (viewEntity model dispatch) model.Catalog.Entities model.Board.Entities
               @ [ addButton ]
           Drag.view (viewDrag model dispatch) model.Drag ]
 
@@ -345,13 +347,13 @@ let viewRollBar model dispatch =
 
 // Update
 
-let private updateDrag message drag board =
+let private updateDrag message drag catalog board =
     let drag', event = Drag.update message drag
     let event' =
         match event with
         | Drag.Drop ->
-            tryDragEntity drag board
-            |> Option.orElseWith (fun () -> tryDragAspect drag board)
+            tryDragEntity drag catalog board
+            |> Option.orElseWith (fun () -> tryDragAspect drag catalog)
             |> Option.map (snd >> command)
             |> Option.defaultValue Nothing
         | Drag.Nothing -> Nothing
@@ -359,7 +361,7 @@ let private updateDrag message drag board =
 
 let private updateEvent event model =
     match event with
-    | Send (UpdateBoard { Command = command }) ->
+    | Send (UpdateWorld { Command = command }) ->
         match command with
         | AddStat (id, _) -> { model with Model.JustAdded = StatId id |> Some }
         | AddStatGroup (id, _) -> { model with JustAdded = StatGroupId id |> Some }
@@ -367,17 +369,17 @@ let private updateEvent event model =
             { model with
                   Editing = Some entityId
                   JustAdded = AspectId aspectId |> Some }
-        | AddEntity id ->
+        | AddEntity (id, _) ->
             { model with
                   Editing = Some id
                   JustAdded = EntityId id |> Some }
         | _ -> model
     | _ -> model
 
-let update message (model : Model) board =
+let update message (model : Model) catalog board =
     match message with
     | Drag dragMessage ->
-        let drag, event = updateDrag dragMessage model.Drag board
+        let drag, event = updateDrag dragMessage model.Drag catalog board
         { model with Drag = drag }, event
     | Event event -> updateEvent event model, event
     | StartEdit id -> { model with Editing = Some id }, Nothing

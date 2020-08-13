@@ -2,26 +2,26 @@
 
 open Destiny.Shared
 open Destiny.Shared.Bag
-open Destiny.Shared.Board
 open Destiny.Shared.Collections
 open Destiny.Shared.Collections.OptionBuilder
 open Destiny.Shared.Roll
+open Destiny.Shared.World
 open System
 
 type internal Universe =
-    { Boards : Board Timeline
+    { History : World Timeline
       Rolls : RollLog }
 
 module internal Universe =
-    let boards = { Get = (fun s -> s.Boards); Set = fun v s -> { s with Boards = v } }
+    let history = { Get = (fun s -> s.History); Set = fun v s -> { s with History = v } }
 
     let empty =
-        { Boards = Timeline.singleton Board.empty
+        { History = Timeline.singleton World.empty
           Rolls = RollLog.empty }
 
     let private d6 (random : Random) = random.Next (1, 7)
 
-    let private addRoll roll universe =
+    let private addRoll (roll : Roll) universe =
         // TODO: Verify that the roll ID doesn't exist.
         let rolls =
             { Map = Map.add roll.Id roll universe.Rolls.Map
@@ -35,12 +35,12 @@ module internal Universe =
         { universe with Rolls = rolls }
 
     let rollStat random (die : Die) statId rollId universe =
-        let board = Timeline.present universe.Boards
+        let world = Timeline.present universe.History
         option {
-            let! stat = Map.tryFind statId board.Stats
+            let! stat = Map.tryFind statId world.Catalog.Stats
             let! entity =
-                Map.tryFind stat.Group board.StatGroups
-                |> Option.bind (fun group -> Map.tryFind group.Entity board.Entities)
+                Map.tryFind stat.Group world.Catalog.StatGroups
+                |> Option.bind (fun group -> Map.tryFind group.Entity world.Catalog.Entities)
             let roll =
                 { Id = rollId
                   Entity = entity.Name
@@ -53,19 +53,19 @@ module internal Universe =
         } |> Option.defaultValue universe
 
     let rollAspect random die aspectId rollId universe =
-        let board = Timeline.present universe.Boards
+        let world = Timeline.present universe.History
         option {
-            let! aspect = Map.tryFind aspectId board.Aspects
+            let! aspect = Map.tryFind aspectId world.Catalog.Aspects
             if Bag.contains die aspect.Dice then
-                let! entity = Map.tryFind aspect.Entity board.Entities
+                let! entity = Map.tryFind aspect.Entity world.Catalog.Entities
                 let invoke =
                     { Entity = entity.Name
                       Aspect = aspect.Description
                       Role = die.Role
                       Result = d6 random }
                 let universe' = addInvoke invoke rollId universe
-                let boards = universe'.Boards |> Timeline.commit |> Timeline.update (Board.removeDie die aspectId)
-                return { universe' with Boards = boards }
+                let history = universe'.History |> Timeline.commit |> Timeline.update (World.removeDie die aspectId)
+                return { universe' with History = history }
         } |> Option.defaultValue universe
 
     let rollSpare random (die : Die) rollId universe =

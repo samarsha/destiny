@@ -1,0 +1,51 @@
+﻿@use "sass:color"
+@use "theme"
+
+$border-color: color.scale(theme.$bright, $lightness: -15%)
+
+.tabs
+  background-color: theme.$bright
+  display: flex
+
+.tab
+  border:
+    bottom: 1px solid transparent
+    right: 1px solid $border-color
+    top: 1px solid transparent
+  display: flex
+  width: 200px
+
+  .tab-name
+    cursor: default
+    flex-grow: 1
+
+.tab-active
+  border-top-color: $border-color
+  background-color: theme.$background
+
+  input
+    border-width: 0
+    min-width: 0
+
+.tab-inactive
+  &:hover
+    background-color: color.scale(theme.$bright, $lightness: -5%)
+
+.tab-name
+  align-self: center
+
+.tab-active input, .tab-name
+  padding: 7px
+
+.tab-inactive, .tab-add
+  border-bottom-color: $border-color  
+
+.tab-add
+  align-self: center
+
+  &, .icon
+    color: theme.$primary
+
+.tab-excess
+  border-bottom: 1px solid $border-color
+  flex-grow: 1

@@ -18,6 +18,10 @@ module Map =
 
     let joinMap f map = List.choose <| fun key -> Map.tryFind key map |> Option.map f
 
+module Option =
+    let unwrap defaultValue mapper =
+        Option.map mapper >> Option.defaultValue defaultValue
+
 type OptionBuilder () =
     member _.Bind (option, binder) = Option.bind binder option
 

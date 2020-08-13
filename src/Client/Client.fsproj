@@ -14,6 +14,7 @@
     <None Include="paket.references" />
     <None Include="Style\theme.sass" />
     <None Include="Style\header.sass" />
+    <None Include="Style\tabs.sass" />
     <None Include="Style\board.sass" />
     <None Include="Style\dice.sass" />
     <None Include="Style\style.sass" />
@@ -21,6 +22,7 @@
     <Compile Include="React.fs" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
+    <Compile Include="TabBar.fs" />
     <Compile Include="BoardView.fs" />
     <Compile Include="RollView.fs" />
     <Compile Include="Program.fs" />

@@ -1,8 +1,9 @@
-namespace Destiny.Shared.Board
+namespace Destiny.Shared.World
 
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Collections
+open Destiny.Shared.Functions
 open Destiny.Shared.Lens
 
 type Role =
@@ -36,6 +37,22 @@ and Entity =
       Aspects : Aspect Id list
       Collapsed : bool }
 
+type Catalog =
+    { Entities : Map<Entity Id, Entity>
+      StatGroups : Map<StatGroup Id, StatGroup>
+      Stats : Map<Stat Id, Stat>
+      Aspects : Map<Aspect Id, Aspect> }
+
+type Board =
+    { Id : Board Id
+      Name : string
+      Entities : Entity Id list }
+
+type World =
+    { Catalog : Catalog
+      Boards : Map<Board Id, Board>
+      BoardList : Board Id list }
+
 module private Stat =
     let name = { Get = (fun (s : Stat) -> s.Name); Set = fun v s -> { s with Name = v } }
 
@@ -44,7 +61,7 @@ module private Stat =
 module private StatGroup =
     let name = { Get = (fun (s : StatGroup) -> s.Name); Set = fun v s -> { s with Name = v } }
 
-    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
+    let stats = { Get = (fun (s : StatGroup) -> s.Stats); Set = fun v s -> { s with Stats = v } }
 
 module private Aspect =
     let entity = { Get = (fun s -> s.Entity); Set = fun v s -> { s with Entity = v } }
@@ -54,40 +71,57 @@ module private Aspect =
     let dice = { Get = (fun s -> s.Dice); Set = fun v s -> { s with Dice = v } }
 
 module private Entity =
-    let name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+    let name = { Get = (fun (s : Entity) -> s.Name); Set = fun v s -> { s with Name = v } }
 
-    let statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+    let statGroups = { Get = (fun (s : Entity) -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
 
-    let aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
+    let aspects = { Get = (fun (s : Entity) -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
 
     let collapsed = { Get = (fun s -> s.Collapsed); Set = fun v s -> { s with Collapsed = v } }
 
-type Board =
-    { Entities : Map<Entity Id, Entity>
-      StatGroups : Map<StatGroup Id, StatGroup>
-      Stats : Map<Stat Id, Stat>
-      Aspects : Map<Aspect Id, Aspect>
-      Order : Entity Id list }
+module private Catalog =
+    let entities = { Get = (fun (s : Catalog) -> s.Entities); Set = fun v s -> { s with Entities = v } }
 
-module Board =
-    let private entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
+    let statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
 
-    let private statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
 
-    let private stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
-
-    let private aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
-
-    let private order = { Get = (fun s -> s.Order); Set = fun v s -> { s with Order = v } }
-
-    let private flip f x y = f y x
+    let aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
 
     let empty =
         { Entities = Map.empty
           Aspects = Map.empty
           Stats = Map.empty
-          StatGroups = Map.empty
-          Order = [] }
+          StatGroups = Map.empty }
+
+module private Board =
+    let internal name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+
+    let internal entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
+
+module World =
+    let private catalog = { Get = (fun s -> s.Catalog); Set = fun v s -> { s with Catalog = v } }
+
+    let private boards = { Get = (fun s -> s.Boards); Set = fun v s -> { s with Boards = v } }
+
+    let private boardList = { Get = (fun s -> s.BoardList); Set = fun v s -> { s with BoardList = v } }
+
+    let private entities = catalog .>> Catalog.entities
+
+    let private statGroups = catalog .>> Catalog.statGroups
+
+    let private stats = catalog .>> Catalog.stats
+
+    let private aspects = catalog .>> Catalog.aspects
+
+    let empty =
+        let home =
+            { Id = Id.parse "00000000-0000-0000-0000-000000000000"
+              Name = "Home"
+              Entities = [] }
+        { Catalog = Catalog.empty
+          Boards = Map.ofList [ home.Id, home ]
+          BoardList = [ home.Id ] }
 
     // TODO: In add functions, verify that the ID doesn't already exist.
 
@@ -123,14 +157,14 @@ module Board =
 
     let internal setStatGroupName name = Map.change (StatGroup.name .<- name) >> over statGroups
 
-    let internal removeStatGroup id board =
-        match Map.tryFind id board.StatGroups with
+    let internal removeStatGroup id world =
+        match Map.tryFind id world.Catalog.StatGroups with
         | Some group ->
-            board
+            world
             |> over entities (Map.map <| fun _ -> List.remove id |> over Entity.statGroups)
             |> over statGroups (Map.remove id)
             |> flip (List.fold <| flip removeStat) group.Stats
-        | None -> board
+        | None -> world
 
     // Aspects
 
@@ -161,28 +195,52 @@ module Board =
 
     // Entities
 
-    let internal addEntity id =
+    let internal addEntity entityId boardId =
         let entity =
-            { Id = id
+            { Id = entityId
               Name = ""
               StatGroups = []
               Aspects = []
               Collapsed = false }
-        over entities (Map.add id entity) >>
-        over order (fun order -> order @ [ id ])
+        over entities (Map.add entityId entity) >>
+        over boards (Map.change (List.add entityId |> over Board.entities) boardId)
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
     let internal setEntityCollapsed collapsed = Map.change (Entity.collapsed .<- collapsed) >> over entities
 
-    let internal moveEntity index id = List.remove id >> List.insertAt index id |> over order
+    let internal moveEntity index entityId boardId =
+        Map.change (List.remove entityId >> List.insertAt index entityId |> over Board.entities) boardId
+        |> over boards
 
-    let internal removeEntity id board =
-        match Map.tryFind id board.Entities with
+    let internal removeEntity entityId boardId world =
+        match Map.tryFind entityId world.Catalog.Entities with
         | Some entity ->
-            board
-            |> over order (List.remove id)
-            |> over entities (Map.remove id)
-            |> flip (List.fold <| flip removeStatGroup) entity.StatGroups
-            |> flip (List.fold <| flip removeAspect) entity.Aspects
-        | None -> board
+            world
+            |> over boards (Map.change (List.remove entityId |> over Board.entities) boardId)
+            |> over entities (Map.remove entityId)
+            |> flip (flip removeStatGroup |> List.fold) entity.StatGroups
+            |> flip (flip removeAspect |> List.fold) entity.Aspects
+        | None -> world
+
+    // Boards
+
+    let internal addBoard id =
+        let board =
+            { Id = id
+              Name = ""
+              Entities = [] }
+        over boards (Map.add board.Id board)
+        >> over boardList (List.add board.Id)
+
+    let internal setBoardName name = Map.change (Board.name .<- name) >> over boards
+
+    let internal removeBoard id world =
+        // TODO: This assumes each entity is only in one board at a time.
+        match Map.tryFind id world.Boards with
+        | Some board ->
+            world
+            |> over boards (Map.remove id)
+            |> over boardList (List.remove id)
+            |> flip (flip removeEntity id |> flip |> List.fold) board.Entities
+        | None -> world
