@@ -103,16 +103,15 @@ let private view model dispatch =
               TabBar.Active = activeBoard model
               TabBar.Format = fun board -> board.Name
               TabBar.Kind = "Board" } 
-    let main =
-        div [ Class "main" ]
-            [ boardView
-              RollView.view model.Rolls ]
     div [ Class "app" ] <|
         [ connection
           rollBar
-          toolbar
-          tabBar
-          main ]
+          div [ Class "main" ]
+              [ div [ Class "screen" ]
+                    [ toolbar
+                      tabBar
+                      boardView ]
+                RollView.view model.Rolls ] ]
 
 // Update
 
