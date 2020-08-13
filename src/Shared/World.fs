@@ -206,8 +206,8 @@ module World =
               Aspects = []
               Collapsed = false
               Saved = false }
-        over entities (Map.add entityId entity) >>
-        over boards (Map.change (List.add entityId |> over Board.entities) boardId)
+        over entities (Map.addIfNew entityId entity) >>
+        over boards (Map.change (List.addIfNew entityId |> over Board.entities) boardId)
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 

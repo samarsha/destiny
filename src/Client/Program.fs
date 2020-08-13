@@ -71,10 +71,16 @@ let private activeBoard model =
     model.ActiveBoard |> Option.bind (flip Map.tryFind model.World.Boards)
 
 let private viewSaveList model dispatch =
+    let viewItem (entity : Entity) =
+        li [ OnClick <| fun _ ->
+                 match model.ActiveBoard with
+                 | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
+                 | None -> () ]
+           [ str entity.Name ]
     model.World.Catalog.Entities
     |> Map.filter (fun _ entity -> entity.Saved)
     |> Map.toList
-    |> List.map (fun (_, entity) -> li [] [ str entity.Name ])
+    |> List.map (snd >> viewItem)
     |> ul [ Class "save-list" ]
 
 let private viewSidebar model dispatch =
