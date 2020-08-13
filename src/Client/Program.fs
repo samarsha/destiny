@@ -83,7 +83,9 @@ let private viewSaveList model dispatch =
     model.World.Catalog.Entities
     |> Map.filter (fun _ entity -> entity.Saved)
     |> Map.toList
-    |> List.map (snd >> viewItem)
+    |> List.map snd
+    |> List.sortBy (fun entity -> entity.Name)
+    |> List.map viewItem
     |> ul [ Class "save-list" ]
 
 let private viewSidebar model dispatch =
