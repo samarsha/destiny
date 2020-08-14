@@ -281,7 +281,8 @@ let private viewEntity model dispatch (entity : Entity) =
         button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
     let saveButton =
-        button [ OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
+        button [ Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
+                 OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
                [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
     let hideButton =
         button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
