@@ -59,7 +59,7 @@ button
 
 .sidebar
   background-color: theme.$bright
-  border-left: 1px solid color.scale(theme.$bright, $lightness: -15%)
+  border-left: 1px solid theme.$border
   overflow-y: auto
   width: 280px
 
@@ -67,14 +67,21 @@ button
     display: flex
 
     button
+      border-bottom: 1px solid theme.$border
       flex-grow: 1
       text-align: center
+
+      &:not(:last-of-type)
+        border-right: 1px solid theme.$border
 
     .icon
       color: color.scale(theme.$dark, $lightness: 70%)
 
-  &-selected .icon
-    color: theme.$dark
+    .sidebar-selected
+      border-bottom-color: transparent
+
+      .icon
+        color: theme.$dark
 
 .save-list
   margin: 0
