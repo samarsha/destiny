@@ -17,20 +17,23 @@ type 'a Message =
     | SetTabName of 'a * string
     | RemoveTab of 'a
 
+let private removeButton dispatch tab =
+    button [ Title "Remove this board"
+             OnClick <| fun _ -> RemoveTab tab |> dispatch ]
+           [ icon "Trash" [] ]
+
 let private viewInactiveTab model dispatch tab =
     span [ Class "tab tab-inactive"
            OnClick <| fun _ -> SwitchTab tab |> dispatch ]
          [ span [ Class "tab-name" ] [ model.Format tab |> str ]
-           button [ OnClick <| fun _ -> RemoveTab tab |> dispatch ]
-                  [ icon "X" [ Tabler.Size 16 ] ] ]
+           removeButton dispatch tab ]
 
 let private viewActiveTab model dispatch tab =
     span [ Class "tab tab-active" ]
          [ input [ OnChange <| fun event -> SetTabName (tab, event.Value) |> dispatch
                    Placeholder <| "Name this " + model.Kind.ToLower ()
                    Value <| upcast model.Format tab ]
-           button [ OnClick <| fun _ -> RemoveTab tab |> dispatch ]
-                  [ icon "X" [ Tabler.Size 16 ] ] ]
+           removeButton dispatch tab ]
 
 let private viewNewTab model dispatch =
     button [ Class "tab tab-add"
