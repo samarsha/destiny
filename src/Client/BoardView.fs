@@ -10,6 +10,7 @@ open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Collections
 open Destiny.Shared.Message
+open Destiny.Shared.Profile
 open Destiny.Shared.Roll
 open Destiny.Shared.World
 open Fable.React

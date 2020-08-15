@@ -1,23 +1,29 @@
 ﻿namespace Destiny.Server
 
+open Destiny.Server.User
 open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Collections
 open Destiny.Shared.Collections.OptionBuilder
 open Destiny.Shared.Roll
+open Destiny.Shared.Profile
 open Destiny.Shared.World
 open System
 
 type internal Universe =
     { History : World Timeline
-      Rolls : RollLog }
+      Rolls : RollLog
+      Users : Map<Username, Profile User> }
 
 module internal Universe =
     let history = { Get = (fun s -> s.History); Set = fun v s -> { s with History = v } }
 
+    let users = { Get = (fun s -> s.Users); Set = fun v s -> { s with Users = v } }
+
     let empty =
         { History = Timeline.singleton World.empty
-          Rolls = RollLog.empty }
+          Rolls = RollLog.empty
+          Users = Map.empty }
 
     let private d6 (random : Random) = random.Next (1, 7)
 

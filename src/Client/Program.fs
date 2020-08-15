@@ -6,6 +6,7 @@ open Destiny.Shared
 open Destiny.Shared.Collections
 open Destiny.Shared.Functions
 open Destiny.Shared.Message
+open Destiny.Shared.Profile
 open Destiny.Shared.Roll
 open Destiny.Shared.World
 open Elmish
@@ -28,7 +29,8 @@ type private Model =
       ActiveRoll : Roll Id option
       BoardView : BoardView.Model
       Connected : bool
-      Role : Role
+      Login : Login.Model
+      Profile : Profile option
       Rolls : RollLog
       ServerWorld : World
       Sidebar : Sidebar
@@ -38,6 +40,7 @@ type private Model =
 type private Message =
     | BoardView of BoardView.Message
     | Disconnected
+    | Login of Login.Message
     | Receive of ServerMessage
     | Send of ClientMessage
     | SetActiveRoll of Roll Id option
@@ -47,12 +50,12 @@ type private Message =
 // Model
 
 let private empty =
-    let role = Player
     { ActiveBoard = List.tryHead World.empty.BoardList
       ActiveRoll = None
       BoardView = BoardView.empty
       Connected = false
-      Role = role
+      Login = Login.empty
+      Profile = None
       Rolls = RollLog.empty
       ServerWorld = World.empty
       Sidebar = RollLog
@@ -61,11 +64,15 @@ let private empty =
 
 let private init () = empty, Cmd.none
 
-// View
+let private role = function
+    | Some (profile : Profile) -> profile.Role
+    | None -> Player
 
 let private flipRole = function
     | Player -> DM
     | DM -> Player
+
+// View
 
 let private activeBoard model =
     model.ActiveBoard |> Option.bind (flip Map.tryFind model.World.Boards)
@@ -118,20 +125,19 @@ let private view model dispatch =
                      Some rollId |> SetActiveRoll |> dispatch
                      RollSpare rollId |> Send |> dispatch ]
                [ icon "Dice" [ Tabler.Size 32 ] ]
-    let dmCheckbox =
-        label [ Class "dm-toggle" ]
-            [ input [ Type "checkbox"
-                      Checked (model.Role = DM)
-                      OnChange <| fun _ -> flipRole model.Role |> SetRole |> Send |> dispatch ]
-              str "DM" ]
     let toolbar =
         div [ Class "toolbar" ]
             [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
               button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
               spareRollButton
-              dmCheckbox ]
+              Login.view (Login.makeViewModel model.Login model.Profile) (Login >> dispatch) ]
     let boardModel = activeBoard model |> Option.map (fun board ->
-        BoardView.makeViewModel model.BoardView model.ActiveRoll board model.World.Catalog model.Role)
+        BoardView.makeViewModel
+            model.BoardView
+            model.ActiveRoll
+            board
+            model.World.Catalog
+            (role model.Profile))
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])
@@ -190,10 +196,15 @@ let private applyServerMessage model = function
         { model with
               ActiveBoard = List.tryHead world.BoardList
               Connected = true
+              Profile = None
               Rolls = rolls
               ServerWorld = world
               Unconfirmed = []
               World = world }
+    | LoginResult result ->
+        match result with
+        | Ok profile -> { model with Profile = Some profile }
+        | Error error -> failwith error // TODO
     | WorldUpdated message ->
         let model' = { model with ServerWorld = WorldCommand.update message.Command model.ServerWorld }
         if List.contains message model.Unconfirmed
@@ -202,7 +213,14 @@ let private applyServerMessage model = function
         |> validateActiveBoard
     | WorldReplaced world -> reapplyUnconfirmed { model with ServerWorld = world } |> validateActiveBoard
     | RollLogUpdated rolls -> { model with Rolls = rolls }
-    | RoleChanged role -> { model with Role = role }
+
+let private updateLogin message model =
+    let login, event = Login.update message model.Login
+    let model' = { model with Login = login }
+    match event with
+    | Login.NoEvent -> model', Cmd.none
+    | Login.LogIn (username, password) -> model', LogIn (username, password) |> Cmd.bridgeSend
+    | Login.SignUp (username, password) -> model', SignUp (username, password) |> Cmd.bridgeSend
 
 let rec private updateBoardView message model =
     activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->
@@ -228,6 +246,7 @@ and private update message model =
     match message with
     | BoardView boardMessage -> updateBoardView boardMessage model
     | Disconnected -> { model with Connected = false }, Cmd.none
+    | Login loginMessage -> updateLogin loginMessage model
     | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
     | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
     | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
