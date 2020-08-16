@@ -112,10 +112,10 @@ let private rollSpare context rollId die =
         |> MVar.update context.Universe
     RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
 
-// TODO: Verify that role in messages matches the client role.
 let private update context dispatch message client =
+    let authorized = Auth.authorize (role client) message
     let client' =
-        match message with
+        match Auth.peek authorized with
         | SignUp (username, password) ->
             MVar.update context.Universe (signUp context dispatch username password) |> ignore
             client
