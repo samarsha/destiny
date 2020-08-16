@@ -67,6 +67,8 @@ let private empty =
 
 let private init () = empty, Cmd.none
 
+let private canEdit model = model.Connected && Option.isSome model.Profile
+
 let private role = function
     | Some (profile : Profile) -> profile.Role
     | None -> Player
@@ -87,7 +89,8 @@ let private viewSaveList model dispatch =
             | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
             | None -> ()
         li [ Class "save-item" ]
-           [ button [ OnClick onClick ]
+           [ button [ canEdit model |> not |> Disabled
+                      OnClick onClick ]
                     [ icon "UserPlus" []
                       label [] [ str entity.Name ] ] ]
     model.World.Catalog.Entities
@@ -123,6 +126,7 @@ let private view model dispatch =
         else div [ Class "connecting" ] [ str "Trying to connect..." ]
     let spareRollButton =
         button [ Title "Roll a spare die"
+                 canEdit model |> not |> Disabled
                  OnClick <| fun _ ->
                      let rollId = model.ActiveRoll |> Option.defaultWith Id.random
                      Some rollId |> SetActiveRoll |> dispatch
@@ -130,17 +134,21 @@ let private view model dispatch =
                [ icon "Dice" [ Tabler.Size 32 ] ]
     let toolbar =
         div [ Class "toolbar" ]
-            [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
-              button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
+            [ button [ canEdit model |> not |> Disabled
+                       OnClick <| fun _ -> Send Undo |> dispatch ]
+                     [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
+              button [ canEdit model |> not |> Disabled
+                       OnClick <| fun _ -> Send Redo |> dispatch ]
+                     [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
               spareRollButton
               Login.view (Login.makeViewModel model.Login model.Profile model.Impersonation) (Login >> dispatch) ]
     let boardModel = activeBoard model |> Option.map (fun board ->
-        BoardView.makeViewModel
-            model.BoardView
-            model.ActiveRoll
-            board
-            model.World.Catalog
-            model.Impersonation)
+        BoardView.makeViewModel model.BoardView
+            (model.ActiveRoll,
+             board,
+             canEdit model,
+             model.World.Catalog,
+             model.Impersonation))
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])
@@ -154,7 +162,8 @@ let private view model dispatch =
             { TabBar.Tabs = Map.joinMap id model.World.Boards model.World.BoardList
               TabBar.Active = activeBoard model
               TabBar.Format = fun board -> board.Name
-              TabBar.Kind = "Board" } 
+              TabBar.Kind = "Board"
+              TabBar.CanEdit = canEdit model } 
     div [ Class "app" ] <|
         [ connection
           rollBar
@@ -186,7 +195,7 @@ let private validateActiveBoard model =
 
 /// Applies a message sent by the client to the server.
 let private applyClientMessage model = function
-    | UpdateWorld message when model.Connected ->
+    | UpdateWorld message ->
         // Apply world commands before sending them to the server to make typing, dragging, etc. more responsive.
         let model' = applyWorldCommand model message.Command
         { model' with Unconfirmed = List.add message model'.Unconfirmed }

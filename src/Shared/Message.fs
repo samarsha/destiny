@@ -79,6 +79,7 @@ type ClientMessage =
     | RollSpare of Roll Id * Die
     | Undo
     | Redo
+    | ClientNoOp
 
 module Message =
     let socket = "/socket"

@@ -1,4 +1,5 @@
 open Destiny.Server
+open Destiny.Server.Auth
 open Destiny.Server.User
 open Destiny.Shared.Collections
 open Destiny.Shared.Collections.ResultBuilder
@@ -16,10 +17,6 @@ open System.IO
 open System.Security.Cryptography
 open System.Threading
 open Thoth.Json.Giraffe
-
-type private Client =
-    | Guest
-    | Profile of Profile Token
 
 type private Context =
     { Universe : Universe MVar
@@ -113,9 +110,9 @@ let private rollSpare context rollId die =
     RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
 
 let private update context dispatch message client =
-    let authorized = Auth.authorize (role client) message
+    let authorized = Auth.authorizeClient client message
     let client' =
-        match Auth.peek authorized with
+        match Auth.clientMessage authorized with
         | SignUp (username, password) ->
             MVar.update context.Universe (signUp context dispatch username password) |> ignore
             client
@@ -141,6 +138,7 @@ let private update context dispatch message client =
             let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
             Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
             client
+        | ClientNoOp -> client
     client', Cmd.none
 
 let private load () =

@@ -1,50 +1,63 @@
-﻿module internal Destiny.Server.Auth
+﻿namespace Destiny.Server.Auth
 
+open Destiny.Server.User
 open Destiny.Shared.Message
+open Destiny.Shared.Profile
 open Destiny.Shared.World
 
-type AuthorizedMessage = private AuthorizedMessage of ClientMessage
+type internal Client =
+    | Guest
+    | Profile of Profile Token
 
-let private authorizeDie role die = { Role = min role die.Role }
+type internal AuthorizedClientMessage = private AuthorizedClientMessage of ClientMessage
 
-let private authorizeWorldCommand role = function
-    | AddDie (id, die) -> AddDie (id, authorizeDie role die)
-    | RemoveDie (id, die) -> RemoveDie (id, authorizeDie role die)
-    | AddBoard _
-    | SetBoardName _
-    | RemoveBoard _
-    | AddEntity _
-    | SetEntityName _
-    | SetEntityCollapsed _
-    | SetEntitySaved _
-    | MoveEntity _
-    | RemoveEntity _
-    | AddStatGroup _
-    | SetStatGroupName _
-    | RemoveStatGroup _
-    | AddStat _
-    | SetStatName _
-    | SetStatScore _
-    | RemoveStat _
-    | AddAspect _
-    | SetAspectDescription _
-    | MoveAspect _
-    | RemoveAspect _ as message -> message
+module internal Auth =
+    let private authorizeDie (token : Profile Token) die =
+        { Role = min (Token.profile token).Role die.Role }
 
-let authorize role = function
-    | UpdateWorld message ->
-        { message with Command = authorizeWorldCommand role message.Command }
-        |> UpdateWorld
-        |> AuthorizedMessage
-    | RollStat (statId, rollId, die) ->
-        RollStat (statId, rollId, authorizeDie role die) |> AuthorizedMessage
-    | RollAspect (aspectId, rollId, die) ->
-        RollAspect (aspectId, rollId, authorizeDie role die) |> AuthorizedMessage
-    | RollSpare (rollId, die) ->
-        RollSpare (rollId, authorizeDie role die) |> AuthorizedMessage
-    | SignUp _
-    | LogIn _
-    | Undo
-    | Redo as message -> AuthorizedMessage message
+    let private authorizeWorldCommand token = function
+        | AddDie (id, die) -> AddDie (id, authorizeDie token die)
+        | RemoveDie (id, die) -> RemoveDie (id, authorizeDie token die)
+        | AddBoard _
+        | SetBoardName _
+        | RemoveBoard _
+        | AddEntity _
+        | SetEntityName _
+        | SetEntityCollapsed _
+        | SetEntitySaved _
+        | MoveEntity _
+        | RemoveEntity _
+        | AddStatGroup _
+        | SetStatGroupName _
+        | RemoveStatGroup _
+        | AddStat _
+        | SetStatName _
+        | SetStatScore _
+        | RemoveStat _
+        | AddAspect _
+        | SetAspectDescription _
+        | MoveAspect _
+        | RemoveAspect _ as message -> message
 
-let peek (AuthorizedMessage message) = message
+    let authorizeClient client message =
+        match client, message with
+        | Profile token, UpdateWorld message ->
+            { message with Command = authorizeWorldCommand token message.Command }
+            |> UpdateWorld
+            |> AuthorizedClientMessage
+        | Profile token, RollStat (statId, rollId, die) ->
+            RollStat (statId, rollId, authorizeDie token die) |> AuthorizedClientMessage
+        | Profile token, RollAspect (aspectId, rollId, die) ->
+            RollAspect (aspectId, rollId, authorizeDie token die) |> AuthorizedClientMessage
+        | Profile token, RollSpare (rollId, die) ->
+            RollSpare (rollId, authorizeDie token die) |> AuthorizedClientMessage
+        | Profile _, Undo
+        | Profile _, Redo
+        | Guest, SignUp _
+        | Guest, LogIn _ as request -> snd request |> AuthorizedClientMessage
+        | Profile _, SignUp _
+        | Profile _, LogIn _
+        | Profile _, ClientNoOp
+        | Guest, _ -> AuthorizedClientMessage ClientNoOp
+
+    let clientMessage (AuthorizedClientMessage message) = message

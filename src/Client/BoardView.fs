@@ -34,6 +34,7 @@ type ViewModel =
     private
         { ActiveRoll : Roll Id option
           Board : Board
+          CanEdit : bool
           Catalog : Catalog
           Drag : Drag.Model
           Editing : Entity Id option
@@ -63,9 +64,10 @@ let empty =
       Drag = Drag.empty
       JustAdded = None }
 
-let makeViewModel (model : Model) activeRoll board catalog role =
+let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, role) =
     { ActiveRoll = activeRoll
       Board = board
+      CanEdit = canEdit
       Catalog = catalog
       Drag = model.Drag
       Editing = model.Editing
@@ -162,7 +164,7 @@ let private viewStat mode model dispatch (stat : Stat) =
             Value stat.Score ]
     let rollButton =
         button
-            [ Disabled <| Option.isSome model.ActiveRoll
+            [ Disabled (not model.CanEdit || Option.isSome model.ActiveRoll)
               OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Role } ]
             [ icon "Dice" [] ]
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
@@ -210,7 +212,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
         | DM -> Class "die-dm"
     button
         [ roleClass
-          Disabled (Option.isNone model.ActiveRoll || model.Role <> die.Role)
+          Disabled (not model.CanEdit || Option.isNone model.ActiveRoll || model.Role <> die.Role)
           OnClick <| fun _ ->
               match model.ActiveRoll with
               | Some rollId -> RollAspect (aspect.Id, rollId, die) |> Send |> Event |> dispatch
@@ -224,12 +226,12 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                        Title "Remove a free invoke"
                        OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
                      [ icon "SquareMinus" [] ]
-              |> Option.iff (not <| Bag.isEmpty aspect.Dice)
+              |> Option.iff (model.CanEdit && not <| Bag.isEmpty aspect.Dice)
               button [ Class "die-control"
                        Title "Add a free invoke"
                        OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
                      [ icon "SquarePlus" [] ]
-              |> Some ]
+              |> Option.iff model.CanEdit ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
         |> div [ Class "aspect-dice"
                  ref <| fun element ->
@@ -268,7 +270,7 @@ let private toggleEdit mode entityId =
     | Edit -> StopEdit
 
 let private viewEntity model dispatch (entity : Entity) =
-    let mode = if model.Editing |> Option.contains entity.Id then Edit else View
+    let mode = if model.CanEdit && model.Editing |> Option.contains entity.Id then Edit else View
     let name =
         match mode with
         | View -> span [ Class "entity-name preserve-whitespace" ] [ str entity.Name ]
@@ -283,11 +285,13 @@ let private viewEntity model dispatch (entity : Entity) =
         button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
     let saveButton =
-        button [ Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
+        button [ Disabled <| not model.CanEdit
+                 Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
                  OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
                [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
     let hideButton =
-        button [ OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
+        button [ Disabled <| not model.CanEdit
+                 OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let toolbar =
         List.choose id
@@ -295,7 +299,7 @@ let private viewEntity model dispatch (entity : Entity) =
                      [ icon "Trash" [] ]
               |> Option.iff (mode = Edit)
               Some saveButton
-              Some editButton
+              Option.iff (model.CanEdit) editButton
               Some hideButton ]
     let addGroupButton =
         button [ Class "stat-add"
@@ -319,7 +323,7 @@ let private viewEntity model dispatch (entity : Entity) =
     <| (div [ Class "entity-header" ] <| name :: toolbar)
     :: if entity.Collapsed then []
        else [ div [ Class "stats" ] stats
-              div [ Class "aspects" ] <| aspects @ [ addAspectButton ] ]
+              div [ Class "aspects" ] <| aspects @ Option.toList (Option.iff model.CanEdit addAspectButton) ]
 
 let private viewDrag model dispatch id =
     let tryView source viewer =
@@ -341,7 +345,7 @@ let viewBoard model dispatch =
          :: Drag.areaListeners model.Drag (Drag >> dispatch))
         [ div [ Class "entities" ] <|
               Map.joinMap (viewEntity model dispatch) model.Catalog.Entities model.Board.Entities
-              @ [ addButton ]
+              @ Option.toList (Option.iff model.CanEdit addButton)
           Drag.view (viewDrag model dispatch) model.Drag ]
 
 let viewRollBar model dispatch =

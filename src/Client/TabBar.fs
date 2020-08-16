@@ -2,6 +2,7 @@
 
 open Destiny.Client.Tabler
 open Destiny.Shared.Collections
+open Destiny.Shared.Functions
 open Fable.React
 open Fable.React.Props
 
@@ -9,7 +10,8 @@ type 'a ViewModel =
     { Tabs : 'a list
       Active : 'a option
       Format : 'a -> string
-      Kind : string }
+      Kind : string
+      CanEdit : bool }
 
 type 'a Message =
     | AddTab
@@ -23,17 +25,22 @@ let private removeButton dispatch tab =
            [ icon "Trash" [] ]
 
 let private viewInactiveTab model dispatch tab =
-    span [ Class "tab tab-inactive"
-           OnClick <| fun _ -> SwitchTab tab |> dispatch ]
-         [ span [ Class "tab-name" ] [ model.Format tab |> str ]
-           removeButton dispatch tab ]
+    List.choose id
+        [ span [ Class "tab-name" ] [ model.Format tab |> str ] |> Some
+          removeButton dispatch tab |> Option.iff (model.CanEdit) ]
+    |> span [ Class "tab tab-inactive"
+              OnClick <| fun _ -> SwitchTab tab |> dispatch ]
 
 let private viewActiveTab model dispatch tab =
-    span [ Class "tab tab-active" ]
-         [ input [ OnChange <| fun event -> SetTabName (tab, event.Value) |> dispatch
-                   Placeholder <| "Name this " + model.Kind.ToLower ()
-                   Value <| upcast model.Format tab ]
-           removeButton dispatch tab ]
+    List.choose id
+        [ if model.CanEdit
+          then input [ OnChange <| fun event -> SetTabName (tab, event.Value) |> dispatch
+                       Placeholder <| "Name this " + model.Kind.ToLower ()
+                       Value <| upcast model.Format tab ]
+          else span [ Class "tab-name" ] [ model.Format tab |> str ]
+          |> Some
+          removeButton dispatch tab |> Option.iff (model.CanEdit) ]
+    |> span [ Class "tab tab-active" ]
 
 let private viewNewTab model dispatch =
     button [ Class "tab tab-add"
@@ -46,6 +53,6 @@ let view model dispatch =
     |> List.map (fun tab ->
            (model, dispatch, tab)
            |||> if Option.contains tab model.Active then viewActiveTab else viewInactiveTab)
-    |> List.add (viewNewTab model dispatch)
+    |> flip List.append (Option.iff model.CanEdit (viewNewTab model dispatch) |> Option.toList)
     |> List.add (span [ Class "tab-excess" ] [])
     |> div [ Class "tabs" ]
