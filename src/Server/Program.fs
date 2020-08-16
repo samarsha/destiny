@@ -57,73 +57,91 @@ let private init universeVar dispatch () =
     ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch
     Guest, Cmd.none
 
+let private signUp context dispatch username password universe =
+    if Map.containsKey username universe.Users then
+        "The username '" + Username.toString username + "' is already taken."
+        |> Error
+        |> LoginResult
+        |> dispatch
+        universe
+    else
+        let role = if Map.isEmpty universe.Users then DM else Player
+        let profile = { Username = username; Role = role }
+        let user = User.create context.Crypto profile password
+        Ok user.Profile |> LoginResult |> dispatch
+        universe |> over Universe.users (Map.add username user)
+
+let private logIn context dispatch username password =
+    let universe = MVar.read context.Universe
+    let token =
+        result {
+            let! user =
+                Map.tryFind username universe.Users
+                |> Result.ofOption ("The user '" + Username.toString username + "' was not found.")
+            return!
+                User.authenticate user password
+                |> Result.ofOption "The password is incorrect."
+        }
+    token |> Result.map Token.profile |> LoginResult |> dispatch
+    Result.toOption token
+
+let private updateWorld context message =
+    if commitBefore message.Command then Timeline.commit else id
+    >> Timeline.update (WorldCommand.update message.Command)
+    |> over Universe.history
+    |> MVar.update context.Universe
+    |> ignore
+    WorldUpdated message |> context.Hub.BroadcastClient
+
+let private rollStat context statId rollId die =
+    let universe =
+        (statId, rollId)
+        ||> Universe.rollStat context.Random die
+        |> MVar.update context.Universe
+    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+
+let private rollAspect context aspectId rollId die =
+    let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
+    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+    RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> context.Hub.BroadcastClient
+
+let private rollSpare context rollId die =
+    let universe =
+        rollId
+        |> Universe.rollSpare context.Random die
+        |> MVar.update context.Universe
+    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+
 // TODO: Verify that role in messages matches the client role.
 let private update context dispatch message client =
-    match message with
-    | SignUp (username, password) ->
-        MVar.update context.Universe (fun universe ->
-            if Map.containsKey username universe.Users then
-                "The username '" + Username.toString username + "' is already taken."
-                |> Error
-                |> LoginResult
-                |> dispatch
-                universe
-            else
-                let role = if Map.isEmpty universe.Users then DM else Player
-                let profile = { Username = username; Role = role }
-                let user = User.create context.Crypto profile password
-                Ok user.Profile |> LoginResult |> dispatch
-                universe |> over Universe.users (Map.add username user))
-        |> ignore
-        client, Cmd.none
-    | LogIn (username, password) ->
-        let universe = MVar.read context.Universe
-        let token =
-            result {
-                let! user =
-                    Map.tryFind username universe.Users
-                    |> Result.ofOption ("The user '" + Username.toString username + "' was not found.")
-                return!
-                    User.authenticate user password
-                    |> Result.ofOption "The password is incorrect."
-            }
-        token |> Result.map Token.profile |> LoginResult |> dispatch
-        token |> Result.map Profile |> Result.defaultValue client, Cmd.none
-    | UpdateWorld message ->
-        if commitBefore message.Command then Timeline.commit else id
-        >> Timeline.update (WorldCommand.update message.Command)
-        |> over Universe.history
-        |> MVar.update context.Universe
-        |> ignore
-        WorldUpdated message |> context.Hub.BroadcastClient
-        client, Cmd.none
-    | RollStat (statId, rollId, die) ->
-        let universe =
-            (statId, rollId)
-            ||> Universe.rollStat context.Random die
-            |> MVar.update context.Universe
-        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
-        client, Cmd.none
-    | RollAspect (aspectId, rollId, die) ->
-        let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
-        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
-        RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> context.Hub.BroadcastClient
-        client, Cmd.none
-    | RollSpare (rollId, die) ->
-        let universe =
-            rollId
-            |> Universe.rollSpare context.Random die
-            |> MVar.update context.Universe
-        RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
-        client, Cmd.none
-    | Undo ->
-        let universe = over Universe.history Timeline.undo |> MVar.update context.Universe
-        Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
-        client, Cmd.none
-    | Redo ->
-        let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
-        Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
-        client, Cmd.none
+    let client' =
+        match message with
+        | SignUp (username, password) ->
+            MVar.update context.Universe (signUp context dispatch username password) |> ignore
+            client
+        | LogIn (username, password) ->
+            logIn context dispatch username password |> Option.unwrap client Profile
+        | UpdateWorld message ->
+            updateWorld context message
+            client
+        | RollStat (statId, rollId, die) ->
+            rollStat context statId rollId die
+            client
+        | RollAspect (aspectId, rollId, die) ->
+            rollAspect context aspectId rollId die
+            client
+        | RollSpare (rollId, die) ->
+            rollSpare context rollId die
+            client
+        | Undo ->
+            let universe = over Universe.history Timeline.undo |> MVar.update context.Universe
+            Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
+            client
+        | Redo ->
+            let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
+            Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
+            client
+    client', Cmd.none
 
 let private load () =
     try

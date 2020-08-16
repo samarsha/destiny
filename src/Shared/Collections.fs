@@ -49,9 +49,9 @@ module Result =
         | Some value -> Ok value
         | None -> Error error
 
-    let defaultValue defaultValue = function
-        | Ok value -> value
-        | Error _ -> defaultValue
+    let toOption = function
+        | Ok value -> Some value
+        | Error _ -> None
 
 type ResultBuilder () =
     member _.Bind (result, binder) = Result.bind binder result
