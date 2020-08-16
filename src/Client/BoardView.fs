@@ -110,8 +110,6 @@ let private tryDragAspect drag catalog =
 
 // View
 
-let private when' condition item = if condition then Some item else None
-
 let private command = WorldMessage.create >> UpdateWorld >> Send
 
 let private commandEvent = command >> Event
@@ -131,10 +129,10 @@ let private dragTargetClass id model =
         | _ -> false
     if isTarget id model then "drag-target" else ""
 
-let private startRoll dispatch statId =
+let private startRoll dispatch statId die =
     let rollId = Id.random ()
     Some rollId |> SetActiveRoll |> Event |> dispatch 
-    RollStat (statId, rollId) |> Send |> Event |> dispatch
+    RollStat (statId, rollId, die) |> Send |> Event |> dispatch
 
 let private expandingTextarea containerProps textareaProps value =
     div (upcast Data ("autoexpand", value) :: containerProps)
@@ -165,16 +163,16 @@ let private viewStat mode model dispatch (stat : Stat) =
     let rollButton =
         button
             [ Disabled <| Option.isSome model.ActiveRoll
-              OnClick <| fun _ -> startRoll dispatch stat.Id ]
+              OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Role } ]
             [ icon "Dice" [] ]
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
         [ Some name
           Some score
           Some rollButton
-          when' (mode = Edit) <| button
-              [ Class "stat-remove"
-                OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
-              [ icon "Trash" [] ] ]
+          button [ Class "stat-remove"
+                   OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
+                 [ icon "Trash" [] ]
+          |> Option.iff (mode = Edit) ]
 
 let private viewStatGroup mode model dispatch (group : StatGroup) =
     let name =
@@ -189,18 +187,21 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
                 group.Name
     let header = div [ Class "stat-group-header" ] <| List.choose id [
         Some name
-        when' (mode = Edit) <| button
-            [ Class "stat-remove"
-              OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
-            [ icon "Trash" [] ] ]
+        button [ Class "stat-remove"
+                 OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
+               [ icon "Trash" [] ]
+        |> Option.iff (mode = Edit) ]
     let stats = Map.joinMap (viewStat mode model dispatch) model.Catalog.Stats group.Stats
     let addStatButton =
         button [ Class "stat-add"
                  OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
-    div [ Class "stat-group"; Key <| group.Id.ToString () ]
-    <| header :: stats @ Option.toList (when' (mode = Edit) addStatButton)
+    header
+    :: stats
+    @ Option.toList (Option.iff (mode = Edit) addStatButton)
+    |> div [ Class "stat-group"
+             Key <| group.Id.ToString () ]
 
 let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
     let roleClass =
@@ -212,23 +213,23 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
           Disabled (Option.isNone model.ActiveRoll || model.Role <> die.Role)
           OnClick <| fun _ ->
               match model.ActiveRoll with
-              | Some rollId -> RollAspect (aspect.Id, rollId) |> Send |> Event |> dispatch
+              | Some rollId -> RollAspect (aspect.Id, rollId, die) |> Send |> Event |> dispatch
               | None -> () ]
         [ icon "Dice" [] ]
 
 let private viewAspect mode model dispatch (aspect : Aspect) =
     let dice =
         List.choose id
-            [ when' (not <| Bag.isEmpty aspect.Dice) <| button
-                  [ Class "die-control"
-                    Title "Remove a free invoke"
-                    OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
-                  [ icon "SquareMinus" [] ]
-              Some <| button
-                  [ Class "die-control"
-                    Title "Add a free invoke"
-                    OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
-                  [ icon "SquarePlus" [] ] ]
+            [ button [ Class "die-control"
+                       Title "Remove a free invoke"
+                       OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
+                     [ icon "SquareMinus" [] ]
+              |> Option.iff (not <| Bag.isEmpty aspect.Dice)
+              button [ Class "die-control"
+                       Title "Add a free invoke"
+                       OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
+                     [ icon "SquarePlus" [] ]
+              |> Some ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
         |> div [ Class "aspect-dice"
                  ref <| fun element ->
@@ -249,11 +250,11 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                     Placeholder "Describe this aspect." ]
                   aspect.Description ]
     List.map Some description
-    @ [ when' (mode = Edit) <| button
-            [ Class "aspect-remove"
-              OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
-            [ icon "Trash" [] ]
-        when' (mode = Edit) dice ]
+    @ [ button [ Class "aspect-remove"
+                 OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
+               [ icon "Trash" [] ]
+        |> Option.iff (mode = Edit)
+        Option.iff (mode = Edit) dice ]
     |> List.choose id
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
@@ -290,9 +291,9 @@ let private viewEntity model dispatch (entity : Entity) =
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
     let toolbar =
         List.choose id
-            [ when' (mode = Edit) <| button
-                  [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
-                  [ icon "Trash" [] ]
+            [ button [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
+                     [ icon "Trash" [] ]
+              |> Option.iff (mode = Edit)
               Some saveButton
               Some editButton
               Some hideButton ]
@@ -303,7 +304,7 @@ let private viewEntity model dispatch (entity : Entity) =
                  label [] [ str "Stat Group" ] ]
     let stats =
         Map.joinMap (viewStatGroup mode model dispatch) model.Catalog.StatGroups entity.StatGroups
-        @ Option.toList (when' (mode = Edit) addGroupButton)
+        @ Option.toList (Option.iff (mode = Edit) addGroupButton)
     let aspects = Map.joinMap (viewAspect mode model dispatch) model.Catalog.Aspects entity.Aspects
     let addAspectButton =
         button [ Class "aspect-add"

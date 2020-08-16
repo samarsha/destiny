@@ -29,6 +29,7 @@ type private Model =
       ActiveRoll : Roll Id option
       BoardView : BoardView.Model
       Connected : bool
+      Impersonation : Role
       Login : Login.Model
       Profile : Profile option
       Rolls : RollLog
@@ -54,6 +55,7 @@ let private empty =
       ActiveRoll = None
       BoardView = BoardView.empty
       Connected = false
+      Impersonation = Player
       Login = Login.empty
       Profile = None
       Rolls = RollLog.empty
@@ -123,21 +125,21 @@ let private view model dispatch =
                  OnClick <| fun _ ->
                      let rollId = model.ActiveRoll |> Option.defaultWith Id.random
                      Some rollId |> SetActiveRoll |> dispatch
-                     RollSpare rollId |> Send |> dispatch ]
+                     RollSpare (rollId, { Role = model.Impersonation }) |> Send |> dispatch ]
                [ icon "Dice" [ Tabler.Size 32 ] ]
     let toolbar =
         div [ Class "toolbar" ]
             [ button [ OnClick <| fun _ -> Send Undo |> dispatch ] [ icon "ArrowBackUp" [ Tabler.Size 32 ] ]
               button [ OnClick <| fun _ -> Send Redo |> dispatch ] [ icon "ArrowForwardUp" [ Tabler.Size 32 ] ]
               spareRollButton
-              Login.view (Login.makeViewModel model.Login model.Profile) (Login >> dispatch) ]
+              Login.view (Login.makeViewModel model.Login model.Profile model.Impersonation) (Login >> dispatch) ]
     let boardModel = activeBoard model |> Option.map (fun board ->
         BoardView.makeViewModel
             model.BoardView
             model.ActiveRoll
             board
             model.World.Catalog
-            (role model.Profile))
+            model.Impersonation)
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])
@@ -196,6 +198,7 @@ let private applyServerMessage model = function
         { model with
               ActiveBoard = List.tryHead world.BoardList
               Connected = true
+              Impersonation = Player
               Profile = None
               Rolls = rolls
               ServerWorld = world
@@ -203,7 +206,7 @@ let private applyServerMessage model = function
               World = world }
     | LoginResult result ->
         match result with
-        | Ok profile -> { model with Profile = Some profile }
+        | Ok profile -> { model with Impersonation = profile.Role; Profile = Some profile }
         | Error error -> failwith error // TODO
     | WorldUpdated message ->
         let model' = { model with ServerWorld = WorldCommand.update message.Command model.ServerWorld }
@@ -221,6 +224,7 @@ let private updateLogin message model =
     | Login.NoEvent -> model', Cmd.none
     | Login.LogIn (username, password) -> model', LogIn (username, password) |> Cmd.bridgeSend
     | Login.SignUp (username, password) -> model', SignUp (username, password) |> Cmd.bridgeSend
+    | Login.Impersonate role -> { model' with Impersonation = role }, Cmd.none
 
 let rec private updateBoardView message model =
     activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->

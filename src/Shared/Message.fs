@@ -74,9 +74,9 @@ type ClientMessage =
     | SignUp of Username * Password
     | LogIn of Username * Password
     | UpdateWorld of WorldMessage
-    | RollStat of Stat Id * Roll Id
-    | RollAspect of Aspect Id * Roll Id
-    | RollSpare of Roll Id
+    | RollStat of Stat Id * Roll Id * Die
+    | RollAspect of Aspect Id * Roll Id * Die
+    | RollSpare of Roll Id * Die
     | Undo
     | Redo
 

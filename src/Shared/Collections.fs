@@ -32,6 +32,8 @@ module Option =
     let unwrap defaultValue mapper =
         Option.map mapper >> Option.defaultValue defaultValue
 
+    let iff condition value = if condition then Some value else None
+
 type OptionBuilder () =
     member _.Bind (option, binder) = Option.bind binder option
 

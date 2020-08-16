@@ -3,7 +3,6 @@ open Destiny.Server.User
 open Destiny.Shared.Lens
 open Destiny.Shared.Message
 open Destiny.Shared.Profile
-open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Giraffe.Serialization.Json
@@ -56,6 +55,7 @@ let private init universeVar dispatch () =
     ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch
     Guest, Cmd.none
 
+// TODO: Verify that role in messages matches the client role.
 let private update context dispatch message client =
     match message with
     | SignUp (username, password) ->
@@ -82,7 +82,6 @@ let private update context dispatch message client =
             Error "That username doesn't exist." |> LoginResult |> dispatch
             client, Cmd.none
     | UpdateWorld message ->
-        // TODO: Verify that role in messages matches the client role.
         if commitBefore message.Command then Timeline.commit else id
         >> Timeline.update (WorldCommand.update message.Command)
         |> over Universe.history
@@ -90,23 +89,22 @@ let private update context dispatch message client =
         |> ignore
         WorldUpdated message |> context.Hub.BroadcastClient
         client, Cmd.none
-    | RollStat (statId, rollId) ->
+    | RollStat (statId, rollId, die) ->
         let universe =
             (statId, rollId)
-            ||> Universe.rollStat context.Random { Role = role client }
+            ||> Universe.rollStat context.Random die
             |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none
-    | RollAspect (aspectId, rollId) ->
-        let die = { Role = role client }
+    | RollAspect (aspectId, rollId, die) ->
         let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> context.Hub.BroadcastClient
         client, Cmd.none
-    | RollSpare rollId ->
+    | RollSpare (rollId, die) ->
         let universe =
             rollId
-            |> Universe.rollSpare context.Random { Role = role client }
+            |> Universe.rollSpare context.Random die
             |> MVar.update context.Universe
         RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
         client, Cmd.none

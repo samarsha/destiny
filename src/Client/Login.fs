@@ -13,7 +13,7 @@ type Model =
 type ViewModel =
     private
     | LoggingIn of Username * Password
-    | LoggedIn of Profile
+    | LoggedIn of Profile * Role
 
 type Message =
     private
@@ -21,11 +21,13 @@ type Message =
     | SetPassword of Password
     | SubmitLogin
     | SubmitSignup
+    | SelectRole of Role
 
 type Event =
     | NoEvent
     | LogIn of Username * Password
     | SignUp of Username * Password
+    | Impersonate of Role
 
 // Model
 
@@ -33,10 +35,26 @@ let empty =
     { Username = Username ""
       Password = Password "" }
 
-let makeViewModel model profile =
-    profile |> Option.unwrap (LoggingIn (model.Username, model.Password)) LoggedIn
+let makeViewModel model profile impersonation =
+    match profile with
+    | Some profile' -> LoggedIn (profile', impersonation)
+    | None -> LoggingIn (model.Username, model.Password)
 
 // View
+
+let private viewImpersonation dispatch profile impersonation =
+    List.choose id
+        [ option [ impersonation = Player |> Selected
+                   Value "Player" ]
+                 [ str "Player" ]
+          |> Some
+          option [ impersonation = DM |> Selected
+                   Value "DM" ]
+                 [ str "DM" ]
+          |> Option.iff (profile.Role = DM) ]
+    |> select [ OnChange <| fun event ->
+                    let role = if event.Value = "DM" then DM else Player
+                    SelectRole role |> dispatch ]
 
 let view model dispatch =
     match model with
@@ -50,8 +68,9 @@ let view model dispatch =
                   Value password ]
           button [ OnClick <| fun _ -> dispatch SubmitLogin ] [ str "Log in" ]
           button [ OnClick <| fun _ -> dispatch SubmitSignup ] [ str "Sign up" ] ]
-    | LoggedIn { Username = Username username; Role = Player } -> [ str username ]
-    | LoggedIn { Username = Username username; Role = DM } -> [ str <| username + " (DM)" ]
+    | LoggedIn (profile, impersonation) ->
+        [ Username.toString profile.Username |> str
+          viewImpersonation dispatch profile impersonation ]
     |> div [ Class "user" ]
 
 // Update
@@ -62,3 +81,4 @@ let update message model =
     | SetPassword password -> { model with Password = password }, NoEvent
     | SubmitLogin -> { model with Password = Password "" }, LogIn (model.Username, model.Password)
     | SubmitSignup -> { model with Password = Password "" }, SignUp (model.Username, model.Password)
+    | SelectRole role -> model, Impersonate role
