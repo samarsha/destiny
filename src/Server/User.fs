@@ -24,7 +24,7 @@ module internal User =
           Salt = salt'
           Hash = hash password salt' }
 
-    let authenticate password user =
+    let authenticate user password =
         if hash password user.Salt = user.Hash
         then Token user.Profile |> Some
         else None

@@ -1,5 +1,7 @@
 open Destiny.Server
 open Destiny.Server.User
+open Destiny.Shared.Collections
+open Destiny.Shared.Collections.ResultBuilder
 open Destiny.Shared.Lens
 open Destiny.Shared.Message
 open Destiny.Shared.Profile
@@ -61,7 +63,10 @@ let private update context dispatch message client =
     | SignUp (username, password) ->
         MVar.update context.Universe (fun universe ->
             if Map.containsKey username universe.Users then
-                Error "That username already exists." |> LoginResult |> dispatch
+                "The username '" + Username.toString username + "' is already taken."
+                |> Error
+                |> LoginResult
+                |> dispatch
                 universe
             else
                 let role = if Map.isEmpty universe.Users then DM else Player
@@ -73,14 +78,17 @@ let private update context dispatch message client =
         client, Cmd.none
     | LogIn (username, password) ->
         let universe = MVar.read context.Universe
-        let token = Map.tryFind username universe.Users |> Option.bind (User.authenticate password)
-        match token with
-        | Some token' ->
-            Token.profile token' |> Ok |> LoginResult |> dispatch
-            Profile token', Cmd.none
-        | None ->
-            Error "That username doesn't exist." |> LoginResult |> dispatch
-            client, Cmd.none
+        let token =
+            result {
+                let! user =
+                    Map.tryFind username universe.Users
+                    |> Result.ofOption ("The user '" + Username.toString username + "' was not found.")
+                return!
+                    User.authenticate user password
+                    |> Result.ofOption "The password is incorrect."
+            }
+        token |> Result.map Token.profile |> LoginResult |> dispatch
+        token |> Result.map Profile |> Result.defaultValue client, Cmd.none
     | UpdateWorld message ->
         if commitBefore message.Command then Timeline.commit else id
         >> Timeline.update (WorldCommand.update message.Command)

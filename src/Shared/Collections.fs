@@ -43,3 +43,22 @@ type OptionBuilder () =
 
 module OptionBuilder =
     let option = OptionBuilder ()
+
+module Result =
+    let ofOption error = function
+        | Some value -> Ok value
+        | None -> Error error
+
+    let defaultValue defaultValue = function
+        | Ok value -> value
+        | Error _ -> defaultValue
+
+type ResultBuilder () =
+    member _.Bind (result, binder) = Result.bind binder result
+
+    member _.Return value = Ok value
+
+    member _.ReturnFrom result = result 
+
+module ResultBuilder =
+    let result = ResultBuilder ()
