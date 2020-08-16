@@ -9,7 +9,8 @@ type WorldCommand =
     | AddBoard of Board Id
     | SetBoardName of Board Id * string
     | RemoveBoard of Board Id
-    | AddEntity of Entity Id * Board Id
+    | AddEntity of Entity Id * Board Id * Username
+    | LinkEntity of Entity Id * Board Id
     | SetEntityName of Entity Id * string
     | SetEntityCollapsed of Entity Id * bool
     | SetEntitySaved of Entity Id * bool
@@ -34,7 +35,8 @@ module WorldCommand =
         | AddBoard id -> World.addBoard id
         | SetBoardName (id, name) -> World.setBoardName name id
         | RemoveBoard id -> World.removeBoard id
-        | AddEntity (entityId, boardId) -> World.addEntity entityId boardId
+        | AddEntity (entityId, boardId, user) -> World.addEntity entityId boardId user
+        | LinkEntity (entityId, boardId) -> World.linkEntity entityId boardId
         | SetEntityName (id, name) -> World.setEntityName name id
         | SetEntityCollapsed (id, collapsed) -> World.setEntityCollapsed collapsed id
         | SetEntitySaved (id, saved) -> World.setEntitySaved saved id

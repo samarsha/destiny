@@ -39,7 +39,8 @@ type ViewModel =
           Drag : Drag.Model
           Editing : Entity Id option
           JustAdded : BoardId option
-          Role : Role }
+          Role : Role
+          User : Username option }
 
 type Event =
     | Nothing
@@ -64,7 +65,7 @@ let empty =
       Drag = Drag.empty
       JustAdded = None }
 
-let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, role) =
+let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, role, user) =
     { ActiveRoll = activeRoll
       Board = board
       CanEdit = canEdit
@@ -72,7 +73,8 @@ let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, role) =
       Drag = model.Drag
       Editing = model.Editing
       JustAdded = model.JustAdded
-      Role = role }
+      Role = role
+      User = user }
 
 let private entityIndex board id = List.tryFindIndex ((=) id) board.Entities
 
@@ -338,7 +340,10 @@ let viewBoard model dispatch =
         button
             [ Class "entity-add"
               Style [ FontSize "20pt" ]
-              OnClick <| fun _ -> AddEntity (Id.random (), model.Board.Id) |> commandEvent |> dispatch ]
+              OnClick <| fun _ ->
+                  match model.User with
+                  | Some user -> AddEntity (Id.random (), model.Board.Id, user) |> commandEvent |> dispatch
+                  | None -> () ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]
     div (upcast Class "board"
@@ -380,7 +385,7 @@ let private updateEvent event model =
             { model with
                   Editing = Some entityId
                   JustAdded = AspectId aspectId |> Some }
-        | AddEntity (id, _) ->
+        | AddEntity (id, _, _) ->
             { model with
                   Editing = Some id
                   JustAdded = EntityId id |> Some }

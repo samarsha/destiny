@@ -18,10 +18,11 @@ module internal Auth =
     let private authorizeWorldCommand token = function
         | AddDie (id, die) -> AddDie (id, authorizeDie token die)
         | RemoveDie (id, die) -> RemoveDie (id, authorizeDie token die)
+        | AddEntity (entityId, boardId, _) -> AddEntity (entityId, boardId, (Token.profile token).Username)
         | AddBoard _
         | SetBoardName _
         | RemoveBoard _
-        | AddEntity _
+        | LinkEntity _
         | SetEntityName _
         | SetEntityCollapsed _
         | SetEntitySaved _

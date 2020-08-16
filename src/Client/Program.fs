@@ -86,7 +86,7 @@ let private viewSaveList model dispatch =
     let viewItem (entity : Entity) =
         let onClick _ =
             match model.ActiveBoard with
-            | Some board -> AddEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
+            | Some board -> LinkEntity (entity.Id, board) |> WorldMessage.create |> UpdateWorld |> Send |> dispatch
             | None -> ()
         li [ Class "save-item" ]
            [ button [ canEdit model |> not |> Disabled
@@ -148,7 +148,8 @@ let private view model dispatch =
              board,
              canEdit model,
              model.World.Catalog,
-             model.Impersonation))
+             model.Impersonation,
+             model.Profile |> Option.map (fun profile -> profile.Username)))
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])

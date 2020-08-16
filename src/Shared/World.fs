@@ -30,6 +30,7 @@ and Aspect =
 and Entity =
     { Id : Entity Id
       Name : string
+      User : Username
       StatGroups : StatGroup Id list
       Aspects : Aspect Id list
       Collapsed : bool
@@ -195,16 +196,20 @@ module World =
 
     // Entities
 
-    let internal addEntity entityId boardId =
+    let internal linkEntity entityId boardId =
+        over boards (Map.change (List.addIfNew entityId |> over Board.entities) boardId)
+
+    let internal addEntity entityId boardId user =
         let entity =
             { Id = entityId
               Name = ""
+              User = user
               StatGroups = []
               Aspects = []
               Collapsed = false
               Saved = false }
-        over entities (Map.addIfNew entityId entity) >>
-        over boards (Map.change (List.addIfNew entityId |> over Board.entities) boardId)
+        over entities (Map.addIfNew entityId entity)
+        >> linkEntity entityId boardId
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 
