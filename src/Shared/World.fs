@@ -5,10 +5,7 @@ open Destiny.Shared.Bag
 open Destiny.Shared.Collections
 open Destiny.Shared.Functions
 open Destiny.Shared.Lens
-
-type Role =
-    | Player
-    | DM
+open Destiny.Shared.Profile
 
 type Die = { Role : Role }
 

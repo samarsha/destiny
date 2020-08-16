@@ -3,7 +3,7 @@
 open Destiny.Client.React
 open Destiny.Shared.Collections
 open Destiny.Shared.Roll
-open Destiny.Shared.World
+open Destiny.Shared.Profile
 open Fable.React
 open Fable.React.Props
 

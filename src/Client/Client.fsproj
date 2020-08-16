@@ -22,6 +22,7 @@
     <Compile Include="React.fs" />
     <Compile Include="Tabler.fs" />
     <Compile Include="Drag.fs" />
+    <Compile Include="Login.fs" />
     <Compile Include="TabBar.fs" />
     <Compile Include="BoardView.fs" />
     <Compile Include="RollView.fs" />

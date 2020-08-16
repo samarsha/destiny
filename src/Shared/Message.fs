@@ -1,6 +1,7 @@
 namespace Destiny.Shared.Message
 
 open Destiny.Shared
+open Destiny.Shared.Profile
 open Destiny.Shared.Roll
 open Destiny.Shared.World
 
@@ -64,19 +65,20 @@ module WorldMessage =
 
 type ServerMessage =
     | ClientConnected of World * RollLog
+    | LoginResult of Result<Profile, string>
     | WorldUpdated of WorldMessage
     | WorldReplaced of World
     | RollLogUpdated of RollLog
-    | RoleChanged of Role
 
 type ClientMessage =
+    | SignUp of Username * Password
+    | LogIn of Username * Password
     | UpdateWorld of WorldMessage
-    | RollStat of Stat Id * Roll Id
-    | RollAspect of Aspect Id * Roll Id
-    | RollSpare of Roll Id
+    | RollStat of Stat Id * Roll Id * Die
+    | RollAspect of Aspect Id * Roll Id * Die
+    | RollSpare of Roll Id * Die
     | Undo
     | Redo
-    | SetRole of Role
 
 module Message =
     let socket = "/socket"

@@ -11,6 +11,7 @@
     <Compile Include="Bag.fs" />
     <Compile Include="Lens.fs" />
     <Compile Include="Id.fs" />
+    <Compile Include="Profile.fs" />
     <Compile Include="World.fs" />
     <Compile Include="Roll.fs" />
     <Compile Include="Message.fs" />

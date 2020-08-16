@@ -1,5 +1,6 @@
 group Client
     Elmish.Bridge.Client
+    Fable.Browser.Dom
     Fable.Elmish.Debugger
     Fable.Elmish.HMR
     Fable.Elmish.React

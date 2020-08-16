@@ -15,7 +15,9 @@
     <None Include="paket.references" />
     <Compile Include="MVar.fs" />
     <Compile Include="Timeline.fs" />
+    <Compile Include="User.fs" />
     <Compile Include="Universe.fs" />
+    <Compile Include="Auth.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
