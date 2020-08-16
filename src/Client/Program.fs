@@ -1,5 +1,6 @@
 module private Destiny.Client.Program
 
+open Browser
 open Destiny.Client
 open Destiny.Client.Tabler
 open Destiny.Shared
@@ -207,7 +208,9 @@ let private applyServerMessage model = function
     | LoginResult result ->
         match result with
         | Ok profile -> { model with Impersonation = profile.Role; Profile = Some profile }
-        | Error error -> failwith error // TODO
+        | Error error ->
+            Dom.window.alert error
+            model
     | WorldUpdated message ->
         let model' = { model with ServerWorld = WorldCommand.update message.Command model.ServerWorld }
         if List.contains message model.Unconfirmed
