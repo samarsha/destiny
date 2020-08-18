@@ -21,15 +21,19 @@ type WorldCommand =
     | SetStatGroupName of StatGroup Id * string
     | RemoveStatGroup of StatGroup Id
     | AddStat of Stat Id * StatGroup Id * bool
+    | AddStatPlaceholder of Stat Id * StatGroup Id
     | SetStatHidden of Stat Id * bool
     | SetStatName of Stat Id * string
     | SetStatScore of Stat Id * int
+    | RevealStat of Stat Id * Stat
     | ObscureStat of Stat Id
     | RemoveStat of Stat Id
     | AddAspect of Aspect Id * Entity Id * bool
+    | AddAspectPlaceholder of Aspect Id * Entity Id
     | SetAspectHidden of Aspect Id * bool
     | SetAspectDescription of Aspect Id * string
     | MoveAspect of Aspect Id * Entity Id * int
+    | RevealAspect of Aspect Id * Aspect
     | ObscureAspect of Aspect Id
     | RemoveAspect of Aspect Id
     | AddDie of Aspect Id * Die
@@ -52,13 +56,17 @@ module WorldCommand =
         | SetStatGroupName (id, name) -> World.setStatGroupName name id
         | RemoveStatGroup id -> World.removeStatGroup id
         | AddStat (statId, groupId, hidden) -> World.addStat statId groupId hidden
+        | AddStatPlaceholder (statId, groupId) -> World.addStatPlaceholder statId groupId
         | SetStatHidden (statId, hidden) -> World.setStatHidden hidden statId
         | SetStatName (id, name) -> World.setStatName name id
         | SetStatScore (id, score) -> World.setStatScore score id
+        | RevealStat (statId, stat) -> World.revealStat statId stat
         | ObscureStat statId -> World.obscureStat statId
         | RemoveStat id -> World.removeStat id
         | AddAspect (aspectId, entityId, hidden) -> World.addAspect aspectId entityId hidden
+        | AddAspectPlaceholder (aspectId, entityId) -> World.addAspectPlaceholder aspectId entityId
         | SetAspectHidden (aspectId, hidden) -> World.setAspectHidden hidden aspectId
+        | RevealAspect (aspectId, aspect) -> World.revealAspect aspectId aspect
         | ObscureAspect aspectId -> World.obscureAspect aspectId
         | SetAspectDescription (id, description) -> World.setAspectDescription description id
         | MoveAspect (aspectId, entityId, index) -> World.moveAspect aspectId entityId index

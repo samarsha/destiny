@@ -165,6 +165,13 @@ module World =
 
     // Stats
 
+    let internal revealStat statId stat = Map.add statId stat |> over stats
+
+    let internal obscureStat = Map.remove >> over stats
+
+    let internal addStatPlaceholder statId groupId =
+        Map.change (List.add statId |> over StatGroup.stats) groupId |> over statGroups
+
     let internal addStat statId groupId hidden =
         let stat =
             { Id = statId
@@ -172,12 +179,9 @@ module World =
               Group = groupId
               Name = ""
               Score = 0 }
-        over statGroups (Map.change (List.add statId |> over StatGroup.stats) groupId)
-        >> over stats (Map.add statId stat)
+        addStatPlaceholder statId groupId >> revealStat statId stat
 
     let internal setStatHidden hidden = Map.change (Stat.hidden .<- hidden) >> over stats
-
-    let internal obscureStat = Map.remove >> over stats
 
     let internal setStatName name = Map.change (Stat.name .<- name) >> over stats
 
@@ -211,6 +215,13 @@ module World =
 
     // Aspects
 
+    let internal revealAspect aspectId aspect = Map.add aspectId aspect |> over aspects
+
+    let internal obscureAspect = Map.remove >> over aspects
+
+    let internal addAspectPlaceholder aspectId entityId =
+        Map.change (List.add aspectId |> over Entity.aspects) entityId |> over entities
+
     let internal addAspect aspectId entityId hidden =
         let aspect =
             { Id = aspectId
@@ -218,12 +229,9 @@ module World =
               Hidden = hidden
               Description = ""
               Dice = Bag.empty }
-        over entities (Map.change (List.add aspectId |> over Entity.aspects) entityId)
-        >> over aspects (Map.add aspectId aspect)
+        addAspectPlaceholder aspectId entityId >> revealAspect aspectId aspect
 
     let internal setAspectHidden hidden = Map.change (Aspect.hidden .<- hidden) >> over aspects
-
-    let internal obscureAspect = Map.remove >> over aspects
 
     let internal setAspectDescription description = Map.change (Aspect.description .<- description) >> over aspects
 

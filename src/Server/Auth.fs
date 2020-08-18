@@ -48,6 +48,10 @@ module internal Auth =
         | SetAspectDescription (aspectId, _)
         | RemoveAspect aspectId ->
             isAspectVisible catalog profile aspectId
+        | AddStatPlaceholder _
+        | AddAspectPlaceholder _
+        | RevealStat _
+        | RevealAspect _
         | ObscureStat _
         | ObscureAspect _ ->
             false
