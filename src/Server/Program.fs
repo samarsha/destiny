@@ -110,7 +110,9 @@ let private rollSpare context rollId die =
     RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
 
 let private update context dispatch message client =
-    let authorized = Auth.authorizeClient client message
+    let universe = MVar.read context.Universe
+    let catalog = (Timeline.present universe.History).Catalog
+    let authorized = Auth.authorizeClient catalog client message
     let client' =
         match Auth.clientMessage authorized with
         | SignUp (username, password) ->

@@ -5,6 +5,7 @@ open Destiny.Shared
 open Destiny.Shared.Bag
 open Destiny.Shared.Collections
 open Destiny.Shared.Collections.OptionBuilder
+open Destiny.Shared.Lens
 open Destiny.Shared.Roll
 open Destiny.Shared.Profile
 open Destiny.Shared.World
@@ -16,9 +17,9 @@ type internal Universe =
       Users : Map<Username, Profile User> }
 
 module internal Universe =
-    let history = { Get = (fun s -> s.History); Set = fun v s -> { s with History = v } }
+    let history = lens (fun s -> s.History) (fun v s -> { s with History = v })
 
-    let users = { Get = (fun s -> s.Users); Set = fun v s -> { s with Users = v } }
+    let users = lens (fun s -> s.Users) (fun v s -> { s with Users = v })
 
     let empty =
         { History = Timeline.singleton World.empty

@@ -54,7 +54,7 @@ type Message =
     | StartEdit of Entity Id
     | StopEdit
 
-type private Mode =
+type private EditMode =
     | View
     | Edit
 
@@ -112,6 +112,13 @@ let private tryDragAspect drag catalog =
             then return EntityId parent.Id, MoveAspect (aspect.Id, parent.Id, 0)
     }
 
+let private entityEditMode model = function
+    | Some (entity : Entity) -> if Option.contains entity.Id model.Editing then Edit else View
+    | None -> View
+
+let shouldAddHidden model =
+    Option.exists (fun entity -> entity.Hidden && Option.contains entity.User model.User)
+
 // View
 
 let private command = WorldMessage.create >> UpdateWorld >> Send
@@ -142,9 +149,10 @@ let private expandingTextarea containerProps textareaProps value =
     div (upcast Data ("autoexpand", value) :: containerProps)
         [ textarea (upcast Value value :: textareaProps) [] ]
 
-let private viewStat mode model dispatch (stat : Stat) =
+let private viewStat model dispatch (stat : Stat) =
+    let editMode = Catalog.statEntity model.Catalog stat.Id |> entityEditMode model
     let name =
-        match mode with
+        match editMode with
         | View -> span [ Class "stat-name preserve-whitespace" ] [ str stat.Name ]
         | Edit ->
             expandingTextarea
@@ -154,7 +162,7 @@ let private viewStat mode model dispatch (stat : Stat) =
                   Placeholder "Name this stat" ]
                 stat.Name
     let score =
-        match mode with
+        match editMode with
         | View -> span [ Class "stat-score" ] [ str <| stat.Score.ToString () ]
         | Edit -> input [
             Class "stat-score"
@@ -164,23 +172,26 @@ let private viewStat mode model dispatch (stat : Stat) =
                 | true, score -> SetStatScore (stat.Id, score) |> commandEvent |> dispatch
                 | _ -> ()
             Value stat.Score ]
-    let rollButton =
-        button
-            [ Disabled (not model.CanEdit || Option.isSome model.ActiveRoll)
-              OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Role } ]
-            [ icon "Dice" [] ]
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
         [ Some name
           Some score
-          Some rollButton
+          button [ Disabled (not model.CanEdit || Option.isSome model.ActiveRoll)
+                   OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Role } ]
+                 [ icon "Dice" [] ]
+          |> Some
+          button [ OnClick <| fun _ -> SetStatHidden (stat.Id, not stat.Hidden) |> commandEvent |> dispatch ]
+                 [ [] |> if stat.Hidden then icon "ClosedEye" else icon "Eye" ]
+          |> Option.iff (editMode = Edit &&
+                         model.User |> Option.exists (fun user -> Catalog.isStatOwner model.Catalog user stat.Id))
           button [ Class "stat-remove"
                    OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
                  [ icon "Trash" [] ]
-          |> Option.iff (mode = Edit) ]
+          |> Option.iff (editMode = Edit) ]
 
-let private viewStatGroup mode model dispatch (group : StatGroup) =
+let private viewStatGroup model dispatch (group : StatGroup) =
+    let editMode = Catalog.statGroupEntity model.Catalog group.Id |> entityEditMode model
     let name =
-        match mode with
+        match editMode with
         | View -> span [ Class "stat-group-name preserve-whitespace" ] [ str group.Name ]
         | Edit ->
             expandingTextarea
@@ -194,16 +205,17 @@ let private viewStatGroup mode model dispatch (group : StatGroup) =
         button [ Class "stat-remove"
                  OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
                [ icon "Trash" [] ]
-        |> Option.iff (mode = Edit) ]
-    let stats = Map.joinMap (viewStat mode model dispatch) model.Catalog.Stats group.Stats
+        |> Option.iff (editMode = Edit) ]
+    let stats = Map.joinMap (viewStat model dispatch) model.Catalog.Stats group.Stats
+    let addHidden = Catalog.statGroupEntity model.Catalog group.Id |> shouldAddHidden model
     let addStatButton =
         button [ Class "stat-add"
-                 OnClick <| fun _ -> AddStat (Id.random (), group.Id) |> commandEvent |> dispatch ]
+                 OnClick <| fun _ -> AddStat (Id.random (), group.Id, addHidden) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Stat" ] ]
     header
     :: stats
-    @ Option.toList (Option.iff (mode = Edit) addStatButton)
+    @ Option.toList (Option.iff (editMode = Edit) addStatButton)
     |> div [ Class "stat-group"
              Key <| group.Id.ToString () ]
 
@@ -221,7 +233,8 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
               | None -> () ]
         [ icon "Dice" [] ]
 
-let private viewAspect mode model dispatch (aspect : Aspect) =
+let private viewAspect model dispatch (aspect : Aspect) =
+    let editMode = Catalog.aspectEntity model.Catalog aspect.Id |> entityEditMode model
     let dice =
         List.choose id
             [ button [ Class "die-control"
@@ -241,7 +254,7 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
                      let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
                      element.classList.toggle ("aspect-dice-top", onFirstLine) |> ignore ]
     let description =
-        match mode with
+        match editMode with
         | View ->
             [ span [ Class "aspect-description preserve-whitespace" ]
                    [ str aspect.Description ]
@@ -257,8 +270,12 @@ let private viewAspect mode model dispatch (aspect : Aspect) =
     @ [ button [ Class "aspect-remove"
                  OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
                [ icon "Trash" [] ]
-        |> Option.iff (mode = Edit)
-        Option.iff (mode = Edit) dice ]
+        |> Option.iff (editMode = Edit)
+        button [ OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
+               [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
+        |> Option.iff (editMode = Edit &&
+                       model.User |> Option.exists (fun user -> Catalog.isAspectOwner model.Catalog user aspect.Id))
+        Option.iff (editMode = Edit) dice ]
     |> List.choose id
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
@@ -272,9 +289,9 @@ let private toggleEdit mode entityId =
     | Edit -> StopEdit
 
 let private viewEntity model dispatch (entity : Entity) =
-    let mode = if model.CanEdit && model.Editing |> Option.contains entity.Id then Edit else View
+    let editMode = if model.CanEdit && model.Editing |> Option.contains entity.Id then Edit else View
     let name =
-        match mode with
+        match editMode with
         | View -> span [ Class "entity-name preserve-whitespace" ] [ str entity.Name ]
         | Edit ->
             expandingTextarea
@@ -284,14 +301,14 @@ let private viewEntity model dispatch (entity : Entity) =
                   Placeholder "Name this entity" ]
                 entity.Name
     let editButton =
-        button [ OnClick <| fun _ -> toggleEdit mode entity.Id |> dispatch ]
+        button [ OnClick <| fun _ -> toggleEdit editMode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
     let saveButton =
         button [ Disabled <| not model.CanEdit
                  Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
                  OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
                [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
-    let hideButton =
+    let collapseButton =
         button [ Disabled <| not model.CanEdit
                  OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
@@ -299,22 +316,26 @@ let private viewEntity model dispatch (entity : Entity) =
         List.choose id
             [ button [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
                      [ icon "Trash" [] ]
-              |> Option.iff (mode = Edit)
+              |> Option.iff (editMode = Edit)
+              button [ OnClick <| fun _ -> SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent |> dispatch ]
+                     [ [] |> if entity.Hidden then icon "ClosedEye" else icon "Eye" ]
+              |> Option.iff (editMode = Edit && Option.contains entity.User model.User)
               Some saveButton
-              Option.iff (model.CanEdit) editButton
-              Some hideButton ]
+              editButton |> Option.iff model.CanEdit
+              Some collapseButton ]
     let addGroupButton =
         button [ Class "stat-add"
                  OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> commandEvent |> dispatch ]
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
-        Map.joinMap (viewStatGroup mode model dispatch) model.Catalog.StatGroups entity.StatGroups
-        @ Option.toList (Option.iff (mode = Edit) addGroupButton)
-    let aspects = Map.joinMap (viewAspect mode model dispatch) model.Catalog.Aspects entity.Aspects
+        Map.joinMap (viewStatGroup model dispatch) model.Catalog.StatGroups entity.StatGroups
+        @ Option.toList (Option.iff (editMode = Edit) addGroupButton)
+    let aspects = Map.joinMap (viewAspect model dispatch) model.Catalog.Aspects entity.Aspects
+    let addHidden = Some entity |> shouldAddHidden model
     let addAspectButton =
         button [ Class "aspect-add"
-                 OnClick <| fun _ -> AddAspect (Id.random (), entity.Id) |> commandEvent |> dispatch ]
+                 OnClick <| fun _ -> AddAspect (Id.random (), entity.Id, addHidden) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
     div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
@@ -332,7 +353,7 @@ let private viewDrag model dispatch id =
         tryFindStringId source id
         |> Option.map (viewer { model with ViewModel.Drag = Drag.empty } dispatch)
     tryView model.Catalog.Entities viewEntity
-    |> Option.orElseWith (fun () -> tryView model.Catalog.Aspects <| viewAspect View)
+    |> Option.orElseWith (fun () -> tryView model.Catalog.Aspects viewAspect)
     |> Option.defaultWith (fun () -> failwith <| "Invalid drag ID: " + id)
 
 let viewBoard model dispatch =
@@ -379,9 +400,9 @@ let private updateEvent event model =
     match event with
     | Send (UpdateWorld { Command = command }) ->
         match command with
-        | AddStat (id, _) -> { model with Model.JustAdded = StatId id |> Some }
+        | AddStat (id, _, _) -> { model with Model.JustAdded = StatId id |> Some }
         | AddStatGroup (id, _) -> { model with JustAdded = StatGroupId id |> Some }
-        | AddAspect (aspectId, entityId) ->
+        | AddAspect (aspectId, entityId, _) ->
             { model with
                   Editing = Some entityId
                   JustAdded = AspectId aspectId |> Some }
