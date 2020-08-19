@@ -186,7 +186,7 @@ module World =
               Score = 0 }
         addStatPlaceholder statId groupId >> (Map.add statId stat |> over stats)
 
-    let internal setStatHidden hidden = Map.change (Stat.hidden .<- hidden) >> over stats
+    let setStatHidden hidden = Map.change (Stat.hidden .<- hidden) >> over stats
 
     let internal setStatName name = Map.change (Stat.name .<- name) >> over stats
 
@@ -237,7 +237,7 @@ module World =
               Dice = Bag.empty }
         addAspectPlaceholder aspectId entityId >> (Map.add aspectId aspect |> over aspects)
 
-    let internal setAspectHidden hidden = Map.change (Aspect.hidden .<- hidden) >> over aspects
+    let setAspectHidden hidden = Map.change (Aspect.hidden .<- hidden) >> over aspects
 
     let internal setAspectDescription description = Map.change (Aspect.description .<- description) >> over aspects
 

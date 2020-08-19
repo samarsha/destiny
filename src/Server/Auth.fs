@@ -78,7 +78,10 @@ module internal Auth =
             then command
             elif hidden
             then ObscureStat statId
-            else Map.tryFind statId catalog.Stats |> Option.unwrap WorldIdentity (fun stat -> RevealStat (statId, stat))
+            else
+                Map.tryFind statId catalog.Stats
+                |> Option.filter (fun stat -> stat.Hidden)
+                |> Option.unwrap WorldIdentity (fun stat -> RevealStat (statId, stat))
         | SetStatName (statId, _)
         | SetStatScore (statId, _) ->
             if isStatVisible catalog client statId then command else WorldIdentity
@@ -92,8 +95,10 @@ module internal Auth =
             then command
             elif hidden
             then ObscureAspect aspectId
-            else Map.tryFind aspectId catalog.Aspects
-                 |> Option.unwrap WorldIdentity (fun aspect -> RevealAspect (aspectId, aspect))
+            else
+                Map.tryFind aspectId catalog.Aspects
+                |> Option.filter (fun aspect -> aspect.Hidden)
+                |> Option.unwrap WorldIdentity (fun aspect -> RevealAspect (aspectId, aspect))
         | SetAspectDescription (aspectId, _)
         | AddDie (aspectId, _)
         | RemoveDie (aspectId, _) ->

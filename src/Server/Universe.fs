@@ -56,7 +56,9 @@ module internal Universe =
                   Result = d6 random
                   Modifier = stat.Score
                   Invokes = [] }
-            return addRoll roll universe
+            let universe' = addRoll roll universe
+            let history = universe'.History |> Timeline.commit |> Timeline.update (World.setStatHidden false statId)
+            return { universe' with History = history }
         } |> Option.defaultValue universe
 
     let rollAspect random die aspectId rollId universe =
@@ -71,7 +73,10 @@ module internal Universe =
                       Role = die.Role
                       Result = d6 random }
                 let universe' = addInvoke invoke rollId universe
-                let history = universe'.History |> Timeline.commit |> Timeline.update (World.removeDie die aspectId)
+                let history =
+                    universe'.History
+                    |> Timeline.commit
+                    |> Timeline.update (World.removeDie die aspectId >> World.setAspectHidden false aspectId)
                 return { universe' with History = history }
         } |> Option.defaultValue universe
 

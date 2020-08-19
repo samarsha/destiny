@@ -102,6 +102,7 @@ let private updateWorld context message =
     WorldUpdated message |> broadcastAuthorized context
 
 let private rollStat context statId rollId die =
+    SetStatHidden (statId, false) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
     let universe =
         (statId, rollId)
         ||> Universe.rollStat context.Random die
@@ -109,9 +110,10 @@ let private rollStat context statId rollId die =
     RollLogUpdated universe.Rolls |> broadcastAuthorized context
 
 let private rollAspect context aspectId rollId die =
+    SetAspectHidden (aspectId, false) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
     let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
-    RollLogUpdated universe.Rolls |> broadcastAuthorized context
     RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
+    RollLogUpdated universe.Rolls |> broadcastAuthorized context
 
 let private rollSpare context rollId die =
     let universe =
