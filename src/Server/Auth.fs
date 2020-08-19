@@ -17,43 +17,45 @@ type internal AuthorizedClientMessage = private AuthorizedClientMessage of Clien
 type internal AuthorizedServerMessage = private AuthorizedServerMessage of ServerMessage
 
 module internal Auth =
-    let private isDieAuthorized (profile : Profile) die = profile.Role >= die.Role
-
-    let private isAspectVisible (catalog : Catalog) profile aspectId =
-        Map.tryFind aspectId catalog.Aspects |> Option.exists (view Aspect.hidden >> not) ||
-        Catalog.aspectEntity catalog aspectId |> Option.exists (fun entity -> entity.User = profile.Username)
-
-    let private isStatVisible (catalog : Catalog) profile statId =
-        Map.tryFind statId catalog.Stats |> Option.exists (view Stat.hidden >> not) ||
-        Catalog.statEntity catalog statId |> Option.exists (fun entity -> entity.User = profile.Username)
-
     let private profileExists predicate = function
         | Guest -> false
         | Profile token -> Token.profile token |> predicate
 
-    let private isAuthorizedClientCommand catalog profile = function
+    let private isDieAuthorized die = profileExists (fun profile -> profile.Role >= die.Role)
+
+    let private isAspectVisible catalog client aspectId =
+        Map.tryFind aspectId catalog.Aspects |> Option.exists (view Aspect.hidden >> not) ||
+        client |> profileExists (fun profile -> Catalog.isAspectOwner catalog profile.Username aspectId)
+
+    let private isStatVisible catalog client statId =
+        Map.tryFind statId catalog.Stats |> Option.exists (view Stat.hidden >> not) ||
+        client |> profileExists (fun profile -> Catalog.isStatOwner catalog profile.Username statId)
+
+    let private isAuthorizedClientCommand catalog client = function
         | AddDie (aspectId, die)
         | RemoveDie (aspectId, die) ->
-            isAspectVisible catalog profile aspectId && isDieAuthorized profile die
+            isAspectVisible catalog client aspectId && isDieAuthorized die client
         | AddEntity (_, _, username) ->
-            profile.Username = username
+            client |> profileExists (fun profile -> profile.Username = username)
         | SetEntityHidden (entityId, _) ->
-            Catalog.isEntityOwner catalog profile.Username entityId
+            client |> profileExists (fun profile -> Catalog.isEntityOwner catalog profile.Username entityId)
         | AddStat (_, groupId, hidden) ->
-            hidden => lazy Catalog.isStatGroupOwner catalog profile.Username groupId
+            hidden =>
+            lazy (client |> profileExists (fun profile -> Catalog.isStatGroupOwner catalog profile.Username groupId))
         | SetStatHidden (statId, _) ->
-            Catalog.isStatOwner catalog profile.Username statId
+            client |> profileExists (fun profile -> Catalog.isStatOwner catalog profile.Username statId)
         | SetStatName (statId, _)
         | SetStatScore (statId, _)
         | RemoveStat statId ->
-            isStatVisible catalog profile statId
+            isStatVisible catalog client statId
         | AddAspect (_, entityId, hidden) ->
-            hidden => lazy Catalog.isEntityOwner catalog profile.Username entityId
+            hidden =>
+            lazy (client |> profileExists (fun profile -> Catalog.isEntityOwner catalog profile.Username entityId))
         | SetAspectHidden (aspectId, _) ->
-            Catalog.isAspectOwner catalog profile.Username aspectId
+            client |> profileExists (fun profile -> Catalog.isAspectOwner catalog profile.Username aspectId)
         | SetAspectDescription (aspectId, _)
         | RemoveAspect aspectId ->
-            isAspectVisible catalog profile aspectId
+            isAspectVisible catalog client aspectId
         | AddStatPlaceholder _
         | AddAspectPlaceholder _
         | RevealStat _
@@ -79,9 +81,7 @@ module internal Auth =
             else Map.tryFind statId catalog.Stats |> Option.unwrap WorldIdentity (fun stat -> RevealStat (statId, stat))
         | SetStatName (statId, _)
         | SetStatScore (statId, _) ->
-            if client |> profileExists (fun profile -> isStatVisible catalog profile statId)
-            then command
-            else WorldIdentity
+            if isStatVisible catalog client statId then command else WorldIdentity
         | AddAspect (aspectId, entityId, hidden) ->
             if hidden &&
                client |> profileExists (fun profile -> Catalog.isEntityOwner catalog profile.Username entityId |> not)
@@ -97,9 +97,7 @@ module internal Auth =
         | SetAspectDescription (aspectId, _)
         | AddDie (aspectId, _)
         | RemoveDie (aspectId, _) ->
-            if client |> profileExists (fun profile -> isAspectVisible catalog profile aspectId)
-            then command
-            else WorldIdentity
+            if isAspectVisible catalog client aspectId then command else WorldIdentity
         | RevealStat _
         | ObscureStat _
         | AddStatPlaceholder _
@@ -110,10 +108,8 @@ module internal Auth =
 
     let authorizeCatalog client catalog =
         catalog
-        |> over Catalog.stats (Map.filter (fun statId _ ->
-               client |> profileExists (fun profile -> Catalog.isStatOwner catalog profile.Username statId)))
-        |> over Catalog.aspects (Map.filter (fun aspectId _ ->
-               client |> profileExists (fun profile -> Catalog.isAspectOwner catalog profile.Username aspectId)))
+        |> over Catalog.stats (Map.filter (fun statId _ -> isStatVisible catalog client statId))
+        |> over Catalog.aspects (Map.filter (fun aspectId _ -> isAspectVisible catalog client aspectId))
 
     let private authorizeClientIf condition message =
         if condition
@@ -122,19 +118,15 @@ module internal Auth =
 
     let authorizeClient catalog client message =
         match client, message with
-        | Profile token, UpdateWorld worldMessage ->
+        | Profile _, UpdateWorld worldMessage ->
             message |> authorizeClientIf
-                (worldMessage.Command |> isAuthorizedClientCommand catalog (Token.profile token))
-        | Profile token, RollStat (statId, _, die) ->
-            message |> authorizeClientIf
-                (isDieAuthorized (Token.profile token) die &&
-                 isStatVisible catalog (Token.profile token) statId)
-        | Profile token, RollAspect (aspectId, _, die) ->
-            message |> authorizeClientIf
-                (isDieAuthorized (Token.profile token) die &&
-                 isAspectVisible catalog (Token.profile token) aspectId)
-        | Profile token, RollSpare (_, die) ->
-            message |> authorizeClientIf (isDieAuthorized (Token.profile token) die)
+                (worldMessage.Command |> isAuthorizedClientCommand catalog client)
+        | Profile _, RollStat (statId, _, die) ->
+            message |> authorizeClientIf (isDieAuthorized die client && isStatVisible catalog client statId)
+        | Profile _, RollAspect (aspectId, _, die) ->
+            message |> authorizeClientIf (isDieAuthorized die client && isAspectVisible catalog client aspectId)
+        | Profile _, RollSpare (_, die) ->
+            message |> authorizeClientIf (isDieAuthorized die client)
         | Profile _, Undo
         | Profile _, Redo
         | Guest, SignUp _
