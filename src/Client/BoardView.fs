@@ -188,6 +188,11 @@ let private viewStat model dispatch (stat : Stat) =
                  [ icon "Trash" [] ]
           |> Option.iff (editMode = Edit) ]
 
+let private viewObscuredStat statId =
+    div [ Class "stat"
+          Key <| statId.ToString () ]
+        [ span [ Class "stat-name hidden" ] [ str "Secret stat" ] ]
+
 let private viewStatGroup model dispatch (group : StatGroup) =
     let editMode = Catalog.statGroupEntity model.Catalog group.Id |> entityEditMode model
     let name =
@@ -206,7 +211,7 @@ let private viewStatGroup model dispatch (group : StatGroup) =
                  OnClick <| fun _ -> RemoveStatGroup group.Id |> commandEvent |> dispatch ]
                [ icon "Trash" [] ]
         |> Option.iff (editMode = Edit) ]
-    let stats = Map.joinMap (viewStat model dispatch) model.Catalog.Stats group.Stats
+    let stats = Map.leftJoinKey viewObscuredStat (viewStat model dispatch) model.Catalog.Stats group.Stats
     let addHidden = Catalog.statGroupEntity model.Catalog group.Id |> shouldAddHidden model
     let addStatButton =
         button [ Class "stat-add"
@@ -283,6 +288,11 @@ let private viewAspect model dispatch (aspect : Aspect) =
              Data ("draggable", aspect.Id)
              Drag.draggableListener (Drag >> dispatch) ]
 
+let private viewObscuredAspect aspectId =
+    div [ Class "aspect"
+          Key <| aspectId.ToString () ]
+        [ span [ Class "aspect-description hidden" ] [ str "Secret aspect" ] ]
+
 let private toggleEdit mode entityId =
     match mode with
     | View -> StartEdit entityId
@@ -329,9 +339,9 @@ let private viewEntity model dispatch (entity : Entity) =
                [ icon "FolderPlus" []
                  label [] [ str "Stat Group" ] ]
     let stats =
-        Map.joinMap (viewStatGroup model dispatch) model.Catalog.StatGroups entity.StatGroups
+        Map.innerJoinKey (viewStatGroup model dispatch) model.Catalog.StatGroups entity.StatGroups
         @ Option.toList (Option.iff (editMode = Edit) addGroupButton)
-    let aspects = Map.joinMap (viewAspect model dispatch) model.Catalog.Aspects entity.Aspects
+    let aspects = Map.leftJoinKey viewObscuredAspect (viewAspect model dispatch) model.Catalog.Aspects entity.Aspects
     let addHidden = Some entity |> shouldAddHidden model
     let addAspectButton =
         button [ Class "aspect-add"
@@ -370,7 +380,7 @@ let viewBoard model dispatch =
     div (upcast Class "board"
          :: Drag.areaListeners model.Drag (Drag >> dispatch))
         [ div [ Class "entities" ] <|
-              Map.joinMap (viewEntity model dispatch) model.Catalog.Entities model.Board.Entities
+              Map.innerJoinKey (viewEntity model dispatch) model.Catalog.Entities model.Board.Entities
               @ Option.toList (Option.iff model.CanEdit addButton)
           Drag.view (viewDrag model dispatch) model.Drag ]
 
