@@ -165,7 +165,8 @@ module World =
 
     // Stats
 
-    let internal revealStat statId stat = Map.add statId stat |> over stats
+    let internal revealStat statId stat =
+        Map.add statId { stat with Stat.Hidden = false } |> over stats
 
     let internal obscureStat = Map.remove >> over stats
 
@@ -179,7 +180,7 @@ module World =
               Group = groupId
               Name = ""
               Score = 0 }
-        addStatPlaceholder statId groupId >> revealStat statId stat
+        addStatPlaceholder statId groupId >> (Map.add statId stat |> over stats)
 
     let internal setStatHidden hidden = Map.change (Stat.hidden .<- hidden) >> over stats
 
@@ -215,7 +216,8 @@ module World =
 
     // Aspects
 
-    let internal revealAspect aspectId aspect = Map.add aspectId aspect |> over aspects
+    let internal revealAspect aspectId aspect =
+        Map.add aspectId { aspect with Aspect.Hidden = false } |> over aspects
 
     let internal obscureAspect = Map.remove >> over aspects
 
@@ -229,7 +231,7 @@ module World =
               Hidden = hidden
               Description = ""
               Dice = Bag.empty }
-        addAspectPlaceholder aspectId entityId >> revealAspect aspectId aspect
+        addAspectPlaceholder aspectId entityId >> (Map.add aspectId aspect |> over aspects)
 
     let internal setAspectHidden hidden = Map.change (Aspect.hidden .<- hidden) >> over aspects
 
