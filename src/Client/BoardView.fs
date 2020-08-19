@@ -38,9 +38,9 @@ type ViewModel =
           Catalog : Catalog
           Drag : Drag.Model
           Editing : Entity Id option
+          Impersonation : Role
           JustAdded : BoardId option
-          Role : Role
-          User : Username option }
+          Profile : Profile option }
 
 type Event =
     | Nothing
@@ -65,16 +65,16 @@ let empty =
       Drag = Drag.empty
       JustAdded = None }
 
-let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, role, user) =
+let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, impersonation, profile) =
     { ActiveRoll = activeRoll
       Board = board
       CanEdit = canEdit
       Catalog = catalog
       Drag = model.Drag
       Editing = model.Editing
+      Impersonation = impersonation
       JustAdded = model.JustAdded
-      Role = role
-      User = user }
+      Profile = profile }
 
 let private entityIndex board id = List.tryFindIndex ((=) id) board.Entities
 
@@ -117,7 +117,9 @@ let private entityEditMode model = function
     | None -> View
 
 let shouldAddHidden model =
-    Option.exists (fun entity -> entity.Hidden && Option.contains entity.User model.User)
+    Option.exists <| fun entity ->
+        entity.Hidden &&
+        model.Profile |> Option.exists (fun profile -> entity.User = profile.Username)
 
 // View
 
@@ -176,13 +178,14 @@ let private viewStat model dispatch (stat : Stat) =
         [ Some name
           Some score
           button [ Disabled (not model.CanEdit || Option.isSome model.ActiveRoll)
-                   OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Role } ]
+                   OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Impersonation } ]
                  [ icon "Dice" [] ]
           |> Some
           button [ OnClick <| fun _ -> SetStatHidden (stat.Id, not stat.Hidden) |> commandEvent |> dispatch ]
                  [ [] |> if stat.Hidden then icon "ClosedEye" else icon "Eye" ]
-          |> Option.iff (editMode = Edit &&
-                         model.User |> Option.exists (fun user -> Catalog.isStatOwner model.Catalog user stat.Id))
+          |> Option.iff
+                 (editMode = Edit &&
+                  model.Profile |> Option.exists (fun profile -> Catalog.isStatOwner model.Catalog profile stat.Id))
           button [ Class "stat-remove"
                    OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
                  [ icon "Trash" [] ]
@@ -231,7 +234,7 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
         | DM -> Class "die-dm"
     button
         [ roleClass
-          Disabled (not model.CanEdit || Option.isNone model.ActiveRoll || model.Role <> die.Role)
+          Disabled (not model.CanEdit || Option.isNone model.ActiveRoll || model.Impersonation <> die.Role)
           OnClick <| fun _ ->
               match model.ActiveRoll with
               | Some rollId -> RollAspect (aspect.Id, rollId, die) |> Send |> Event |> dispatch
@@ -244,12 +247,14 @@ let private viewAspect model dispatch (aspect : Aspect) =
         List.choose id
             [ button [ Class "die-control"
                        Title "Remove a free invoke"
-                       OnClick <| fun _ -> RemoveDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
+                       OnClick <| fun _ ->
+                           RemoveDie (aspect.Id, { Role = model.Impersonation }) |> commandEvent |> dispatch ]
                      [ icon "SquareMinus" [] ]
               |> Option.iff (model.CanEdit && not <| Bag.isEmpty aspect.Dice)
               button [ Class "die-control"
                        Title "Add a free invoke"
-                       OnClick <| fun _ -> AddDie (aspect.Id, { Role = model.Role }) |> commandEvent |> dispatch ]
+                       OnClick <| fun _ ->
+                           AddDie (aspect.Id, { Role = model.Impersonation }) |> commandEvent |> dispatch ]
                      [ icon "SquarePlus" [] ]
               |> Option.iff model.CanEdit ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
@@ -278,8 +283,9 @@ let private viewAspect model dispatch (aspect : Aspect) =
         |> Option.iff (editMode = Edit)
         button [ OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
                [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
-        |> Option.iff (editMode = Edit &&
-                       model.User |> Option.exists (fun user -> Catalog.isAspectOwner model.Catalog user aspect.Id))
+        |> Option.iff
+               (editMode = Edit &&
+                model.Profile |> Option.exists (fun profile -> Catalog.isAspectOwner model.Catalog profile aspect.Id))
         Option.iff (editMode = Edit) dice ]
     |> List.choose id
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
@@ -329,7 +335,9 @@ let private viewEntity model dispatch (entity : Entity) =
               |> Option.iff (editMode = Edit)
               button [ OnClick <| fun _ -> SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent |> dispatch ]
                      [ [] |> if entity.Hidden then icon "ClosedEye" else icon "Eye" ]
-              |> Option.iff (editMode = Edit && Option.contains entity.User model.User)
+              |> Option.iff
+                     (editMode = Edit &&
+                      model.Profile |> Option.exists (fun profile -> entity.User = profile.Username))
               Some saveButton
               editButton |> Option.iff model.CanEdit
               Some collapseButton ]
@@ -372,8 +380,9 @@ let viewBoard model dispatch =
             [ Class "entity-add"
               Style [ FontSize "20pt" ]
               OnClick <| fun _ ->
-                  match model.User with
-                  | Some user -> AddEntity (Id.random (), model.Board.Id, user) |> commandEvent |> dispatch
+                  match model.Profile with
+                  | Some profile ->
+                      AddEntity (Id.random (), model.Board.Id, profile.Username) |> commandEvent |> dispatch
                   | None -> () ]
             [ icon "Plus" [ Tabler.Size 38; Tabler.StrokeWidth 1.0 ]
               label [] [ str "Entity" ] ]

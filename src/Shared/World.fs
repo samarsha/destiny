@@ -116,21 +116,25 @@ module Catalog =
         Map.tryFind aspectId catalog.Aspects
         |> Option.bind (fun aspect -> Map.tryFind aspect.Entity catalog.Entities)
 
-    let isEntityOwner (catalog : Catalog) username entityId =
+    let isEntityOwner (catalog : Catalog) (profile : Profile) entityId =
+        profile.Role = DM ||
         Map.tryFind entityId catalog.Entities
-        |> Option.exists (fun entity -> entity.User = username)
+        |> Option.exists (fun entity -> entity.User = profile.Username)
 
-    let isAspectOwner catalog username aspectId =
+    let isAspectOwner catalog (profile : Profile) aspectId =
+        profile.Role = DM ||
         aspectEntity catalog aspectId
-        |> Option.exists (fun entity -> entity.User = username)
+        |> Option.exists (fun entity -> entity.User = profile.Username)
 
-    let isStatGroupOwner catalog username groupId =
+    let isStatGroupOwner catalog (profile : Profile) groupId =
+        profile.Role = DM ||
         statGroupEntity catalog groupId
-        |> Option.exists (fun entity -> entity.User = username)
+        |> Option.exists (fun entity -> entity.User = profile.Username)
 
-    let isStatOwner catalog username statId =
+    let isStatOwner catalog (profile : Profile) statId =
+        profile.Role = DM ||
         statEntity catalog statId
-        |> Option.exists (fun entity -> entity.User = username)
+        |> Option.exists (fun entity -> entity.User = profile.Username)
 
 module Board =
     let name = lens (fun s -> s.Name) (fun v s -> { s with Name = v })

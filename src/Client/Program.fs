@@ -149,7 +149,7 @@ let private view model dispatch =
              canEdit model,
              model.World.Catalog,
              model.Impersonation,
-             model.Profile |> Option.map (fun profile -> profile.Username)))
+             model.Profile))
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])
