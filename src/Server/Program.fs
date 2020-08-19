@@ -71,13 +71,13 @@ let private signUp context dispatch client username password universe =
         |> Error
         |> LoginResult
         |> dispatch client 
-        universe
+        universe, client
     else
         let role = if Map.isEmpty universe.Users then DM else Player
         let profile = { Username = username; Role = role }
-        let user = User.create context.Crypto profile password
+        let user, token = User.create context.Crypto profile password
         Ok user.Profile |> LoginResult |> dispatch client
-        universe |> over Universe.users (Map.add username user)
+        universe |> over Universe.users (Map.add username user), Profile token
 
 let private logIn context dispatch client username password =
     let universe = MVar.read context.Universe
@@ -122,16 +122,18 @@ let private rollSpare context rollId die =
 
 let private update context dispatch message client =
     let universe = MVar.read context.Universe
-    let catalog = (Timeline.present universe.History).Catalog
-    let authorized = Auth.authorizeClient catalog client message
+    let world = Timeline.present universe.History
+    let authorized = Auth.authorizeClient world.Catalog client message
     let client' =
         match Auth.clientMessage authorized with
         | SignUp (username, password) ->
-            MVar.update context.Universe (signUp context dispatch client username password) |> ignore
-            client
+            let client' = MVar.updateResult context.Universe (signUp context dispatch client username password)
+            WorldReplaced world |> dispatch client'
+            client'
         | LogIn (username, password) ->
-            // TODO: Send updated world after login.
-            logIn context dispatch client username password |> Option.unwrap client Profile
+            let client' = logIn context dispatch client username password |> Option.unwrap client Profile
+            WorldReplaced world |> dispatch client'
+            client'
         | UpdateWorld message ->
             updateWorld context message
             client

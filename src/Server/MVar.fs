@@ -35,18 +35,20 @@ module internal MVar =
             | None ->
                 async {
                     let! value = inbox.Scan (toPut >> Option.map async.Return)
-                    return! receive <| Some value
+                    return! Some value |> receive
                 }
         receive initial
 
-    let createEmpty () = MVar <| MailboxProcessor.Start (body None)
+    let createEmpty () = MailboxProcessor.Start (body None) |> MVar
 
-    let create initial = MVar <| MailboxProcessor.Start (body <| Some initial)
+    let create initial = Some initial |> body |> MailboxProcessor.Start |> MVar
 
-    let update (MVar mailbox) mapper =
-        let value = mailbox.PostAndReply Take
-        let value' = mapper value
-        mailbox.Post <| Put value'
-        value'
+    let updateResult (MVar mailbox) mapper =
+        let value, result = mailbox.PostAndReply Take |> mapper
+        Put value |> mailbox.Post
+        result
+
+    let update var mapper =
+        updateResult var (fun value -> let value' = mapper value in value', value')
 
     let read var = update var id
