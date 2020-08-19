@@ -80,7 +80,6 @@ module internal Auth =
             then ObscureStat statId
             else
                 Map.tryFind statId catalog.Stats
-                |> Option.filter (fun stat -> stat.Hidden)
                 |> Option.unwrap WorldIdentity (fun stat -> RevealStat (statId, stat))
         | SetStatName (statId, _)
         | SetStatScore (statId, _) ->
@@ -97,7 +96,6 @@ module internal Auth =
             then ObscureAspect aspectId
             else
                 Map.tryFind aspectId catalog.Aspects
-                |> Option.filter (fun aspect -> aspect.Hidden)
                 |> Option.unwrap WorldIdentity (fun aspect -> RevealAspect (aspectId, aspect))
         | SetAspectDescription (aspectId, _)
         | AddDie (aspectId, _)
