@@ -276,18 +276,22 @@ let private viewAspect model dispatch (aspect : Aspect) =
                     OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch
                     Placeholder "Describe this aspect." ]
                   aspect.Description ]
-    List.map Some description
-    @ [ button [ Class "aspect-remove"
-                 OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
-               [ icon "Trash" [] ]
-        |> Option.iff (editMode = Edit)
-        button [ OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
-               [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
-        |> Option.iff
-               (editMode = Edit &&
-                model.Profile |> Option.exists (fun profile -> Catalog.isAspectOwner model.Catalog profile aspect.Id))
-        Option.iff (editMode = Edit) dice ]
-    |> List.choose id
+    let controls =
+        List.choose id
+            [ button [ Class "aspect-remove"
+                       OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
+                   [ icon "Trash" [] ]
+              |> Option.iff (editMode = Edit)
+              button [ OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
+                     [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
+              |> Option.iff
+                     (editMode = Edit &&
+                      model.Profile
+                      |> Option.exists (fun profile -> Catalog.isAspectOwner model.Catalog profile aspect.Id)) ]
+        |> span [ Class "aspect-controls" ]
+    description
+    @ [ controls ]
+    @ (dice |> Option.iff (editMode = Edit) |> Option.toList)
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
              Key <| aspect.Id.ToString ()

@@ -98,10 +98,10 @@ input.stat-score
 .aspect
   $line-height: 22px
   $padding-left-right: 7px
-  $padding-top: 9px
+  $padding-top-bottom: 9px
 
   border-bottom: 1px solid theme.$border
-  padding: $padding-top $padding-left-right 0
+  padding: $padding-top-bottom $padding-left-right
 
   &:hover
     .die-control
@@ -118,19 +118,24 @@ input.stat-score
   &-add, &-add .icon, &-remove .icon
     color: theme.$primary
 
+  &-controls
+    display: inline-block
+    margin-bottom: -$padding-top-bottom
+
   &-remove
     margin-left: -$padding-left-right
 
   &-dice
     float: right
     margin:
+      bottom: -$padding-top-bottom
       right: -$padding-left-right
 
   &-dice-top
-    margin-top: -$padding-top
+    margin-top: -$padding-top-bottom
 
     button
-      line-height: $line-height + 2 * $padding-top
+      line-height: $line-height + 2 * $padding-top-bottom
       padding:
         bottom: 0
         top: 0
