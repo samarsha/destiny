@@ -70,7 +70,7 @@ module internal Auth =
         match command with
         | AddStat (statId, groupId, hidden) ->
             if hidden &&
-               client |> profileExists (fun profile -> Catalog.isStatGroupOwner catalog profile groupId |> not)
+               client |> profileExists (fun profile -> Catalog.isStatGroupOwner catalog profile groupId) |> not
             then AddStatPlaceholder (statId, groupId)
             else command
         | SetStatHidden (statId, hidden) ->
@@ -86,7 +86,7 @@ module internal Auth =
             if isStatVisible catalog client statId then command else WorldIdentity
         | AddAspect (aspectId, entityId, hidden) ->
             if hidden &&
-               client |> profileExists (fun profile -> Catalog.isEntityOwner catalog profile entityId |> not)
+               client |> profileExists (fun profile -> Catalog.isEntityOwner catalog profile entityId) |> not
             then AddAspectPlaceholder (aspectId, entityId)
             else command
         | SetAspectHidden (aspectId, hidden) ->
