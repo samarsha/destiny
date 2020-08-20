@@ -49,16 +49,24 @@ let private role = function
     | Guest -> Player
     | Profile token -> (Token.profile token).Role
 
+let private nontrivialServerMessage = function
+    | WorldUpdated { Command = WorldIdentity } -> None
+    | message -> Some message
+
 let private dispatchAuthorized dispatch context client =
     let catalog = (Timeline.present (MVar.read context.Universe).History).Catalog
-    Auth.authorizeServer catalog client >> Auth.serverMessage >> dispatch
+    Auth.authorizeServer catalog client
+    >> Auth.serverMessage
+    >> nontrivialServerMessage
+    >> Option.iter dispatch
 
 let private broadcastAuthorized context message =
     let catalog = (Timeline.present (MVar.read context.Universe).History).Catalog
     for client in context.Hub.GetModels () |> Set.ofList do
         Auth.authorizeServer catalog client message
         |> Auth.serverMessage
-        |> context.Hub.SendClientIf ((=) client)
+        |> nontrivialServerMessage
+        |> Option.iter (context.Hub.SendClientIf ((=) client))
 
 let private init context dispatch () =
     let universe = MVar.read context.Universe
