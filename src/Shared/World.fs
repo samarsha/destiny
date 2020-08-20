@@ -11,6 +11,7 @@ type Die = { Role : Role }
 
 type Stat =
     { Id : Stat Id
+      Hidden : bool
       Group : StatGroup Id
       Name : string
       Score : int }
@@ -24,6 +25,7 @@ and StatGroup =
 and Aspect =
     { Id : Aspect Id
       Entity : Entity Id
+      Hidden : bool
       Description : string
       Dice : Die Bag }
 
@@ -31,6 +33,7 @@ and Entity =
     { Id : Entity Id
       Name : string
       User : Username
+      Hidden : bool
       StatGroups : StatGroup Id list
       Aspects : Aspect Id list
       Collapsed : bool
@@ -52,60 +55,98 @@ type World =
       Boards : Map<Board Id, Board>
       BoardList : Board Id list }
 
-module private Stat =
-    let name = { Get = (fun (s : Stat) -> s.Name); Set = fun v s -> { s with Name = v } }
+module Stat =
+    let name = lens (fun (s : Stat) -> s.Name) (fun v s -> { s with Name = v })
 
-    let score = { Get = (fun s -> s.Score); Set = fun v s -> { s with Score = v } }
+    let hidden = lens (fun (s : Stat) -> s.Hidden) (fun v s -> { s with Hidden = v })
 
-module private StatGroup =
-    let name = { Get = (fun (s : StatGroup) -> s.Name); Set = fun v s -> { s with Name = v } }
+    let score = lens (fun s -> s.Score) (fun v s -> { s with Score = v })
 
-    let stats = { Get = (fun (s : StatGroup) -> s.Stats); Set = fun v s -> { s with Stats = v } }
+module StatGroup =
+    let name = lens (fun (s : StatGroup) -> s.Name) (fun v s -> { s with Name = v })
 
-module private Aspect =
-    let entity = { Get = (fun s -> s.Entity); Set = fun v s -> { s with Entity = v } }
+    let stats = lens (fun (s : StatGroup) -> s.Stats) (fun v s -> { s with Stats = v })
 
-    let description = { Get = (fun s -> s.Description); Set = fun v s -> { s with Description = v } }
+module Aspect =
+    let entity = lens (fun s -> s.Entity) (fun v s -> { s with Entity = v })
 
-    let dice = { Get = (fun s -> s.Dice); Set = fun v s -> { s with Dice = v } }
+    let hidden = lens (fun (s : Aspect) -> s.Hidden) (fun v s -> { s with Hidden = v })
 
-module private Entity =
-    let name = { Get = (fun (s : Entity) -> s.Name); Set = fun v s -> { s with Name = v } }
+    let description = lens (fun s -> s.Description) (fun v s -> { s with Description = v })
 
-    let statGroups = { Get = (fun (s : Entity) -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+    let dice = lens (fun s -> s.Dice) (fun v s -> { s with Dice = v })
 
-    let aspects = { Get = (fun (s : Entity) -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
+module Entity =
+    let name = lens (fun (s : Entity) -> s.Name) (fun v s -> { s with Name = v })
 
-    let collapsed = { Get = (fun s -> s.Collapsed); Set = fun v s -> { s with Collapsed = v } }
+    let hidden = lens (fun s -> s.Hidden) (fun v s -> { s with Hidden = v })
 
-    let saved = { Get = (fun s -> s.Saved); Set = fun v s -> { s with Saved = v } }
+    let statGroups = lens (fun (s : Entity) -> s.StatGroups) (fun v s -> { s with StatGroups = v })
 
-module private Catalog =
-    let entities = { Get = (fun (s : Catalog) -> s.Entities); Set = fun v s -> { s with Entities = v } }
+    let aspects = lens (fun (s : Entity) -> s.Aspects) (fun v s -> { s with Aspects = v })
 
-    let statGroups = { Get = (fun s -> s.StatGroups); Set = fun v s -> { s with StatGroups = v } }
+    let collapsed = lens (fun s -> s.Collapsed) (fun v s -> { s with Collapsed = v })
 
-    let stats = { Get = (fun s -> s.Stats); Set = fun v s -> { s with Stats = v } }
+    let saved = lens (fun s -> s.Saved) (fun v s -> { s with Saved = v })
 
-    let aspects = { Get = (fun s -> s.Aspects); Set = fun v s -> { s with Aspects = v } }
+module Catalog =
+    let entities = lens (fun (s : Catalog) -> s.Entities) (fun v s -> { s with Entities = v })
 
-    let empty =
+    let statGroups = lens (fun s -> s.StatGroups) (fun v s -> { s with StatGroups = v })
+
+    let stats = lens (fun s -> s.Stats) (fun v s -> { s with Stats = v })
+
+    let aspects = lens (fun s -> s.Aspects) (fun v s -> { s with Aspects = v })
+
+    let internal empty =
         { Entities = Map.empty
           Aspects = Map.empty
           Stats = Map.empty
           StatGroups = Map.empty }
 
-module private Board =
-    let internal name = { Get = (fun s -> s.Name); Set = fun v s -> { s with Name = v } }
+    let statGroupEntity catalog groupId =
+        Map.tryFind groupId catalog.StatGroups
+        |> Option.bind (fun group -> Map.tryFind group.Entity catalog.Entities)
 
-    let internal entities = { Get = (fun s -> s.Entities); Set = fun v s -> { s with Entities = v } }
+    let statEntity catalog statId =
+        Map.tryFind statId catalog.Stats
+        |> Option.bind (fun stat -> statGroupEntity catalog stat.Group)
+
+    let aspectEntity catalog aspectId =
+        Map.tryFind aspectId catalog.Aspects
+        |> Option.bind (fun aspect -> Map.tryFind aspect.Entity catalog.Entities)
+
+    let isEntityOwner (catalog : Catalog) (profile : Profile) entityId =
+        profile.Role = DM ||
+        Map.tryFind entityId catalog.Entities
+        |> Option.exists (fun entity -> entity.User = profile.Username)
+
+    let isAspectOwner catalog (profile : Profile) aspectId =
+        profile.Role = DM ||
+        aspectEntity catalog aspectId
+        |> Option.exists (fun entity -> entity.User = profile.Username)
+
+    let isStatGroupOwner catalog (profile : Profile) groupId =
+        profile.Role = DM ||
+        statGroupEntity catalog groupId
+        |> Option.exists (fun entity -> entity.User = profile.Username)
+
+    let isStatOwner catalog (profile : Profile) statId =
+        profile.Role = DM ||
+        statEntity catalog statId
+        |> Option.exists (fun entity -> entity.User = profile.Username)
+
+module Board =
+    let name = lens (fun s -> s.Name) (fun v s -> { s with Name = v })
+
+    let entities = lens (fun s -> s.Entities) (fun v s -> { s with Entities = v })
 
 module World =
-    let private catalog = { Get = (fun s -> s.Catalog); Set = fun v s -> { s with Catalog = v } }
+    let catalog = lens (fun s -> s.Catalog) (fun v s -> { s with Catalog = v })
 
-    let private boards = { Get = (fun s -> s.Boards); Set = fun v s -> { s with Boards = v } }
+    let boards = lens (fun s -> s.Boards) (fun v s -> { s with Boards = v })
 
-    let private boardList = { Get = (fun s -> s.BoardList); Set = fun v s -> { s with BoardList = v } }
+    let boardList = lens (fun s -> s.BoardList) (fun v s -> { s with BoardList = v })
 
     let private entities = catalog .>> Catalog.entities
 
@@ -128,14 +169,24 @@ module World =
 
     // Stats
 
-    let internal addStat statId groupId =
+    let internal revealStat statId stat =
+        Map.add statId { stat with Stat.Hidden = false } |> over stats
+
+    let internal obscureStat = Map.remove >> over stats
+
+    let internal addStatPlaceholder statId groupId =
+        Map.change (List.add statId |> over StatGroup.stats) groupId |> over statGroups
+
+    let internal addStat statId groupId hidden =
         let stat =
             { Id = statId
+              Hidden = hidden
               Group = groupId
               Name = ""
               Score = 0 }
-        over statGroups (Map.change (List.add statId |> over StatGroup.stats) groupId) >>
-        over stats (Map.add statId stat)
+        addStatPlaceholder statId groupId >> (Map.add statId stat |> over stats)
+
+    let setStatHidden hidden = Map.change (Stat.hidden .<- hidden) >> over stats
 
     let internal setStatName name = Map.change (Stat.name .<- name) >> over stats
 
@@ -169,14 +220,24 @@ module World =
 
     // Aspects
 
-    let internal addAspect aspectId entityId =
+    let internal revealAspect aspectId aspect =
+        Map.add aspectId { aspect with Aspect.Hidden = false } |> over aspects
+
+    let internal obscureAspect = Map.remove >> over aspects
+
+    let internal addAspectPlaceholder aspectId entityId =
+        Map.change (List.add aspectId |> over Entity.aspects) entityId |> over entities
+
+    let internal addAspect aspectId entityId hidden =
         let aspect =
             { Id = aspectId
               Entity = entityId
+              Hidden = hidden
               Description = ""
               Dice = Bag.empty }
-        over entities (Map.change (List.add aspectId |> over Entity.aspects) entityId) >>
-        over aspects (Map.add aspectId aspect)
+        addAspectPlaceholder aspectId entityId >> (Map.add aspectId aspect |> over aspects)
+
+    let setAspectHidden hidden = Map.change (Aspect.hidden .<- hidden) >> over aspects
 
     let internal setAspectDescription description = Map.change (Aspect.description .<- description) >> over aspects
 
@@ -204,12 +265,16 @@ module World =
             { Id = entityId
               Name = ""
               User = user
+              Hidden = false
               StatGroups = []
               Aspects = []
               Collapsed = false
               Saved = false }
         over entities (Map.addIfNew entityId entity)
         >> linkEntity entityId boardId
+
+    let internal setEntityHidden hidden =
+        Map.change (Entity.hidden .<- hidden) >> over entities
 
     let internal setEntityName name = Map.change (Entity.name .<- name) >> over entities
 

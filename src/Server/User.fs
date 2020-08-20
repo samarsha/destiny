@@ -20,9 +20,11 @@ module internal User =
         let salt = Array.zeroCreate 16
         random.GetBytes salt
         let salt' = Array.toList salt
-        { Profile = profile
-          Salt = salt'
-          Hash = hash password salt' }
+        let user =
+          { Profile = profile
+            Salt = salt'
+            Hash = hash password salt' }
+        user, Token profile
 
     let authenticate user password =
         if hash password user.Salt = user.Hash

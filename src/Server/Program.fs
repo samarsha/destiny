@@ -49,26 +49,40 @@ let private role = function
     | Guest -> Player
     | Profile token -> (Token.profile token).Role
 
-let private init universeVar dispatch () =
-    let universe = MVar.read universeVar
-    ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch
+let private nontrivialServerMessage = function
+    | WorldUpdated { Command = WorldIdentity } -> None
+    | message -> Some message
+
+let private dispatchAuthorized dispatch context client =
+    let catalog = (Timeline.present (MVar.read context.Universe).History).Catalog
+    Auth.authorizeServer catalog client
+    >> Auth.serverMessage
+    >> nontrivialServerMessage
+    >> Option.iter dispatch
+
+let private broadcastAuthorized context message =
+    let catalog = (Timeline.present (MVar.read context.Universe).History).Catalog
+    for client in context.Hub.GetModels () |> Set.ofList do
+        Auth.authorizeServer catalog client message
+        |> Auth.serverMessage
+        |> nontrivialServerMessage
+        |> Option.iter (context.Hub.SendClientIf ((=) client))
+
+let private init context dispatch () =
+    let universe = MVar.read context.Universe
+    ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch Guest
     Guest, Cmd.none
 
-let private signUp context dispatch username password universe =
+let private signUp (random : RandomNumberGenerator) username password universe =
     if Map.containsKey username universe.Users then
-        "The username '" + Username.toString username + "' is already taken."
-        |> Error
-        |> LoginResult
-        |> dispatch
-        universe
+        universe, "The username '" + Username.toString username + "' is already taken." |> Error
     else
         let role = if Map.isEmpty universe.Users then DM else Player
         let profile = { Username = username; Role = role }
-        let user = User.create context.Crypto profile password
-        Ok user.Profile |> LoginResult |> dispatch
-        universe |> over Universe.users (Map.add username user)
+        let user, token = User.create random profile password
+        universe |> over Universe.users (Map.add username user), Ok token
 
-let private logIn context dispatch username password =
+let private logIn context dispatch client username password =
     let universe = MVar.read context.Universe
     let token =
         result {
@@ -79,7 +93,7 @@ let private logIn context dispatch username password =
                 User.authenticate user password
                 |> Result.ofOption "The password is incorrect."
         }
-    token |> Result.map Token.profile |> LoginResult |> dispatch
+    token |> Result.map Token.profile |> LoginResult |> dispatch client
     Result.toOption token
 
 let private updateWorld context message =
@@ -88,36 +102,45 @@ let private updateWorld context message =
     |> over Universe.history
     |> MVar.update context.Universe
     |> ignore
-    WorldUpdated message |> context.Hub.BroadcastClient
+    WorldUpdated message |> broadcastAuthorized context
 
 let private rollStat context statId rollId die =
+    SetStatHidden (statId, false) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
     let universe =
         (statId, rollId)
         ||> Universe.rollStat context.Random die
         |> MVar.update context.Universe
-    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+    RollLogUpdated universe.Rolls |> broadcastAuthorized context
 
 let private rollAspect context aspectId rollId die =
+    SetAspectHidden (aspectId, false) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
     let universe = Universe.rollAspect context.Random die aspectId rollId |> MVar.update context.Universe
-    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
-    RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> context.Hub.BroadcastClient
+    RemoveDie (aspectId, die) |> WorldMessage.create |> WorldUpdated |> broadcastAuthorized context
+    RollLogUpdated universe.Rolls |> broadcastAuthorized context
 
 let private rollSpare context rollId die =
     let universe =
         rollId
         |> Universe.rollSpare context.Random die
         |> MVar.update context.Universe
-    RollLogUpdated universe.Rolls |> context.Hub.BroadcastClient
+    RollLogUpdated universe.Rolls |> broadcastAuthorized context
 
 let private update context dispatch message client =
-    let authorized = Auth.authorizeClient client message
+    let universe = MVar.read context.Universe
+    let world = Timeline.present universe.History
+    let authorized = Auth.authorizeClient world.Catalog client message
     let client' =
         match Auth.clientMessage authorized with
         | SignUp (username, password) ->
-            MVar.update context.Universe (signUp context dispatch username password) |> ignore
-            client
+            let result = MVar.updateResult context.Universe (signUp context.Crypto username password)
+            result |> Result.map Token.profile |> LoginResult |> dispatch client
+            let client' = result |> Result.unwrap client Profile
+            WorldReplaced world |> dispatch client'
+            client'
         | LogIn (username, password) ->
-            logIn context dispatch username password |> Option.unwrap client Profile
+            let client' = logIn context dispatch client username password |> Option.unwrap client Profile
+            WorldReplaced world |> dispatch client'
+            client'
         | UpdateWorld message ->
             updateWorld context message
             client
@@ -132,13 +155,13 @@ let private update context dispatch message client =
             client
         | Undo ->
             let universe = over Universe.history Timeline.undo |> MVar.update context.Universe
-            Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
+            Timeline.present universe.History |> WorldReplaced |> broadcastAuthorized context
             client
         | Redo ->
             let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
-            Timeline.present universe.History |> WorldReplaced |> context.Hub.BroadcastClient
+            Timeline.present universe.History |> WorldReplaced |> broadcastAuthorized context
             client
-        | ClientNoOp -> client
+        | ClientIdentity -> client
     client', Cmd.none
 
 let private load () =
@@ -154,7 +177,9 @@ let private save universeVar =
     File.WriteAllText (savePath, serializer.SerializeToString universe)
 
 let private router context =
-    Bridge.mkServer Message.socket (init context.Universe) (update context)
+    Bridge.mkServer Message.socket
+        (fun dispatch -> dispatchAuthorized dispatch context |> init context)
+        (fun dispatch -> dispatchAuthorized dispatch context |> update context)
     |> Bridge.withServerHub context.Hub
     |> Bridge.run Giraffe.server
 

@@ -149,7 +149,7 @@ let private view model dispatch =
              canEdit model,
              model.World.Catalog,
              model.Impersonation,
-             model.Profile |> Option.map (fun profile -> profile.Username)))
+             model.Profile))
     let boardView =
         boardModel |> Option.unwrap
             (div [ Class "board" ] [])
@@ -160,7 +160,7 @@ let private view model dispatch =
             (BoardView >> dispatch |> flip BoardView.viewRollBar)
     let tabBar =
         TabBar >> dispatch |> TabBar.view
-            { TabBar.Tabs = Map.joinMap id model.World.Boards model.World.BoardList
+            { TabBar.Tabs = Map.innerJoinKey id model.World.Boards model.World.BoardList
               TabBar.Active = activeBoard model
               TabBar.Format = fun board -> board.Name
               TabBar.Kind = "Board"

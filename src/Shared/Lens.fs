@@ -1,14 +1,18 @@
-namespace Destiny.Shared
+module Destiny.Shared.Lens
 
 type Lens<'a, 'b> =
-    { Get : 'a -> 'b
-      Set : 'b -> 'a -> 'a }
+    private
+        { Get : 'a -> 'b
+          Set : 'b -> 'a -> 'a }
 
-module Lens =
-    let (.>>) lens1 lens2 =
-        { Get = lens1.Get >> lens2.Get
-          Set = fun value source -> source |> lens1.Set (lens1.Get source |> lens2.Set value) }
+let lens getter setter = { Get = getter; Set = setter }
 
-    let internal (.<-) lens value = lens.Set value
+let (.>>) lens1 lens2 =
+    { Get = lens1.Get >> lens2.Get
+      Set = fun value source -> source |> lens1.Set (lens1.Get source |> lens2.Set value) }
 
-    let over lens f source = source |> lens.Set (lens.Get source |> f)
+let (.<-) lens value = lens.Set value
+
+let view lens = lens.Get
+
+let over lens f source = source |> lens.Set (lens.Get source |> f)

@@ -61,7 +61,7 @@ let private viewRoll (roll : Roll) =
         @ Option.toList equals
 
 let private render rolls =
-    Map.joinMap viewRoll rolls.Map rolls.Order
+    Map.innerJoinKey viewRoll rolls.Map rolls.Order
     |> div [ Class "messages"
              ref <| fun element -> element.scrollTop <- element.scrollHeight ]
 

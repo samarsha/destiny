@@ -1,5 +1,47 @@
 namespace Destiny.Shared.Collections
 
+module Option =
+    let unwrap default' mapper =
+        Option.map mapper >> Option.defaultValue default'
+
+    let iff condition value = if condition then Some value else None
+
+type OptionBuilder () =
+    member _.Bind (option, binder) = Option.bind binder option
+
+    member _.Return value = Some value
+
+    member _.Zero () = None
+
+module OptionBuilder =
+    let option = OptionBuilder ()
+
+module Result =
+    let ofOption error = function
+        | Some value -> Ok value
+        | None -> Error error
+
+    let toOption = function
+        | Ok value -> Some value
+        | Error _ -> None
+
+    let defaultValue default' = function
+        | Ok value -> value
+        | Error _ -> default'
+
+    let unwrap default' mapper =
+        Result.map mapper >> defaultValue default' 
+
+type ResultBuilder () =
+    member _.Bind (result, binder) = Result.bind binder result
+
+    member _.Return value = Ok value
+
+    member _.ReturnFrom result = result 
+
+module ResultBuilder =
+    let result = ResultBuilder ()
+
 module List =
     let add value xs = xs @ [ value ]
 
@@ -26,39 +68,7 @@ module Map =
         | Some value -> Map.add key (f value) map
         | None -> map
 
-    let joinMap f map = List.choose <| fun key -> Map.tryFind key map |> Option.map f
+    let innerJoinKey f map = List.choose <| fun key -> Map.tryFind key map |> Option.map f
 
-module Option =
-    let unwrap defaultValue mapper =
-        Option.map mapper >> Option.defaultValue defaultValue
-
-    let iff condition value = if condition then Some value else None
-
-type OptionBuilder () =
-    member _.Bind (option, binder) = Option.bind binder option
-
-    member _.Return value = Some value
-
-    member _.Zero () = None
-
-module OptionBuilder =
-    let option = OptionBuilder ()
-
-module Result =
-    let ofOption error = function
-        | Some value -> Ok value
-        | None -> Error error
-
-    let toOption = function
-        | Ok value -> Some value
-        | Error _ -> None
-
-type ResultBuilder () =
-    member _.Bind (result, binder) = Result.bind binder result
-
-    member _.Return value = Ok value
-
-    member _.ReturnFrom result = result 
-
-module ResultBuilder =
-    let result = ResultBuilder ()
+    let leftJoinKey fallback mapper map =
+        List.map <| fun key -> Map.tryFind key map |> Option.unwrap (fallback key) mapper
