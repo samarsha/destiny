@@ -73,19 +73,14 @@ let private init context dispatch () =
     ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch Guest
     Guest, Cmd.none
 
-let private signUp context dispatch client username password universe =
+let private signUp (random : RandomNumberGenerator) username password universe =
     if Map.containsKey username universe.Users then
-        "The username '" + Username.toString username + "' is already taken."
-        |> Error
-        |> LoginResult
-        |> dispatch client 
-        universe, client
+        universe, "The username '" + Username.toString username + "' is already taken." |> Error
     else
         let role = if Map.isEmpty universe.Users then DM else Player
         let profile = { Username = username; Role = role }
-        let user, token = User.create context.Crypto profile password
-        Ok user.Profile |> LoginResult |> dispatch client
-        universe |> over Universe.users (Map.add username user), Profile token
+        let user, token = User.create random profile password
+        universe |> over Universe.users (Map.add username user), Ok token
 
 let private logIn context dispatch client username password =
     let universe = MVar.read context.Universe
@@ -137,7 +132,9 @@ let private update context dispatch message client =
     let client' =
         match Auth.clientMessage authorized with
         | SignUp (username, password) ->
-            let client' = MVar.updateResult context.Universe (signUp context dispatch client username password)
+            let result = MVar.updateResult context.Universe (signUp context.Crypto username password)
+            result |> Result.map Token.profile |> LoginResult |> dispatch client
+            let client' = result |> Result.unwrap client Profile
             WorldReplaced world |> dispatch client'
             client'
         | LogIn (username, password) ->
@@ -181,8 +178,8 @@ let private save universeVar =
 
 let private router context =
     Bridge.mkServer Message.socket
-        (fun dispatch -> init context (dispatchAuthorized dispatch context))
-        (fun dispatch -> update context (dispatchAuthorized dispatch context))
+        (fun dispatch -> dispatchAuthorized dispatch context |> init context)
+        (fun dispatch -> dispatchAuthorized dispatch context |> update context)
     |> Bridge.withServerHub context.Hub
     |> Bridge.run Giraffe.server
 

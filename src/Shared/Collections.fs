@@ -1,8 +1,8 @@
 namespace Destiny.Shared.Collections
 
 module Option =
-    let unwrap defaultValue mapper =
-        Option.map mapper >> Option.defaultValue defaultValue
+    let unwrap default' mapper =
+        Option.map mapper >> Option.defaultValue default'
 
     let iff condition value = if condition then Some value else None
 
@@ -24,6 +24,13 @@ module Result =
     let toOption = function
         | Ok value -> Some value
         | Error _ -> None
+
+    let defaultValue default' = function
+        | Ok value -> value
+        | Error _ -> default'
+
+    let unwrap default' mapper =
+        Result.map mapper >> defaultValue default' 
 
 type ResultBuilder () =
     member _.Bind (result, binder) = Result.bind binder result
