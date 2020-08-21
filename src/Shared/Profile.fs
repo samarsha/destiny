@@ -14,6 +14,12 @@ type Role =
     | Player
     | DM
 
+module Role =
+    let ofString = function
+        | "Player" -> Some Player
+        | "DM" -> Some DM
+        | _ -> None
+
 type Profile =
     { Username : Username
       Role : Role }

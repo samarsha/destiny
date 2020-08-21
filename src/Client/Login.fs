@@ -43,12 +43,10 @@ let makeViewModel model profile impersonation =
 // View
 
 let private viewImpersonation dispatch profile impersonation =
-    [ option [ Value "Player" ] [ str "Player" ] |> Some
-      option [ Value "DM" ] [ str "DM" ] |> Option.iff (profile.Role = DM) ]
+    [ option [ Value <| upcast Player.ToString () ] [ str "Player" ] |> Some
+      option [ Value <| upcast DM.ToString () ] [ str "DM" ] |> Option.iff (profile.Role = DM) ]
     |> List.choose id
-    |> select [ OnChange <| fun event ->
-                    let role = if event.Value = "DM" then DM else Player
-                    SelectRole role |> dispatch
+    |> select [ OnChange <| fun event -> Role.ofString event.Value |> Option.iter (SelectRole >> dispatch)
                 Value <| upcast impersonation.ToString () ]
 
 let view model dispatch =
