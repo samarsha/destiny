@@ -1,4 +1,4 @@
-﻿namespace Destiny.Shared.Profile
+﻿namespace Destiny.Shared
 
 type Username = Username of string
 

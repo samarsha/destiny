@@ -1,9 +1,7 @@
 ﻿module internal Destiny.Client.RollView
 
 open Destiny.Client.React
-open Destiny.Shared.Collections
-open Destiny.Shared.Roll
-open Destiny.Shared.Profile
+open Destiny.Shared
 open Fable.React
 open Fable.React.Props
 

@@ -1,12 +1,8 @@
-﻿namespace Destiny.Server.Auth
+﻿namespace Destiny.Server
 
-open Destiny.Server.User
-open Destiny.Shared.Collections
+open Destiny.Shared
 open Destiny.Shared.Lens
 open Destiny.Shared.Logic
-open Destiny.Shared.Message
-open Destiny.Shared.Profile
-open Destiny.Shared.World
 
 type internal Client =
     | Guest
@@ -21,7 +17,7 @@ module internal Auth =
         | Guest -> false
         | Profile token -> Token.profile token |> predicate
 
-    let private isDieAuthorized die = profileExists (fun profile -> profile.Role >= die.Role)
+    let private isDieAuthorized (die : Die) = profileExists (fun profile -> profile.Role >= die.Role)
 
     let private isAspectVisible catalog client aspectId =
         Map.tryFind aspectId catalog.Aspects |> Option.exists (view Aspect.hidden >> not) ||

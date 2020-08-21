@@ -1,11 +1,7 @@
-namespace Destiny.Shared.World
+namespace Destiny.Shared
 
-open Destiny.Shared
-open Destiny.Shared.Bag
-open Destiny.Shared.Collections
 open Destiny.Shared.Functions
 open Destiny.Shared.Lens
-open Destiny.Shared.Profile
 
 type Die = { Role : Role }
 

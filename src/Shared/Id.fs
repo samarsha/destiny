@@ -3,8 +3,7 @@ namespace Destiny.Shared
 open System
 
 type 'a Id =
-    private
-    | Id of Guid
+    private | Id of Guid
 
     override this.ToString () = match this with Id guid -> guid.ToString () 
 

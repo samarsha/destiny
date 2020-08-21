@@ -1,4 +1,4 @@
-namespace Destiny.Shared.Collections
+namespace Destiny.Shared
 
 module Option =
     let unwrap default' mapper =

@@ -1,7 +1,7 @@
 ﻿module internal Destiny.Client.TabBar
 
 open Destiny.Client.Tabler
-open Destiny.Shared.Collections
+open Destiny.Shared
 open Destiny.Shared.Functions
 open Fable.React
 open Fable.React.Props

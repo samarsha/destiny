@@ -1,6 +1,6 @@
 ﻿namespace Destiny.Server
 
-open Destiny.Shared.Collections
+open Destiny.Shared
 
 type internal 'a Timeline =
     private

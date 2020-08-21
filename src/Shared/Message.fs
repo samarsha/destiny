@@ -1,9 +1,4 @@
-namespace Destiny.Shared.Message
-
-open Destiny.Shared
-open Destiny.Shared.Profile
-open Destiny.Shared.Roll
-open Destiny.Shared.World
+namespace Destiny.Shared
 
 type WorldCommand =
     | AddBoard of Board Id

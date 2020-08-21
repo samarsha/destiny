@@ -1,11 +1,7 @@
 open Destiny.Server
-open Destiny.Server.Auth
-open Destiny.Server.User
-open Destiny.Shared.Collections
-open Destiny.Shared.Collections.ResultBuilder
+open Destiny.Shared
 open Destiny.Shared.Lens
-open Destiny.Shared.Message
-open Destiny.Shared.Profile
+open Destiny.Shared.ResultBuilder
 open Elmish
 open Elmish.Bridge
 open Giraffe.Serialization.Json

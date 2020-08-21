@@ -1,6 +1,6 @@
-﻿namespace Destiny.Server.User
+﻿namespace Destiny.Server
 
-open Destiny.Shared.Profile
+open Destiny.Shared
 open Microsoft.AspNetCore.Cryptography.KeyDerivation
 open System.Security.Cryptography
 

@@ -1,14 +1,8 @@
 ﻿namespace Destiny.Server
 
-open Destiny.Server.User
 open Destiny.Shared
-open Destiny.Shared.Bag
-open Destiny.Shared.Collections
-open Destiny.Shared.Collections.OptionBuilder
 open Destiny.Shared.Lens
-open Destiny.Shared.Roll
-open Destiny.Shared.Profile
-open Destiny.Shared.World
+open Destiny.Shared.OptionBuilder
 open System
 
 type internal Universe =

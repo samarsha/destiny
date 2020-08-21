@@ -1,4 +1,4 @@
-namespace Destiny.Shared.Bag
+namespace Destiny.Shared
 
 type Count = int
 

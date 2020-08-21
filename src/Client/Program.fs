@@ -1,15 +1,9 @@
 module private Destiny.Client.Program
 
 open Browser
-open Destiny.Client
 open Destiny.Client.Tabler
 open Destiny.Shared
-open Destiny.Shared.Collections
 open Destiny.Shared.Functions
-open Destiny.Shared.Message
-open Destiny.Shared.Profile
-open Destiny.Shared.Roll
-open Destiny.Shared.World
 open Elmish
 open Elmish.Bridge
 open Elmish.React
@@ -249,7 +243,7 @@ let rec private updateBoardView message model =
         | BoardView.Send clientMessage -> update (Send clientMessage) model'
         | BoardView.SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none)
 
-and private updateTabBar message model =
+and private updateTabBar (message : Board TabBar.Message) model =
     match message with
     | TabBar.AddTab ->
         let id = Id.random ()

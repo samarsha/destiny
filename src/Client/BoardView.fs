@@ -3,20 +3,13 @@
 open System
 
 open Browser.Types
-open Destiny.Client
 open Destiny.Client.React
 open Destiny.Client.Tabler
 open Destiny.Shared
-open Destiny.Shared.Bag
-open Destiny.Shared.Collections
-open Destiny.Shared.Message
-open Destiny.Shared.Profile
-open Destiny.Shared.Roll
-open Destiny.Shared.World
 open Fable.React
 open Fable.React.Props
 
-open Destiny.Shared.Collections.OptionBuilder
+open Destiny.Shared.OptionBuilder
 
 type private BoardId =
     | AspectId of Aspect Id

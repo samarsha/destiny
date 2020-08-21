@@ -1,7 +1,6 @@
 ﻿module internal Destiny.Client.Login
 
-open Destiny.Shared.Collections
-open Destiny.Shared.Profile
+open Destiny.Shared
 open Fable.React
 open Fable.React.Props
 
