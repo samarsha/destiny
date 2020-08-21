@@ -31,8 +31,8 @@ type Event =
 
 // Model
 
-let empty =
-    { Username = Username ""
+let init username =
+    { Username = username
       Password = Password "" }
 
 let makeViewModel model profile impersonation =

@@ -51,21 +51,20 @@ type private Message =
 
 // Model
 
-let private empty =
+let private init () =
     { ActiveBoard = List.tryHead World.empty.BoardList
       ActiveRoll = None
       BoardView = BoardView.empty
       Connected = false
       Impersonation = Player
-      Login = Login.empty
+      Login = Option.ofObj localStorage.["username"] |> Option.defaultValue "" |> Username |> Login.init
       Profile = None
       Rolls = RollLog.empty
       ServerWorld = World.empty
       Sidebar = RollLog
       Unconfirmed = []
-      World = World.empty }
-
-let private init () = empty, Cmd.none
+      World = World.empty },
+    Cmd.none
 
 let private canEdit model = model.Connected && Option.isSome model.Profile
 
@@ -217,9 +216,11 @@ let private applyServerMessage model = function
               World = world }
     | LoginResult result ->
         match result with
-        | Ok profile -> { model with Impersonation = profile.Role; Profile = Some profile }
+        | Ok profile ->
+            localStorage.["username"] <- Username.toString profile.Username
+            { model with Impersonation = profile.Role; Profile = Some profile }
         | Error error ->
-            Dom.window.alert error
+            window.alert error
             model
     | WorldUpdated message ->
         let model' = { model with ServerWorld = WorldCommand.update message.Command model.ServerWorld }
