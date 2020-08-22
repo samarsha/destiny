@@ -171,6 +171,7 @@ let private viewStat model dispatch (stat : Stat) =
     let canEditHidden =
         editMode = Edit &&
         model.Profile |> Option.exists (fun profile -> Catalog.isStatOwner model.Catalog profile stat.Id)
+
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
         [ Some name
           Some score
@@ -251,6 +252,7 @@ let private viewAspect model dispatch (aspect : Aspect) =
                   OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Describe this aspect." ]
                 aspect.Description
+
     let dice =
         [ button [ Class "die-control"
                    Title "Remove a free invoke"
@@ -286,6 +288,7 @@ let private viewAspect model dispatch (aspect : Aspect) =
                      let element' = element :?> HTMLElement
                      let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
                      element.classList.toggle ("aspect-controls-top", onFirstLine) |> ignore ]
+
     [ description; controls ]
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
@@ -342,6 +345,7 @@ let private viewEntity model dispatch (entity : Entity) =
               saveButton |> Option.iff (editMode = Edit || entity.Saved)
               editButton |> Option.iff model.CanEdit
               Some collapseButton ]
+
     let addGroupButton =
         button [ Class "stat-add"
                  OnClick <| fun _ -> AddStatGroup (Id.random (), entity.Id) |> commandEvent |> dispatch ]
@@ -357,15 +361,18 @@ let private viewEntity model dispatch (entity : Entity) =
                  OnClick <| fun _ -> AddAspect (Id.random (), entity.Id, addHidden) |> commandEvent |> dispatch ]
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
-    div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
-          Style <| dragStyle entity.Id model.Drag
-          Key <| entity.Id.ToString ()
-          Data ("draggable", entity.Id)
-          Drag.draggableListener (Drag >> dispatch) ]
-    <| (div [ Class "entity-header" ] <| name :: toolbar)
+
+    (name :: toolbar
+     |> div [ Class "entity-header"
+              Title <| "Owned by " + Username.toString entity.User ])
     :: if entity.Collapsed then []
        else [ div [ Class "stats" ] stats
               div [ Class "aspects" ] <| aspects @ Option.toList (Option.iff model.CanEdit addAspectButton) ]
+    |> div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
+             Style <| dragStyle entity.Id model.Drag
+             Key <| entity.Id.ToString ()
+             Data ("draggable", entity.Id)
+             Drag.draggableListener (Drag >> dispatch) ]
 
 let private viewDrag model dispatch id =
     let tryView source viewer =
