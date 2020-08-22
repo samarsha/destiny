@@ -38,19 +38,22 @@ $dm: #db1717
       color: $dm
 
 .roll
+  border-spacing: 0 3px
   display: table
   font-size: 16pt
   margin-bottom: 10px
   width: 100%
+
+  &:hover
+    background-color: color.scale(theme.$bright, $lightness: -5%)
+    cursor: pointer
 
   &-entity
     display: table-caption
     font:
       family: theme.$font-header
       size: 12pt
-    margin:
-      bottom: 5px
-      top: 0
+    margin: 0
     padding: 7px 10px
 
   &-entity-player
@@ -67,10 +70,10 @@ $dm: #db1717
     vertical-align: middle
 
   &-result
-    padding: 2px 10px
+    padding: 0 10px
     white-space: nowrap
     width: 0
 
   &-annotation
     font-size: 12pt
-    padding: 2px 10px 2px 0
+    padding: 0 10px 0 0

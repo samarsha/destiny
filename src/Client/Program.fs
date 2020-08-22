@@ -38,6 +38,7 @@ type private Message =
     | Disconnected
     | Login of Login.Message
     | Receive of ServerMessage
+    | RollView of RollView.Message
     | Send of ClientMessage
     | SetActiveRoll of Roll Id option
     | SetSidebar of Sidebar
@@ -106,7 +107,7 @@ let private viewSidebar model dispatch =
                      [ icon "Users" [ Tabler.Size 32 ] ] ]
     let content =
         match model.Sidebar with
-        | RollLog -> RollView.view model.Rolls
+        | RollLog -> RollView.view (RollView >> dispatch, model.Rolls)
         | SaveList -> viewSaveList model dispatch
     div [ Class "sidebar" ]
         [ selector
@@ -278,6 +279,7 @@ let private update message model =
     | Disconnected -> { model with Connected = false }, Cmd.none
     | Login loginMessage -> updateLogin loginMessage model
     | Receive serverMessage -> applyServerMessage model serverMessage
+    | RollView (RollView.ContinueRoll rollId) -> { model with ActiveRoll = Some rollId }, Cmd.none
     | Send clientMessage -> send model clientMessage
     | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
     | SetSidebar sidebar -> { model with Sidebar = sidebar }, Cmd.none

@@ -5,6 +5,9 @@ open Destiny.Shared
 open Fable.React
 open Fable.React.Props
 
+type Message =
+    | ContinueRoll of Roll Id
+
 let private viewDie role result =
     let roleClass =
         match role with
@@ -30,7 +33,7 @@ let private viewInvoke (invoke : Invoke) =
                  Title invoke.Entity ]
                [ str invoke.Aspect ] ]
 
-let private viewRoll (roll : Roll) =
+let private viewRoll dispatch (roll : Roll) =
     let roleClass =
         match roll.Role with
         | Player -> "roll-entity-player"
@@ -51,15 +54,19 @@ let private viewRoll (roll : Roll) =
     let equals =
         if roll.Modifier = 0 && List.isEmpty roll.Invokes
         then None
-        else div [ Class "roll-row" ] [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ] |> Some
-    div [ Class "roll" ] <|
-        h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
-        :: baseRoll
-        :: invokes
-        @ Option.toList equals
+        else
+            div [ Class "roll-row" ]
+                [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ]
+            |> Some
+    h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
+    :: baseRoll
+    :: invokes
+    @ Option.toList equals
+    |> div [ Class "roll"
+             OnClick <| fun _ -> ContinueRoll roll.Id |> dispatch ]
 
-let private render rolls =
-    Map.innerJoinKey viewRoll rolls.Map rolls.Order
+let private render (dispatch, rolls) =
+    Map.innerJoinKey (viewRoll dispatch) rolls.Map rolls.Order
     |> div [ Class "messages"
              ref <| fun element -> element.scrollTop <- element.scrollHeight ]
 
