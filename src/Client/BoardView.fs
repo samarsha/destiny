@@ -6,6 +6,7 @@ open Browser.Types
 open Destiny.Client.React
 open Destiny.Client.Tabler
 open Destiny.Shared
+open Destiny.Shared.Functions
 open Fable.React
 open Fable.React.Props
 
@@ -167,6 +168,9 @@ let private viewStat model dispatch (stat : Stat) =
                 | true, score -> SetStatScore (stat.Id, score) |> commandEvent |> dispatch
                 | _ -> ()
             Value stat.Score ]
+    let canEditHidden =
+        editMode = Edit &&
+        model.Profile |> Option.exists (fun profile -> Catalog.isStatOwner model.Catalog profile stat.Id)
     div [ Class "stat"; Key <| stat.Id.ToString () ] <| List.choose id
         [ Some name
           Some score
@@ -174,11 +178,10 @@ let private viewStat model dispatch (stat : Stat) =
                    OnClick <| fun _ -> startRoll dispatch stat.Id { Team = model.Impersonation } ]
                  [ icon "Dice" [] ]
           |> Some
-          button [ OnClick <| fun _ -> SetStatHidden (stat.Id, not stat.Hidden) |> commandEvent |> dispatch ]
+          button [ Disabled <| not canEditHidden
+                   OnClick <| fun _ -> SetStatHidden (stat.Id, not stat.Hidden) |> commandEvent |> dispatch ]
                  [ [] |> if stat.Hidden then icon "ClosedEye" else icon "Eye" ]
-          |> Option.iff
-                 (editMode = Edit &&
-                  model.Profile |> Option.exists (fun profile -> Catalog.isStatOwner model.Catalog profile stat.Id))
+          |> Option.iff (stat.Hidden || canEditHidden)
           button [ Class "stat-remove"
                    OnClick <| fun _ -> RemoveStat stat.Id |> commandEvent |> dispatch ]
                  [ icon "Trash" [] ]
@@ -236,55 +239,54 @@ let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
 
 let private viewAspect model dispatch (aspect : Aspect) =
     let editMode = Catalog.aspectEntity model.Catalog aspect.Id |> entityEditMode model
-    let dice =
-        List.choose id
-            [ button [ Class "die-control"
-                       Title "Remove a free invoke"
-                       OnClick <| fun _ ->
-                           RemoveDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
-                     [ icon "SquareMinus" [] ]
-              |> Option.iff (model.CanEdit && not <| Bag.isEmpty aspect.Dice)
-              button [ Class "die-control"
-                       Title "Add a free invoke"
-                       OnClick <| fun _ ->
-                           AddDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
-                     [ icon "SquarePlus" [] ]
-              |> Option.iff model.CanEdit ]
-            @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
-        |> div [ Class "aspect-dice"
-                 ref <| fun element ->
-                     let element' = element :?> HTMLElement
-                     let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
-                     element.classList.toggle ("aspect-dice-top", onFirstLine) |> ignore ]
     let description =
         match editMode with
         | View ->
-            [ span [ Class "aspect-description preserve-whitespace" ]
-                   [ str aspect.Description ]
-              dice ]
+            span [ Class "aspect-description preserve-whitespace" ]
+                 [ str aspect.Description ]
         | Edit ->
-            [ expandingTextarea
-                  [ Class "aspect-description" ]
-                  [ AutoFocus <| Option.contains (AspectId aspect.Id) model.JustAdded
-                    OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch
-                    Placeholder "Describe this aspect." ]
-                  aspect.Description ]
+            expandingTextarea
+                [ Class "aspect-description" ]
+                [ AutoFocus <| Option.contains (AspectId aspect.Id) model.JustAdded
+                  OnChange <| fun event -> SetAspectDescription (aspect.Id, event.Value) |> commandEvent |> dispatch
+                  Placeholder "Describe this aspect." ]
+                aspect.Description
+    let dice =
+        [ button [ Class "die-control"
+                   Title "Remove a free invoke"
+                   OnClick <| fun _ ->
+                       RemoveDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
+                 [ icon "SquareMinus" [] ]
+          |> Option.iff (model.CanEdit && not <| Bag.isEmpty aspect.Dice)
+          button [ Class "die-control"
+                   Title "Add a free invoke"
+                   OnClick <| fun _ ->
+                       AddDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
+                 [ icon "SquarePlus" [] ]
+          |> Option.iff model.CanEdit ]
+        |> List.choose id
+        |> flip List.append (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))
+        |> span [ Class "aspect-dice" ]
+    let canEditHidden =
+        editMode = Edit &&
+        model.Profile |> Option.exists (fun profile -> Catalog.isAspectOwner model.Catalog profile aspect.Id)
     let controls =
-        List.choose id
-            [ button [ Class "aspect-remove"
-                       OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
-                   [ icon "Trash" [] ]
-              |> Option.iff (editMode = Edit)
-              button [ OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
-                     [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
-              |> Option.iff
-                     (editMode = Edit &&
-                      model.Profile
-                      |> Option.exists (fun profile -> Catalog.isAspectOwner model.Catalog profile aspect.Id)) ]
-        |> span [ Class "aspect-controls" ]
-    description
-    @ [ controls ]
-    @ (dice |> Option.iff (editMode = Edit) |> Option.toList)
+        [ Some dice
+          button [ Disabled <| not canEditHidden
+                   OnClick <| fun _ -> SetAspectHidden (aspect.Id, not aspect.Hidden) |> commandEvent |> dispatch ]
+                 [ [] |> if aspect.Hidden then icon "ClosedEye" else icon "Eye" ]
+          |> Option.iff (aspect.Hidden || canEditHidden)
+          button [ Class "aspect-remove"
+                   OnClick <| fun _ -> RemoveAspect aspect.Id |> commandEvent |> dispatch ]
+                 [ icon "Trash" [] ]
+          |> Option.iff (editMode = Edit) ]
+        |> List.choose id
+        |> div [ Class "aspect-controls"
+                 ref <| fun element ->
+                     let element' = element :?> HTMLElement
+                     let onFirstLine = element'.offsetTop < element'.offsetHeight / 2.0
+                     element.classList.toggle ("aspect-controls-top", onFirstLine) |> ignore ]
+    [ description; controls ]
     |> div [ Class <| "aspect " + dragTargetClass (AspectId aspect.Id) model
              Style <| dragStyle aspect.Id model.Drag
              Key <| aspect.Id.ToString ()
@@ -317,7 +319,7 @@ let private viewEntity model dispatch (entity : Entity) =
         button [ OnClick <| fun _ -> toggleEdit editMode entity.Id |> dispatch ]
                [ icon "Edit" [] ]
     let saveButton =
-        button [ Disabled <| not model.CanEdit
+        button [ Disabled (not model.CanEdit || editMode <> Edit)
                  Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
                  OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
                [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
@@ -325,18 +327,19 @@ let private viewEntity model dispatch (entity : Entity) =
         button [ Disabled <| not model.CanEdit
                  OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
                [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
+    let isOwner =
+        model.Profile
+        |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id)
     let toolbar =
         List.choose id
             [ button [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
                      [ icon "Trash" [] ]
               |> Option.iff (editMode = Edit)
-              button [ OnClick <| fun _ -> SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent |> dispatch ]
+              button [ Disabled (not isOwner || editMode = View)
+                       OnClick <| fun _ -> SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent |> dispatch ]
                      [ [] |> if entity.Hidden then icon "ClosedEye" else icon "Eye" ]
-              |> Option.iff
-                     (editMode = Edit &&
-                      model.Profile
-                      |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id))
-              Some saveButton
+              |> Option.iff (isOwner && (entity.Hidden || editMode = Edit))
+              saveButton |> Option.iff (editMode = Edit || entity.Saved)
               editButton |> Option.iff model.CanEdit
               Some collapseButton ]
     let addGroupButton =
