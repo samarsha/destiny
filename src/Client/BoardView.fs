@@ -334,7 +334,8 @@ let private viewEntity model dispatch (entity : Entity) =
                      [ [] |> if entity.Hidden then icon "ClosedEye" else icon "Eye" ]
               |> Option.iff
                      (editMode = Edit &&
-                      model.Profile |> Option.exists (fun profile -> entity.User = profile.Username))
+                      model.Profile
+                      |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id))
               Some saveButton
               editButton |> Option.iff model.CanEdit
               Some collapseButton ]
