@@ -16,3 +16,5 @@ module Id =
     let parse (s : string) = Guid.Parse s |> Id
 
     let random () = Guid.NewGuid () |> Id
+
+    let ofBytes bytes = bytes |> List.toArray |> Guid |> Id

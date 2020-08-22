@@ -51,7 +51,7 @@ let private init () =
       BoardView = BoardView.empty
       Connected = false
       Impersonation = Player
-      Login = Option.ofObj localStorage.["username"] |> Option.defaultValue "" |> Username |> Login.init
+      Login = Login.init
       Profile = None
       Rolls = RollLog.empty
       ServerWorld = World.empty
@@ -196,34 +196,50 @@ let private applyClientMessage model = function
         |> validateActiveBoard
     | _ -> model
 
+let private send model message =
+    applyClientMessage model message, Cmd.bridgeSend message
+
 /// Applies a message received by the client from the server.
 let private applyServerMessage model = function
     | ClientConnected (world, rolls) ->
-        { model with
-              ActiveBoard = List.tryHead world.BoardList
-              Connected = true
-              Impersonation = Player
-              Profile = None
-              Rolls = rolls
-              ServerWorld = world
-              Unconfirmed = []
-              World = world }
+        let model' =
+            { model with
+                  ActiveBoard = List.tryHead world.BoardList
+                  Connected = true
+                  Impersonation = Player
+                  Profile = None
+                  Rolls = rolls
+                  ServerWorld = world
+                  Unconfirmed = []
+                  World = world }
+        Option.ofObj localStorage.["session"]
+        |> Option.bind Id.tryParse
+        |> Option.unwrap (model', Cmd.none) (RestoreSession >> send model')
     | LoginResult result ->
         match result with
-        | Ok profile ->
-            localStorage.["username"] <- Username.toString profile.Username
-            { model with Impersonation = profile.Role; Profile = Some profile }
+        | Ok session ->
+            localStorage.["session"] <- session.Id.ToString ()
+            { model with
+                  Impersonation = session.Profile.Role
+                  Profile = Some session.Profile },
+            Cmd.none
         | Error error ->
+            localStorage.removeItem "session"
             window.alert error
-            model
+            model, Cmd.none
     | WorldUpdated message ->
         let model' = { model with ServerWorld = WorldCommand.update message.Command model.ServerWorld }
-        if List.contains message model.Unconfirmed
-        then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
-        else reapplyUnconfirmed model'
-        |> validateActiveBoard
-    | WorldReplaced world -> reapplyUnconfirmed { model with ServerWorld = world } |> validateActiveBoard
-    | RollLogUpdated rolls -> { model with Rolls = rolls }
+        let model'' =
+            if List.contains message model.Unconfirmed
+            then { model' with Unconfirmed = List.remove message model'.Unconfirmed }
+            else reapplyUnconfirmed model'
+        validateActiveBoard model'', Cmd.none
+    | WorldReplaced world ->
+        reapplyUnconfirmed { model with ServerWorld = world }
+        |> validateActiveBoard,
+        Cmd.none
+    | RollLogUpdated rolls ->
+        { model with Rolls = rolls }, Cmd.none
 
 let private updateLogin message model =
     let login, event = Login.update message model.Login
@@ -234,33 +250,35 @@ let private updateLogin message model =
     | Login.SignUp (username, password) -> model', SignUp (username, password) |> Cmd.bridgeSend
     | Login.Impersonate role -> { model' with Impersonation = role }, Cmd.none
 
-let rec private updateBoardView message model =
+let private updateBoardView message model =
     activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->
         let boardView, event = BoardView.update message model.BoardView model.World.Catalog board
         let model' = { model with BoardView = boardView }
         match event with
         | BoardView.Nothing -> model', Cmd.none
-        | BoardView.Send clientMessage -> update (Send clientMessage) model'
+        | BoardView.Send clientMessage -> send model' clientMessage
         | BoardView.SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none)
 
-and private updateTabBar (message : Board TabBar.Message) model =
+let private updateTabBar (message : Board TabBar.Message) model =
     match message with
     | TabBar.AddTab ->
         let id = Id.random ()
-        let model', command = update (AddBoard id |> WorldMessage.create |> UpdateWorld |> Send) model
+        let model', command = AddBoard id |> WorldMessage.create |> UpdateWorld |> send model
         { model' with ActiveBoard = Some id }, command
-    | TabBar.SwitchTab board -> { model with ActiveBoard = Some board.Id }, Cmd.none
+    | TabBar.SwitchTab board ->
+        { model with ActiveBoard = Some board.Id }, Cmd.none
     | TabBar.SetTabName (board, name) ->
-        update (SetBoardName (board.Id, name) |> WorldMessage.create |> UpdateWorld |> Send) model
-    | TabBar.RemoveTab board -> update (RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> Send) model
+        SetBoardName (board.Id, name) |> WorldMessage.create |> UpdateWorld |> send model
+    | TabBar.RemoveTab board ->
+        RemoveBoard board.Id |> WorldMessage.create |> UpdateWorld |> send model
 
-and private update message model =
+let private update message model =
     match message with
     | BoardView boardMessage -> updateBoardView boardMessage model
     | Disconnected -> { model with Connected = false }, Cmd.none
     | Login loginMessage -> updateLogin loginMessage model
-    | Receive serverMessage -> applyServerMessage model serverMessage, Cmd.none
-    | Send clientMessage -> applyClientMessage model clientMessage, Cmd.bridgeSend clientMessage
+    | Receive serverMessage -> applyServerMessage model serverMessage
+    | Send clientMessage -> send model clientMessage
     | SetActiveRoll rollId -> { model with ActiveRoll = rollId }, Cmd.none
     | SetSidebar sidebar -> { model with Sidebar = sidebar }, Cmd.none
     | TabBar tabMessage -> updateTabBar tabMessage model

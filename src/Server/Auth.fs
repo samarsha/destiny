@@ -6,7 +6,7 @@ open Destiny.Shared.Logic
 
 type internal Client =
     | Guest
-    | Profile of Profile Token
+    | Member of Session
 
 type internal AuthorizedClientMessage = private AuthorizedClientMessage of ClientMessage
 
@@ -15,7 +15,7 @@ type internal AuthorizedServerMessage = private AuthorizedServerMessage of Serve
 module internal Auth =
     let private profileExists predicate = function
         | Guest -> false
-        | Profile token -> Token.profile token |> predicate
+        | Member session -> predicate session.Profile
 
     let private isDieAuthorized (die : Die) = profileExists (fun profile -> profile.Role >= die.Role)
 
@@ -102,8 +102,10 @@ module internal Auth =
         | AddStatPlaceholder _
         | RevealAspect _
         | ObscureAspect _
-        | AddAspectPlaceholder _ -> WorldIdentity
-        | _ -> command
+        | AddAspectPlaceholder _ ->
+            WorldIdentity
+        | _ ->
+            command
 
     let authorizeCatalog client catalog =
         catalog
@@ -117,23 +119,27 @@ module internal Auth =
 
     let authorizeClient catalog client message =
         match client, message with
-        | Profile _, UpdateWorld worldMessage ->
+        | Member _, UpdateWorld worldMessage ->
             message |> authorizeClientIf
                 (worldMessage.Command |> isAuthorizedClientCommand catalog client)
-        | Profile _, RollStat (statId, _, die) ->
+        | Member _, RollStat (statId, _, die) ->
             message |> authorizeClientIf (isDieAuthorized die client && isStatVisible catalog client statId)
-        | Profile _, RollAspect (aspectId, _, die) ->
+        | Member _, RollAspect (aspectId, _, die) ->
             message |> authorizeClientIf (isDieAuthorized die client && isAspectVisible catalog client aspectId)
-        | Profile _, RollSpare (_, die) ->
+        | Member _, RollSpare (_, die) ->
             message |> authorizeClientIf (isDieAuthorized die client)
-        | Profile _, Undo
-        | Profile _, Redo
+        | Member _, Undo
+        | Member _, Redo
         | Guest, SignUp _
-        | Guest, LogIn _ as request -> snd request |> AuthorizedClientMessage
-        | Profile _, SignUp _
-        | Profile _, LogIn _
-        | Profile _, ClientIdentity
-        | Guest, _ -> AuthorizedClientMessage ClientIdentity
+        | Guest, LogIn _
+        | Guest, RestoreSession _ as request ->
+            snd request |> AuthorizedClientMessage
+        | Member _, SignUp _
+        | Member _, LogIn _
+        | Member _, RestoreSession _
+        | Member _, ClientIdentity
+        | Guest, _ ->
+            AuthorizedClientMessage ClientIdentity
 
     let authorizeServer catalog client = function
         | ClientConnected (world, rolls) ->
@@ -144,7 +150,8 @@ module internal Auth =
             let command = authorizeServerCommand catalog client worldMessage.Command
             WorldUpdated { worldMessage with Command = command } |> AuthorizedServerMessage
         | LoginResult _
-        | RollLogUpdated _ as message -> AuthorizedServerMessage message
+        | RollLogUpdated _ as message ->
+            AuthorizedServerMessage message
 
     let clientMessage (AuthorizedClientMessage message) = message
 

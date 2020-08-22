@@ -8,17 +8,21 @@ open System
 type internal Universe =
     { History : World Timeline
       Rolls : RollLog
-      Users : Map<Username, Profile User> }
+      Users : Map<Username, User>
+      Sessions : Map<Session Id, Username> }
 
 module internal Universe =
     let history = lens (fun s -> s.History) (fun v s -> { s with History = v })
 
     let users = lens (fun s -> s.Users) (fun v s -> { s with Users = v })
 
+    let sessions = lens (fun s -> s.Sessions) (fun v s -> { s with Sessions = v })
+
     let empty =
         { History = Timeline.singleton World.empty
           Rolls = RollLog.empty
-          Users = Map.empty }
+          Users = Map.empty
+          Sessions = Map.empty }
 
     let private d6 (random : Random) = random.Next (1, 7)
 

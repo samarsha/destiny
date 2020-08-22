@@ -30,8 +30,8 @@ type Event =
 
 // Model
 
-let init username =
-    { Username = username
+let init =
+    { Username = Username ""
       Password = Password "" }
 
 let makeViewModel model profile impersonation =
@@ -41,7 +41,7 @@ let makeViewModel model profile impersonation =
 
 // View
 
-let private viewImpersonation dispatch profile impersonation =
+let private viewImpersonation dispatch (profile : Profile) impersonation =
     [ option [ Value <| upcast Player.ToString () ] [ str "Player" ] |> Some
       option [ Value <| upcast DM.ToString () ] [ str "DM" ] |> Option.iff (profile.Role = DM) ]
     |> List.choose id

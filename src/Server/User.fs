@@ -4,32 +4,34 @@ open Destiny.Shared
 open Microsoft.AspNetCore.Cryptography.KeyDerivation
 open System.Security.Cryptography
 
-type internal 'a User =
-    { Profile : 'a
+type internal User =
+    { Profile : Profile
       Salt : byte list
       Hash : byte list }
-
-type internal 'a Token = private Token of 'a
 
 module internal User =
     let private hash (Password password) salt =
         KeyDerivation.Pbkdf2 (password, List.toArray salt, KeyDerivationPrf.HMACSHA512, 10000, 32)
         |> Array.toList
 
-    let create (random : RandomNumberGenerator) profile password =
-        let salt = Array.zeroCreate 16
-        random.GetBytes salt
-        let salt' = Array.toList salt
+    let private randomBytes (random : RandomNumberGenerator) length =
+        let bytes = Array.zeroCreate length
+        random.GetBytes bytes
+        Array.toList bytes
+
+    let private sessionId random = randomBytes random 16 |> Id.ofBytes
+
+    let signUp random profile password =
+        let salt = randomBytes random 16
         let user =
             { Profile = profile
-              Salt = salt'
-              Hash = hash password salt' }
-        user, Token profile
+              Salt = salt
+              Hash = hash password salt }
+        user, { Id = sessionId random; Profile = profile }
 
-    let authenticate user password =
+    let logIn random user password =
         if hash password user.Salt = user.Hash
-        then Token user.Profile |> Some
+        then Some { Id = sessionId random; Profile = user.Profile }
         else None
 
-module internal Token =
-    let profile (Token profile') = profile'
+    let restore sessionId user = { Id = sessionId; Profile = user.Profile }

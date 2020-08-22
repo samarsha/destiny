@@ -23,3 +23,7 @@ module Role =
 type Profile =
     { Username : Username
       Role : Role }
+
+type Session =
+    { Id : Session Id
+      Profile : Profile }

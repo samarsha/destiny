@@ -82,7 +82,7 @@ module WorldMessage =
 
 type ServerMessage =
     | ClientConnected of World * RollLog
-    | LoginResult of Result<Profile, string>
+    | LoginResult of Result<Session, string>
     | WorldUpdated of WorldMessage
     | WorldReplaced of World
     | RollLogUpdated of RollLog
@@ -90,6 +90,7 @@ type ServerMessage =
 type ClientMessage =
     | SignUp of Username * Password
     | LogIn of Username * Password
+    | RestoreSession of Session Id
     | UpdateWorld of WorldMessage
     | RollStat of Stat Id * Roll Id * Die
     | RollAspect of Aspect Id * Roll Id * Die

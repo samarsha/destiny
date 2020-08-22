@@ -1,5 +1,6 @@
 open Destiny.Server
 open Destiny.Shared
+open Destiny.Shared.Functions
 open Destiny.Shared.Lens
 open Destiny.Shared.ResultBuilder
 open Elmish
@@ -43,7 +44,7 @@ let private commitBefore = function
 
 let private role = function
     | Guest -> Player
-    | Profile token -> (Token.profile token).Role
+    | Member session -> session.Profile.Role
 
 let private nontrivialServerMessage = function
     | WorldUpdated { Command = WorldIdentity } -> None
@@ -69,28 +70,40 @@ let private init context dispatch () =
     ClientConnected (Timeline.present universe.History, universe.Rolls) |> dispatch Guest
     Guest, Cmd.none
 
-let private signUp (random : RandomNumberGenerator) username password universe =
+let private signUp random username password universe =
     if Map.containsKey username universe.Users then
         universe, "The username '" + Username.toString username + "' is already taken." |> Error
     else
         let role = if Map.isEmpty universe.Users then DM else Player
         let profile = { Username = username; Role = role }
-        let user, token = User.create random profile password
-        universe |> over Universe.users (Map.add username user), Ok token
+        let user, session = User.signUp random profile password
+        let universe' =
+            universe
+            |> over Universe.users (Map.add username user)
+            |> over Universe.sessions (Map.add session.Id username)
+        universe', Ok session
 
-let private logIn context dispatch client username password =
-    let universe = MVar.read context.Universe
-    let token =
+let private logIn random username password universe =
+    let result' =
         result {
             let! user =
                 Map.tryFind username universe.Users
                 |> Result.ofOption ("The user '" + Username.toString username + "' was not found.")
-            return!
-                User.authenticate user password
+            let! session =
+                User.logIn random user password
                 |> Result.ofOption "The password is incorrect."
+            let universe' = universe |> over Universe.sessions (Map.add session.Id username)
+            return universe', session
         }
-    token |> Result.map Token.profile |> LoginResult |> dispatch client
-    Result.toOption token
+    let universe' = result' |> Result.unwrap universe fst
+    universe', Result.map snd result'
+
+let private updateSession universeVar dispatch client session =
+    let client' = session |> Result.unwrap client Member
+    LoginResult session |> dispatch client'
+    let world = MVar.read universeVar |> view Universe.history |> Timeline.present
+    WorldReplaced world |> dispatch client'
+    client'
 
 let private updateWorld context message =
     if commitBefore message.Command then Timeline.commit else id
@@ -128,15 +141,19 @@ let private update context dispatch message client =
     let client' =
         match Auth.clientMessage authorized with
         | SignUp (username, password) ->
-            let result = MVar.updateResult context.Universe (signUp context.Crypto username password)
-            result |> Result.map Token.profile |> LoginResult |> dispatch client
-            let client' = result |> Result.unwrap client Profile
-            WorldReplaced world |> dispatch client'
-            client'
+            signUp context.Crypto username password
+            |> MVar.updateResult context.Universe
+            |> updateSession context.Universe dispatch client
         | LogIn (username, password) ->
-            let client' = logIn context dispatch client username password |> Option.unwrap client Profile
-            WorldReplaced world |> dispatch client'
-            client'
+            logIn context.Crypto username password
+            |> MVar.updateResult context.Universe
+            |> updateSession context.Universe dispatch client
+        | RestoreSession sessionId ->
+            Map.tryFind sessionId universe.Sessions
+            |> Option.bind (flip Map.tryFind universe.Users)
+            |> Option.map (User.restore sessionId)
+            |> Result.ofOption "The login session has expired."
+            |> updateSession context.Universe dispatch client
         | UpdateWorld message ->
             updateWorld context message
             client
@@ -157,7 +174,8 @@ let private update context dispatch message client =
             let universe = over Universe.history Timeline.redo |> MVar.update context.Universe
             Timeline.present universe.History |> WorldReplaced |> broadcastAuthorized context
             client
-        | ClientIdentity -> client
+        | ClientIdentity ->
+            client
     client', Cmd.none
 
 let private load () =
