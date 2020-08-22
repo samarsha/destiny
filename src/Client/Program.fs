@@ -24,7 +24,7 @@ type private Model =
       ActiveRoll : Roll Id option
       BoardView : BoardView.Model
       Connected : bool
-      Impersonation : Role
+      Impersonation : Team
       Login : Login.Model
       Profile : Profile option
       Rolls : RollLog
@@ -63,11 +63,11 @@ let private init () =
 
 let private canEdit model = model.Connected && Option.isSome model.Profile
 
-let private role = function
-    | Some (profile : Profile) -> profile.Role
+let private team = function
+    | Some (profile : Profile) -> profile.Team
     | None -> Player
 
-let private flipRole = function
+let private flipTeam = function
     | Player -> DM
     | DM -> Player
 
@@ -124,7 +124,7 @@ let private view model dispatch =
                  OnClick <| fun _ ->
                      let rollId = model.ActiveRoll |> Option.defaultWith Id.random
                      Some rollId |> SetActiveRoll |> dispatch
-                     RollSpare (rollId, { Role = model.Impersonation }) |> Send |> dispatch ]
+                     RollSpare (rollId, { Team = model.Impersonation }) |> Send |> dispatch ]
                [ icon "Dice" [ Tabler.Size 32 ] ]
     let toolbar =
         div [ Class "toolbar" ]
@@ -221,7 +221,7 @@ let private applyServerMessage model = function
         | Ok session ->
             localStorage.["session"] <- session.Id.ToString ()
             { model with
-                  Impersonation = session.Profile.Role
+                  Impersonation = session.Profile.Team
                   Profile = Some session.Profile },
             Cmd.none
         | Error error ->
@@ -249,7 +249,7 @@ let private updateLogin message model =
     | Login.NoEvent -> model', Cmd.none
     | Login.LogIn (username, password) -> model', LogIn (username, password) |> Cmd.bridgeSend
     | Login.SignUp (username, password) -> model', SignUp (username, password) |> Cmd.bridgeSend
-    | Login.Impersonate role -> { model' with Impersonation = role }, Cmd.none
+    | Login.Impersonate team -> { model' with Impersonation = team }, Cmd.none
 
 let private updateBoardView message model =
     activeBoard model |> Option.unwrap (model, Cmd.none) (fun board ->

@@ -12,7 +12,7 @@ type Model =
 type ViewModel =
     private
     | LoggingIn of Username * Password
-    | LoggedIn of Profile * Role
+    | LoggedIn of Profile * Team
 
 type Message =
     private
@@ -20,13 +20,13 @@ type Message =
     | SetPassword of Password
     | SubmitLogin
     | SubmitSignup
-    | SelectRole of Role
+    | SelectTeam of Team
 
 type Event =
     | NoEvent
     | LogIn of Username * Password
     | SignUp of Username * Password
-    | Impersonate of Role
+    | Impersonate of Team
 
 // Model
 
@@ -43,9 +43,9 @@ let makeViewModel model profile impersonation =
 
 let private viewImpersonation dispatch (profile : Profile) impersonation =
     [ option [ Value <| upcast Player.ToString () ] [ str "Player" ] |> Some
-      option [ Value <| upcast DM.ToString () ] [ str "DM" ] |> Option.iff (profile.Role = DM) ]
+      option [ Value <| upcast DM.ToString () ] [ str "DM" ] |> Option.iff (profile.Team = DM) ]
     |> List.choose id
-    |> select [ OnChange <| fun event -> Role.ofString event.Value |> Option.iter (SelectRole >> dispatch)
+    |> select [ OnChange <| fun event -> Team.ofString event.Value |> Option.iter (SelectTeam >> dispatch)
                 Value <| upcast impersonation.ToString () ]
 
 let view model dispatch =
@@ -73,4 +73,4 @@ let update message model =
     | SetPassword password -> { model with Password = password }, NoEvent
     | SubmitLogin -> { model with Password = Password "" }, LogIn (model.Username, model.Password)
     | SubmitSignup -> { model with Password = Password "" }, SignUp (model.Username, model.Password)
-    | SelectRole role -> model, Impersonate role
+    | SelectTeam team -> model, Impersonate team

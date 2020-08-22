@@ -31,7 +31,7 @@ type ViewModel =
           Catalog : Catalog
           Drag : Drag.Model
           Editing : Entity Id option
-          Impersonation : Role
+          Impersonation : Team
           JustAdded : BoardId option
           Profile : Profile option }
 
@@ -171,7 +171,7 @@ let private viewStat model dispatch (stat : Stat) =
         [ Some name
           Some score
           button [ Disabled (not model.CanEdit || Option.isSome model.ActiveRoll)
-                   OnClick <| fun _ -> startRoll dispatch stat.Id { Role = model.Impersonation } ]
+                   OnClick <| fun _ -> startRoll dispatch stat.Id { Team = model.Impersonation } ]
                  [ icon "Dice" [] ]
           |> Some
           button [ OnClick <| fun _ -> SetStatHidden (stat.Id, not stat.Hidden) |> commandEvent |> dispatch ]
@@ -221,13 +221,13 @@ let private viewStatGroup model dispatch (group : StatGroup) =
              Key <| group.Id.ToString () ]
 
 let private viewAspectDie model dispatch (aspect : Aspect) (die : Die) =
-    let roleClass =
-        match die.Role with
+    let teamClass =
+        match die.Team with
         | Player -> Class "die-player"
         | DM -> Class "die-dm"
     button
-        [ roleClass
-          Disabled (not model.CanEdit || Option.isNone model.ActiveRoll || model.Impersonation <> die.Role)
+        [ teamClass
+          Disabled (not model.CanEdit || Option.isNone model.ActiveRoll || model.Impersonation <> die.Team)
           OnClick <| fun _ ->
               match model.ActiveRoll with
               | Some rollId -> RollAspect (aspect.Id, rollId, die) |> Send |> Event |> dispatch
@@ -241,13 +241,13 @@ let private viewAspect model dispatch (aspect : Aspect) =
             [ button [ Class "die-control"
                        Title "Remove a free invoke"
                        OnClick <| fun _ ->
-                           RemoveDie (aspect.Id, { Role = model.Impersonation }) |> commandEvent |> dispatch ]
+                           RemoveDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
                      [ icon "SquareMinus" [] ]
               |> Option.iff (model.CanEdit && not <| Bag.isEmpty aspect.Dice)
               button [ Class "die-control"
                        Title "Add a free invoke"
                        OnClick <| fun _ ->
-                           AddDie (aspect.Id, { Role = model.Impersonation }) |> commandEvent |> dispatch ]
+                           AddDie (aspect.Id, { Team = model.Impersonation }) |> commandEvent |> dispatch ]
                      [ icon "SquarePlus" [] ]
               |> Option.iff model.CanEdit ]
             @ (Bag.toList aspect.Dice |> List.map (viewAspectDie model dispatch aspect))

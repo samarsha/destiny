@@ -17,7 +17,7 @@ module internal Auth =
         | Guest -> false
         | Member session -> predicate session.Profile
 
-    let private isDieAuthorized (die : Die) = profileExists (fun profile -> profile.Role >= die.Role)
+    let private isDieAuthorized (die : Die) = profileExists (fun profile -> profile.Team >= die.Team)
 
     let private isAspectVisible catalog client aspectId =
         Map.tryFind aspectId catalog.Aspects |> Option.exists (view Aspect.hidden >> not) ||

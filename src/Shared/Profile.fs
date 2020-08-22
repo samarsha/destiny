@@ -10,11 +10,11 @@ type Password = Password of string
 module Password =
     let toString (Password password) = password
 
-type Role =
+type Team =
     | Player
     | DM
 
-module Role =
+module Team =
     let ofString = function
         | "Player" -> Some Player
         | "DM" -> Some DM
@@ -22,7 +22,7 @@ module Role =
 
 type Profile =
     { Username : Username
-      Role : Role }
+      Team : Team }
 
 type Session =
     { Id : Session Id

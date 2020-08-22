@@ -3,14 +3,14 @@ namespace Destiny.Shared
 type Invoke =
     { Entity : string
       Aspect : string
-      Role : Role
+      Team : Team
       Result : int }
 
 type Roll =
     { Id : Roll Id
       Entity : string
       Stat : string
-      Role : Role
+      Team : Team
       Result : int
       Modifier : int
       Invokes : Invoke list }

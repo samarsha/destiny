@@ -42,9 +42,9 @@ let private commitBefore = function
     | RemoveDie _ -> true
     | _ -> false
 
-let private role = function
+let private team = function
     | Guest -> Player
-    | Member session -> session.Profile.Role
+    | Member session -> session.Profile.Team
 
 let private nontrivialServerMessage = function
     | WorldUpdated { Command = WorldIdentity } -> None
@@ -74,8 +74,8 @@ let private signUp random username password universe =
     if Map.containsKey username universe.Users then
         universe, "The username '" + Username.toString username + "' is already taken." |> Error
     else
-        let role = if Map.isEmpty universe.Users then DM else Player
-        let profile = { Username = username; Role = role }
+        let team = if Map.isEmpty universe.Users then DM else Player
+        let profile = { Username = username; Team = team }
         let user, session = User.signUp random profile password
         let universe' =
             universe

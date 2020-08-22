@@ -12,9 +12,9 @@ type ViewModel =
 type Message =
     | ContinueRoll of Roll Id
 
-let private viewDie role result =
-    let roleClass =
-        match role with
+let private viewDie team result =
+    let teamClass =
+        match team with
         | Player -> "die-player"
         | DM -> "die-dm"
     let resultClass =
@@ -23,7 +23,7 @@ let private viewDie role result =
         | 6 -> Some "die-good"
         | _ -> None
     let classes =
-        "die" :: roleClass :: Option.toList resultClass
+        "die" :: teamClass :: Option.toList resultClass
         |> String.concat " "
         |> Class
     span [ classes ] [ str <| result.ToString () ]
@@ -32,20 +32,20 @@ let private viewInvoke (invoke : Invoke) =
     div [ Class "roll-row" ]
         [ span [ Class "roll-result" ]
                [ str " + "
-                 viewDie invoke.Role invoke.Result ]
+                 viewDie invoke.Team invoke.Result ]
           span [ Class "roll-annotation preserve-whitespace"
                  Title invoke.Entity ]
                [ str invoke.Aspect ] ]
 
 let private viewRoll dispatch model (roll : Roll) =
-    let roleClass =
-        match roll.Role with
+    let teamClass =
+        match roll.Team with
         | Player -> "roll-entity-player"
         | DM -> "roll-entity-dm"
     let baseRoll =
         div [ Class "roll-row" ]
             [ span [ Class "roll-result" ]
-                   [ viewDie roll.Role roll.Result
+                   [ viewDie roll.Team roll.Result
                      str <| if roll.Modifier = 0 then "" else " + " + roll.Modifier.ToString () ]
               span [ Class "roll-annotation preserve-whitespace"
                      Title roll.Entity ]
@@ -62,7 +62,7 @@ let private viewRoll dispatch model (roll : Roll) =
             div [ Class "roll-row" ]
                 [ span [ Class "roll-result" ] [ str <| " = " + total.ToString () ] ]
             |> Some
-    h3 [ Class <| "roll-entity " + roleClass ] [ str roll.Entity ]
+    h3 [ Class <| "roll-entity " + teamClass ] [ str roll.Entity ]
     :: baseRoll
     :: invokes
     @ Option.toList equals

@@ -3,7 +3,7 @@ namespace Destiny.Shared
 open Destiny.Shared.Functions
 open Destiny.Shared.Lens
 
-type Die = { Role : Role }
+type Die = { Team : Team }
 
 type Stat =
     { Id : Stat Id
@@ -113,22 +113,22 @@ module Catalog =
         |> Option.bind (fun aspect -> Map.tryFind aspect.Entity catalog.Entities)
 
     let isEntityOwner (catalog : Catalog) (profile : Profile) entityId =
-        profile.Role = DM ||
+        profile.Team = DM ||
         Map.tryFind entityId catalog.Entities
         |> Option.exists (fun entity -> entity.User = profile.Username)
 
     let isAspectOwner catalog (profile : Profile) aspectId =
-        profile.Role = DM ||
+        profile.Team = DM ||
         aspectEntity catalog aspectId
         |> Option.exists (fun entity -> entity.User = profile.Username)
 
     let isStatGroupOwner catalog (profile : Profile) groupId =
-        profile.Role = DM ||
+        profile.Team = DM ||
         statGroupEntity catalog groupId
         |> Option.exists (fun entity -> entity.User = profile.Username)
 
     let isStatOwner catalog (profile : Profile) statId =
-        profile.Role = DM ||
+        profile.Team = DM ||
         statEntity catalog statId
         |> Option.exists (fun entity -> entity.User = profile.Username)
 
