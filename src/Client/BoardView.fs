@@ -113,7 +113,7 @@ let private entityEditMode model = function
 let shouldAddHidden model =
     Option.exists <| fun entity ->
         entity.Hidden &&
-        model.Profile |> Option.exists (fun profile -> entity.User = profile.Username)
+        model.Profile |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id)
 
 // View
 
