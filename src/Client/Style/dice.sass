@@ -38,15 +38,20 @@ $dm: #db1717
       color: $dm
 
 .roll
+  border-left: 5px solid transparent
   border-spacing: 0 3px
+  box-sizing: border-box
   display: table
   font-size: 16pt
   margin-bottom: 10px
   width: 100%
 
-  &:hover
-    background-color: color.scale(theme.$bright, $lightness: -5%)
+  &:hover:not(.roll-active)
+    border-left-color: color.scale(theme.$accent, $lightness: 75%)
     cursor: pointer
+
+  &-active
+    border-left-color: theme.$accent
 
   &-entity
     display: table-caption
@@ -70,7 +75,7 @@ $dm: #db1717
     vertical-align: middle
 
   &-result
-    padding: 0 10px
+    padding: 0 10px 0 5px
     white-space: nowrap
     width: 0
 

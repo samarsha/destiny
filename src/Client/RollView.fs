@@ -5,6 +5,10 @@ open Destiny.Shared
 open Fable.React
 open Fable.React.Props
 
+type ViewModel =
+    { Rolls : RollLog
+      ActiveRoll : Roll Id option }
+
 type Message =
     | ContinueRoll of Roll Id
 
@@ -33,7 +37,7 @@ let private viewInvoke (invoke : Invoke) =
                  Title invoke.Entity ]
                [ str invoke.Aspect ] ]
 
-let private viewRoll dispatch (roll : Roll) =
+let private viewRoll dispatch model (roll : Roll) =
     let roleClass =
         match roll.Role with
         | Player -> "roll-entity-player"
@@ -62,11 +66,12 @@ let private viewRoll dispatch (roll : Roll) =
     :: baseRoll
     :: invokes
     @ Option.toList equals
-    |> div [ Class "roll"
+    |> div [ Class <| "roll " + if Option.contains roll.Id model.ActiveRoll then "roll-active" else ""
              OnClick <| fun _ -> ContinueRoll roll.Id |> dispatch ]
 
-let private render (dispatch, rolls) =
-    Map.innerJoinKey (viewRoll dispatch) rolls.Map rolls.Order
+let private render (dispatch, model) =
+    (model.Rolls.Map, model.Rolls.Order)
+    ||> Map.innerJoinKey (viewRoll dispatch model)
     |> div [ Class "messages"
              ref <| fun element -> element.scrollTop <- element.scrollHeight ]
 

@@ -107,7 +107,7 @@ let private viewSidebar model dispatch =
                      [ icon "Users" [ Tabler.Size 32 ] ] ]
     let content =
         match model.Sidebar with
-        | RollLog -> RollView.view (RollView >> dispatch, model.Rolls)
+        | RollLog -> RollView.view (RollView >> dispatch, { Rolls = model.Rolls; ActiveRoll = model.ActiveRoll })
         | SaveList -> viewSaveList model dispatch
     div [ Class "sidebar" ]
         [ selector
