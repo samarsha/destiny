@@ -65,7 +65,8 @@ button
 .sidebar
   background-color: theme.$bright
   border-left: 1px solid theme.$border
-  overflow-y: auto
+  display: flex
+  flex-direction: column
   width: 280px
 
   &-selector
@@ -87,6 +88,9 @@ button
 
       .icon
         color: theme.$dark
+
+.messages, .save-list
+  overflow-y: auto
 
 .save-list
   margin: 0
