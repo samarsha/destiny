@@ -137,3 +137,32 @@ button
 .drag-target
   background-color: color.scale(theme.$bright, $lightness: -10%)
   opacity: 0.5
+
+.menu
+  position: relative
+
+  &-button
+    height: 100%
+
+  &-items
+    @include theme.shadow
+
+    background-color: theme.$bright
+    color: theme.$foreground
+    font-size: 12pt
+    list-style-type: none
+    margin: 0
+    padding-left: 0
+    position: absolute
+    right: 0
+    width: 200px
+    z-index: 1
+
+    .icon
+      color: theme.$foreground
+
+  &-item button
+    width: 100%
+
+    &:hover
+      background-color: color.scale(theme.$bright, $lightness: -5%)

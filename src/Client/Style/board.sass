@@ -11,8 +11,10 @@ $entity-width: 275px
 
 .entities
   align-items: flex-start
+  box-sizing: border-box
   display: flex
   flex-wrap: wrap
+  height: 100%
   padding: 5px
 
 .entity
@@ -32,7 +34,7 @@ $entity-width: 275px
   &-header
     display: flex
 
-    button:hover
+    button:hover, .menu-button-open
       background-color: color.scale(theme.$primary, $lightness: 15%)
 
     .icon
