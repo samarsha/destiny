@@ -22,7 +22,8 @@ type Model =
     private
         { Drag : Drag.Model
           Editing : Entity Id option
-          JustAdded : BoardId option }
+          JustAdded : BoardId option
+          OpenMenu : Entity Id option }
 
 type ViewModel =
     private
@@ -34,6 +35,7 @@ type ViewModel =
           Editing : Entity Id option
           Impersonation : Team
           JustAdded : BoardId option
+          OpenMenu : Entity Id option
           Profile : Profile option }
 
 type Event =
@@ -45,6 +47,7 @@ type Message =
     private
     | Drag of Drag.Message
     | Event of Event
+    | Menu of Menu.Message<Entity Id, Message>
     | StartEdit of Entity Id
     | StopEdit
 
@@ -57,7 +60,8 @@ type private EditMode =
 let empty =
     { Editing = None
       Drag = Drag.empty
-      JustAdded = None }
+      JustAdded = None
+      OpenMenu = None }
 
 let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, impersonation, profile) =
     { ActiveRoll = activeRoll
@@ -68,6 +72,7 @@ let makeViewModel (model : Model) (activeRoll, board, canEdit, catalog, imperson
       Editing = model.Editing
       Impersonation = impersonation
       JustAdded = model.JustAdded
+      OpenMenu = model.OpenMenu
       Profile = profile }
 
 let private entityIndex board id = List.tryFindIndex ((=) id) board.Entities
@@ -306,6 +311,37 @@ let private toggleEdit mode entityId =
     | View -> StartEdit entityId
     | Edit -> StopEdit
 
+let private viewEntityMenu model dispatch (entity : Entity) =
+    let editMode = if model.CanEdit && model.Editing |> Option.contains entity.Id then Edit else View
+    let editItem =
+        { Menu.Name = if editMode = Edit then "Stop editing" else "Edit"
+          Menu.Icon = icon "Edit" []
+          Menu.Message = toggleEdit editMode entity.Id }
+    let collapseItem =
+        { Menu.Name = if entity.Collapsed then "Expand" else "Collapse"
+          Menu.Icon = [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp"
+          Menu.Message = SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent }
+    let saveItem =
+        { Menu.Name = if entity.Saved then "Don't save" else "Save in sidebar"
+          Menu.Icon = [] |> if entity.Saved then icon "Star" else icon "FilledStar"
+          Menu.Message = SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent }
+    let hideItem =
+        { Menu.Name = if entity.Hidden then "Show new items" else "Hide new items"
+          Menu.Icon = [] |> if entity.Hidden then icon "Eye" else icon "ClosedEye"
+          Menu.Message = SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent }
+    let removeItem =
+        { Menu.Name = "Remove"
+          Menu.Icon = icon "Trash" []
+          Menu.Message = RemoveEntity (entity.Id, model.Board.Id) |> commandEvent }
+    let isOwner = model.Profile |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id)
+    [ Some editItem
+      Some collapseItem
+      Some saveItem
+      Option.iff isOwner hideItem
+      Some removeItem ]
+    |> List.choose id
+    |> Menu.view (Menu >> dispatch) entity.Id model.OpenMenu
+
 let private viewEntity model dispatch (entity : Entity) =
     let editMode = if model.CanEdit && model.Editing |> Option.contains entity.Id then Edit else View
     let name =
@@ -318,33 +354,6 @@ let private viewEntity model dispatch (entity : Entity) =
                   OnChange <| fun event -> SetEntityName (entity.Id, event.Value) |> commandEvent |> dispatch
                   Placeholder "Name this entity" ]
                 entity.Name
-    let editButton =
-        button [ OnClick <| fun _ -> toggleEdit editMode entity.Id |> dispatch ]
-               [ icon "Edit" [] ]
-    let saveButton =
-        button [ Disabled (not model.CanEdit || editMode <> Edit)
-                 Title <| if entity.Saved then "Don't save this entity" else "Save this entity in the sidebar"
-                 OnClick <| fun _ -> SetEntitySaved (entity.Id, not entity.Saved) |> commandEvent |> dispatch ]
-               [ if entity.Saved then icon "FilledStar" [] else icon "Star" [] ]
-    let collapseButton =
-        button [ Disabled <| not model.CanEdit
-                 OnClick <| fun _ -> SetEntityCollapsed (entity.Id, not entity.Collapsed) |> commandEvent |> dispatch ]
-               [ [] |> if entity.Collapsed then icon "ChevronDown" else icon "ChevronUp" ]
-    let isOwner =
-        model.Profile
-        |> Option.exists (fun profile -> Catalog.isEntityOwner model.Catalog profile entity.Id)
-    let toolbar =
-        List.choose id
-            [ button [ OnClick <| fun _ -> RemoveEntity (entity.Id, model.Board.Id) |> commandEvent |> dispatch ]
-                     [ icon "Trash" [] ]
-              |> Option.iff (editMode = Edit)
-              button [ Disabled (not isOwner || editMode = View)
-                       OnClick <| fun _ -> SetEntityHidden (entity.Id, not entity.Hidden) |> commandEvent |> dispatch ]
-                     [ [] |> if entity.Hidden then icon "ClosedEye" else icon "Eye" ]
-              |> Option.iff (isOwner && (entity.Hidden || editMode = Edit))
-              saveButton |> Option.iff (editMode = Edit || entity.Saved)
-              editButton |> Option.iff model.CanEdit
-              Some collapseButton ]
 
     let addGroupButton =
         button [ Class "stat-add"
@@ -362,10 +371,12 @@ let private viewEntity model dispatch (entity : Entity) =
                [ icon "Plus" []
                  label [] [ str "Aspect" ] ]
 
-    (name :: toolbar
-     |> div [ Class "entity-header"
-              Title <| "Owned by " + Username.toString entity.User ])
-    :: if entity.Collapsed then []
+    div [ Class "entity-header"
+          Title <| "Owned by " + Username.toString entity.User ]
+        [ name
+          viewEntityMenu model dispatch entity ]
+    :: if entity.Collapsed
+       then []
        else [ div [ Class "stats" ] stats
               div [ Class "aspects" ] <| aspects @ Option.toList (Option.iff model.CanEdit addAspectButton) ]
     |> div [ Class <| "entity " + dragTargetClass (EntityId entity.Id) model
@@ -440,11 +451,16 @@ let private updateEvent event model =
         | _ -> model
     | _ -> model
 
-let update message (model : Model) catalog board =
+let rec update message (model : Model) catalog board =
     match message with
     | Drag dragMessage ->
         let drag, event = updateDrag dragMessage model.Drag catalog board
         { model with Drag = drag }, event
     | Event event -> updateEvent event model, event
+    | Menu (Menu.Open entityId) -> { model with OpenMenu = Some entityId }, Nothing
+    | Menu Menu.Close -> { model with OpenMenu = None }, Nothing
+    | Menu (Menu.Select itemMessage) ->
+        let model' = { model with OpenMenu = None }
+        update itemMessage model' catalog board
     | StartEdit id -> { model with Editing = Some id }, Nothing
     | StopEdit -> { model with Editing = None; JustAdded = None }, Nothing

@@ -24,6 +24,7 @@
     <Compile Include="Drag.fs" />
     <Compile Include="Login.fs" />
     <Compile Include="TabBar.fs" />
+    <Compile Include="Menu.fs" />
     <Compile Include="BoardView.fs" />
     <Compile Include="RollView.fs" />
     <Compile Include="Program.fs" />
