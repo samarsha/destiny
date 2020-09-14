@@ -18,7 +18,7 @@ type Message<'id, 'item> =
 let private viewItem dispatch item =
     [ button
           [ OnClick <| fun _ -> Select item.Message |> dispatch ]
-          [ item.Icon; str item.Name ] ]
+          [ item.Icon; label [] [ str item.Name ] ] ]
     |> li [ Class "menu-item" ]
 
 let view dispatch menuId openId items =
