@@ -25,7 +25,7 @@ let view dispatch menuId openId items =
     let isOpen = openId |> Option.contains menuId
     let menuButton =
         button
-            [ Class "menu-button"
+            [ Class <| "menu-button" + if isOpen then " menu-button-open" else ""
               OnClick <| fun _ -> dispatch <| if isOpen then Close else Open menuId ]
             [ icon "DotsVertical" [] ]
     let menuItems = items |> List.map (viewItem dispatch) |> ul [ Class "menu-items" ]
